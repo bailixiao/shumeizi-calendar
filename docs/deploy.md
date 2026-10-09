@@ -1,5 +1,19 @@
 # 部署說明
 
+## 書槑子的部署資訊（2026/10/9 上線）
+
+- 網站：https://bailixiao.github.io/shumeizi-calendar/ （GitHub Pages，main 分支根目錄；push 後約 1 分鐘更新）
+- 管理後台：網址後面加 `#/admin`，總管理者密碼在 Apps Script 的指令碼屬性 `ADMIN_PASSWORD`（不寫在這裡）
+- API：Cloudflare Worker `shumeizi-api`（https://shumeizi-api.duty-calendar-worker.workers.dev/ ），和教全區的 `duty-calendar-api` 在同一個 Cloudflare 帳號、資料完全分開。
+  - **排程只用一個**（每 5 分鐘）：Cloudflare 免費方案整個帳號最多 5 個排程，教全區用了 3 個。台北 7 點、20 點的手機提醒在 `worker/src/index.js` 判斷。
+- Google 試算表「書槑子青年坊行事曆」（副本，每 10 分鐘同步）與綁定的 Apps Script（`clasp push` 上傳；`.clasp.json` 不進儲存庫）。
+- 指令碼屬性：`ADMIN_PASSWORD`、`ADMIN_CONTACT`（小編）、推播金鑰 `VAPID_PRIVATE`／`VAPID_PUBLIC`（setupPush 產生）。已執行 setupSheets、setupPush、setupBackup（「書槑子行事曆備份」資料夾）、switchToWorker。
+- **不要執行 `seedInitialDuties`**（那是教全區的初始勤務）。
+- 更新程式：改 `apps-script/*.gs` 或 `worker/src/*` 後 → `node --test` → `node tools/build-worker.js` → `cd worker && npx wrangler deploy` → `clasp push --force`（Google 端的同步、統計、備份也要最新）→ commit、push。
+- Google 版 Web App（緊急備援用）還沒部署，`js/config.js` 的 `GAS` 是空的；需要時再部署並填網址。
+
+以下是從教全區沿用的說明（網址、名稱以上面為準）。
+
 本文件給管理者照著操作。程式碼都在本儲存庫的 `apps-script/` 資料夾，需手動複製貼到 Apps Script 編輯器。
 
 > 本儲存庫是公開的：成員名單、電話等個資只填在 Google Sheet，不要貼進程式碼。

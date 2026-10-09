@@ -252,7 +252,7 @@
     if (ly) cmp(lastYearName(p.unit), ly);
     const top = ranking(events, p, 'all').slice(0, 5).filter((x) => x.count > 1);
     if (top.length) lines.push(`出勤最多：${top.map((x) => `${x.name}（${x.count} 次）`).join('、')}`);
-    lines.push('感恩大家的護持與付出！');
+    lines.push('謝謝大家的參與 🙌');
     return lines.join('\n');
   }
 

@@ -19,7 +19,7 @@
     const lines = [`📅 ${Fmt.shortDate(d.date)}${time ? ' ' + time : ''}`];
     if (d.location) lines.push(`📍 ${d.location}`);
     if (d.mode !== '公告型') lines.push(`🙋 ${Share.needText(d, d.day)}`);
-    lines.push(d.mode === '公告型' ? '感恩大家 🙏' : '歡迎家人們踴躍成全，點我看詳情 🙏');
+    lines.push(d.mode === '公告型' ? '謝謝大家 😊' : '歡迎一起來，點我看詳情 🙌');
     return { title: `📣 ${d.name}`, body: lines.join('\n') };
   }
 
@@ -71,7 +71,7 @@
           </div>
         </fieldset>
         <div class="push-preview" aria-label="手機上看到的樣子">
-          <span class="push-preview-app">🙏 ${esc(window.SITE.name)}</span>
+          <span class="push-preview-app">🌱 ${esc(window.SITE.name)}</span>
           <strong data-pv-title>${esc(form.title || '（標題）')}</strong>
           <span data-pv-body>${esc(form.body || '（內容）').replace(/\n/g, '<br>')}</span>
         </div>

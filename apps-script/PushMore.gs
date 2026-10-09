@@ -353,11 +353,11 @@ function runAutoShortPush_() {
   list.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : String(a.duty.startTime || '').localeCompare(String(b.duty.startTime || '')); });
   var lines = list.slice(0, 4).map(function (x) { return shortDate_(x.date) + ' ' + x.duty.name + '　缺 ' + x.shortage + ' 人'; });
   if (list.length > 4) lines.push('⋯還有 ' + (list.length - 4) + ' 項');
-  lines.push('點我看看，歡迎發心了愿 🙏');
+  lines.push(siteWording_('點我看看，歡迎發心了愿 🙏'));
   var one = list.length === 1 ? list[0] : null;
   var now = nowString_();
   return withSignupLock_(function () {
-    var row = { '推播ID': newId_('P'), '類別': '勤務', '勤務ID': one ? one.duty.id : '', '日期': one ? one.date : '', '標題': '🙋 還缺人，歡迎發心', '內容': lines.join('\n'),
+    var row = { '推播ID': newId_('P'), '類別': '勤務', '勤務ID': one ? one.duty.id : '', '日期': one ? one.date : '', '標題': siteWording_('🙋 還缺人，歡迎發心'), '內容': lines.join('\n'),
       '網址': one ? '#/duty/' + encodeURIComponent(one.duty.id) + '?date=' + one.date + '&go=signup' : '#/recent', '預定時間': now.slice(0, 16), '狀態': '排定', '送出時間': '', '手機數': '',
       '建立帳號': '自動', '建立時間': now, '備註': '缺人自動推播' };
     appendRows_(SHEETS.PUSH_PLANS, [row]);

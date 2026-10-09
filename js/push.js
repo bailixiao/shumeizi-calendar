@@ -235,7 +235,7 @@
       on.textContent = '正在為您開啟⋯';
       try {
         await enable();
-        card.innerHTML = '<p>✅ 已為您開啟行事曆提醒，感恩您 🙏</p>';
+        card.innerHTML = '<p>✅ 提醒開好了，有活動會通知你 😊</p>';
         setTimeout(hideCard, 3000);
       } catch (e) {
         on.disabled = false;

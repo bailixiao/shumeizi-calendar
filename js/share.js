@@ -50,7 +50,7 @@
   function needText(duty, day) {
     const d = day || { total: 0, counts: {}, full: false };
     const counts = d.counts || {};
-    if (d.full) return '已額滿，感恩大家 🙏';
+    if (d.full) return '已額滿，謝謝大家 😊';
     if (Fmt.isFreeCat(duty.category)) {
       if (duty.positions.some((p) => p.max === null)) return '不限名額，歡迎參加';
       const left = duty.positions.reduce((sum, p) => sum + Math.max(p.max - (counts[p.id] || 0), 0), 0);
@@ -88,8 +88,8 @@
       out.push(`👉 報名：${siteUrl()}#/duty/${encodeURIComponent(duty.id)}?date=${date}&go=signup`);
       return out.join('\n');
     };
-    if (list.length === 1) return block(list[0]) + '\n\n歡迎家人們踴躍成全 🙏';
-    return [window.SITE.inviteTitle, '', list.map(block).join('\n\n'), '', '歡迎家人們踴躍成全，感謝慈悲 🙏😊'].join('\n');
+    if (list.length === 1) return block(list[0]) + '\n\n歡迎一起來幫忙 🙌';
+    return [window.SITE.inviteTitle, '', list.map(block).join('\n\n'), '', '歡迎一起來幫忙，謝謝大家 🙌😊'].join('\n');
   }
 
   /** 每個了愿項目一行：「・項目（已報／名額）：名字、名字」；signups 沒給（沒讀到名單）就不列 */

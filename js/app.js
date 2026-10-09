@@ -227,6 +227,9 @@
     document.querySelectorAll('[data-site]').forEach((el) => { if (S[el.dataset.site]) el.textContent = S[el.dataset.site]; });
     // data-site-tpl：整段文字的範本，{venue} 這類換成設定（只換文字，不拆開元素，排版不變）
     document.querySelectorAll('[data-site-tpl]').forEach((el) => { el.textContent = el.dataset.siteTpl.replace(/\{(\w+)\}/g, (m, k) => S[k] || ''); });
+    // 官網按鈕（行事曆最下面）：有設定 SITE.homepage 才顯示
+    const home = document.getElementById('homepage-link');
+    if (home && S.homepage) { home.href = S.homepage; home.hidden = false; }
     document.querySelectorAll('[data-site-cat]').forEach((el) => { el.textContent = Fmt.catLabel(el.dataset.siteCat); });
     document.querySelectorAll('[data-feature]').forEach((el) => { if (S.features && S.features[el.dataset.feature] === false) el.hidden = true; });
   }

@@ -151,6 +151,7 @@
     const find = (id) => current.items.find((x) => x.signupId === id);
     box.querySelectorAll('[data-cancel]').forEach((btn) => btn.addEventListener('click', () => cancel(find(btn.dataset.cancel))));
     box.querySelectorAll('[data-reschedule]').forEach((btn) => btn.addEventListener('click', () => reschedule(find(btn.dataset.reschedule))));
+    box.querySelectorAll('[data-meal-edit]').forEach((btn) => btn.addEventListener('click', () => editMeal(find(btn.dataset.mealEdit))));
     const picks = () => [...box.querySelectorAll('[data-pick]')];
     const all = box.querySelector('[data-pick-all]');
     if (all) all.addEventListener('click', () => picks().forEach((c) => { c.checked = true; }));
@@ -175,14 +176,27 @@
           <span class="card-title">${esc(it.dutyName)}</span>
           <span class="card-meta">${esc(it.positionName)}${it.accompany ? '（陪同）' : ''}${it.temple ? '・' + esc(it.temple) : ''}</span>
           ${meta ? `<span class="card-meta">${esc(meta)}</span>` : ''}
+          ${it.mealOn ? `<span class="card-meta">${it.meal ? '🍱 ' + esc(MealUI.label(it.mealOptions, it.mealChoice) || '會一起吃飯') + (it.mealNote ? '（' + esc(it.mealNote) + '）' : '') : '不吃飯'}</span>` : ''}
         </a>
         ${it.canChange ? `
           <div class="mine-actions">
             <button type="button" class="btn btn-quiet-danger" data-cancel="${esc(it.signupId)}">取消</button>
             ${it.nature === '活動' ? '' : `<button type="button" class="btn" data-reschedule="${esc(it.signupId)}">改期</button>`}
+            ${it.mealOn ? `<button type="button" class="btn" data-meal-edit="${esc(it.signupId)}">🍱 改吃飯</button>` : ''}
           </div>` : `<p class="muted mine-note">當天（含）之後不能自己取消或改期，${esc(Fmt.askAdmin())}</p>`}
         <div class="addcal-row">${AddCal.button({ name: it.dutyName, location: it.location, start: it.start, end: it.end, startTime: it.startTime, endTime: it.endTime, dutyId: it.dutyId, date: it.date })}</div>
       </div>`;
+  }
+
+  /** 🍱 改吃飯：吃不吃、餐點選項、備註 */
+  async function editMeal(it) {
+    if (!it) return;
+    const res = await MealUI.edit({ title: '🍱 改吃飯', sub: `${Fmt.shortDate(it.date)} ${it.dutyName}`, groups: it.mealOptions, meal: it.meal, choice: it.mealChoice, note: it.mealNote,
+      submit: (body) => Api.updateMeal(Object.assign({ signupId: it.signupId }, body)) });
+    if (!res) return;
+    Object.assign(it, { meal: res.meal, mealChoice: res.mealChoice, mealNote: res.mealNote });
+    if (window.CalendarPage) CalendarPage.refresh(); // 活動頁的吃飯人數
+    render(`<div class="notice notice-success" role="status"><p>已更新吃飯：${it.meal ? '🍱 ' + esc(MealUI.label(it.mealOptions, it.mealChoice) || '會一起吃飯') : '不吃飯'}</p></div>`);
   }
 
   async function cancel(it) {

@@ -27,7 +27,7 @@ async function seedDemo(call, get) {
   const admin = (action, body) => call(Object.assign({ action, token: tok }, body));
   const join = { name: '參加', min: '0' };
   const duties = [
-    ...[gym, gym2, addDays(gym, 28)].map((d) => ({ name: '槑子的靈魂健身房', category: '道務', nature: '課程', start: d, startTime: '19:30', endTime: '21:30', location: '竹北', meal: true,
+    ...[gym, gym2, addDays(gym, 28)].map((d) => ({ name: '槑子的靈魂健身房', category: '道務', nature: '課程', start: d, startTime: '19:30', endTime: '21:30', location: '竹北', meal: true, mealOptions: '主餐：素便當、素麵\n飲料：紅茶、綠茶、不用',
       description: '用我們的筆，寫出我們的故事 ✍️\n18:30 可以提早來一起吃飯 🍱', positions: [join] })),
     ...[sun, addDays(sun, 14)].map((d) => ({ name: '槑青韜課館', category: '教育', nature: '課程', start: d, startTime: '11:30', endTime: '15:00', location: '安東彌勒山（厚德樓）', meal: true,
       description: '11:30 先吃飯，12:30 開課', positions: [join] })),
@@ -45,11 +45,11 @@ async function seedDemo(call, get) {
     if (!res.ok) throw new Error('示範報名失敗：' + JSON.stringify(res.error));
   };
   await signup(find('槑子的靈魂健身房', gym), gym, [
-    { name: '測試甲', source: '朋友介紹', referrer: '王小明', meal: true },
-    { name: '王小明', source: '官方 LINE', meal: true },
+    { name: '測試甲', source: '朋友介紹', referrer: '王小明', meal: true, mealChoice: { 主餐: '素便當', 飲料: '紅茶' }, mealNote: '不吃辣' },
+    { name: '王小明', source: '官方 LINE', meal: true, mealChoice: { 主餐: '素麵', 飲料: '不用' } },
     { name: '測試乙', source: 'Instagram' }
   ]);
-  await signup(find('槑子的靈魂健身房', gym2), gym2, [{ name: '測試甲', meal: true }]);
+  await signup(find('槑子的靈魂健身房', gym2), gym2, [{ name: '測試甲', meal: true, mealChoice: { 主餐: '素便當', 飲料: '綠茶' } }]);
   await signup(find('槑青韜課館', sun), sun, [{ name: '測試甲', meal: true }, { name: '測試丙', source: '官網', meal: true }]);
   const vol = find('植素園出攤志工', sun);
   await signup(vol, sun, [{ name: '王小明' }], vol.positions[0].id);

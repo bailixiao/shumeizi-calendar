@@ -895,6 +895,12 @@ a { color: var(--accent); }
 
 .person-row:first-child { border-top: 0; }
 .person-row .person { font-size: 1.05rem; }
+/* 名字＋標籤太長時：名字不斷字，按鈕換到下一行（吃飯的餐點標籤） */
+.person-row { flex-wrap: wrap; }
+.person-row .person { flex: 1 1 9em; min-width: 0; flex-wrap: wrap; }
+.person-row .person-name { white-space: nowrap; }
+.person-row .tag { white-space: nowrap; }
+.person-actions { flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
 
 .person-actions { display: inline-flex; gap: 6px; flex: none; }
 .person-actions .btn-small { min-height: 40px; min-width: 56px; }
@@ -2339,6 +2345,16 @@ button.veg-chip:hover { border-color: var(--ok); }
 .meal-row .check { display: inline-flex; align-items: center; gap: 6px; }
 .meal-line { margin: 0 0 10px; padding: 8px 12px; border-radius: var(--radius); background: var(--accent-soft); }
 .meal-toggle { margin-top: 10px; }
+.meal-pick { display: grid; gap: 8px; margin-top: 8px; }
+.meal-group { display: grid; gap: 4px; }
+.meal-group-name { font-size: .9em; color: var(--muted); }
+.meal-group.is-missing .meal-group-name { color: var(--accent); font-weight: 600; }
+.meal-group.is-missing .meal-group-name::after { content: "（請選一個）"; }
+.meal-note { width: 100%; }
+.meal-stats { margin: 0 0 12px; padding: 10px 12px; border-radius: var(--radius); background: var(--accent-soft); }
+.meal-stats p { margin: 0 0 4px; }
+.meal-stats ul { margin: 4px 0 8px; padding-left: 1.2em; }
+.meal-options textarea { min-height: 4.5em; }
 
 /* ---------- 團購（後台） ---------- */
 .shop-tabs { margin-bottom: 12px; }

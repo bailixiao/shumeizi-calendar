@@ -109,7 +109,8 @@ const SHOTS = [
       document.querySelector('[data-add]').click(); await __wait(2500);
       const src = document.querySelector('input[data-source][value="朋友介紹"]'); if (src) { src.click(); await __wait(300); }
       const ref = document.querySelector('[data-referrer]'); if (ref) { ref.value = '測試甲'; ref.dispatchEvent(new Event('input', { bubbles: true })); ref.blur(); }
-      const meal = document.querySelector('[data-meal]'); if (meal && !meal.checked) meal.click(); await __wait(300);`,
+      const meal = document.querySelector('[data-meal]'); if (meal && !meal.checked) meal.click(); await __wait(300);
+      const pk = (g, o) => { const r = document.querySelector('input[data-meal-group="' + g + '"][value="' + o + '"]'); if (r) r.click(); }; pk('主餐', '素便當'); await __wait(200); pk('飲料', '紅茶'); await __wait(300);`,
     clip: `const h = [...document.querySelectorAll('#view-duty h2')].find((x) => x.textContent.includes('我要報名')); h.scrollIntoView(); const r2 = h.getBoundingClientRect(); const end = document.querySelector('[data-submit]').getBoundingClientRect(); return { x: 0, y: r2.top + scrollY - 8, width: innerWidth, height: end.bottom - r2.top + 20 };` },
   { name: 'mine-list', hash: '#/mine', js: `localStorage.setItem('shumeizi:mine-name', '測試甲'); location.hash = '#/'; await __wait(200); location.hash = '#/mine'; await __wait(2000);`,
     clip: `return { x: 0, y: 0, width: innerWidth, height: 1000 };` },
@@ -138,6 +139,10 @@ const SHOTS = [
   // 後台團購：總覽＋備貨清單
   { name: 'adm-shop', admin: true, hash: '#/admin/shop', js: `await __wait(2000); document.querySelector('.shop-group-card').click(); await __wait(2500);`,
     clip: `const a = document.querySelector('.shop-title'); a.scrollIntoView(); const r = a.getBoundingClientRect(); const b = document.querySelector('[data-copy-prep]').getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 8, width: innerWidth, height: b.bottom - r.top + 16 };` },
+  // 後台吃飯統計：各選項幾份、備註（靈魂健身房，示範資料有餐點選項）
+  { name: 'adm-meal', admin: true, hash: '#/admin', js: `const d = (await __g({ action: 'getEvents', from: '${GYM}', to: '${GYM}' })).data.duties.find((x) => x.name.includes('靈魂健身房'));
+      location.hash = '#/admin/duty/' + encodeURIComponent(d.id); await __wait(3000);`,
+    clip: `const a = document.querySelector('.meal-stats'); a.scrollIntoView(); const r = a.getBoundingClientRect(); const b = a.parentElement.querySelector('.position-list').getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 8, width: innerWidth, height: b.bottom - r.top + 16 };` },
   { name: 'adm-venue', admin: true, hash: '#/admin/venue', js: `await __wait(2000);`,
     clip: `const el = document.querySelector('.venue-reqs'); return __box(el.closest('[data-body]') || el, 4);` }
 ];

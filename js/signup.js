@@ -184,7 +184,8 @@
               </div>`}
             </div>`}
             ${SOURCES.length && e.known === false ? sourceHtml(e, i) : ''}
-            ${duty.meal ? `<label class="option-row meal-row"><span class="option-label">吃飯</span><span class="check"><input type="checkbox" data-meal="${i}"${e.meal ? ' checked' : ''}> 🍱 我會一起吃飯</span></label>` : ''}
+            ${duty.meal ? `<div class="option-row meal-row"><span class="option-label">吃飯</span><div><label class="check"><input type="checkbox" data-meal="${i}"${e.meal ? ' checked' : ''}> 🍱 我會一起吃飯</label>
+              ${e.meal ? MealUI.html(duty.mealOptions, e.mealChoice, e.mealNote, i, state.showMissing) : ''}</div></div>` : ''}
             ${duty.positions.length > 1 ? (e.custom ? `<div class="option-row">
               <span class="option-label">項目</span>
               <div>
@@ -483,6 +484,11 @@
         state.showMissing = true;
         renderNames();
       }
+      if (duty.meal && state.entries.some((e) => e.meal && MealUI.missing(duty.mealOptions, e.mealChoice))) {
+        problems.push('會一起吃飯的人，請選' + (duty.mealOptions || []).map((g) => '「' + g.name + '」').join(''));
+        state.showMissing = true;
+        renderNames();
+      }
       if (!NO_IDENTITY && state.entries.some((e) => !e.identity)) {
         problems.push('請為每個名字選擇「道親」「壇辦」或「未求道」');
         state.showMissing = true;
@@ -508,7 +514,7 @@
         positionIds: chosen.map((p) => p.id),
         dates: Array.from(state.dates).sort(),
         entries: state.entries.map((e) => ({ name: e.name, temple: e.temple || '', identity: e.identity, accompany: e.accompany,
-          meal: !!duty.meal && !!e.meal, source: e.known === false ? e.source || '' : '', referrer: e.known === false && e.source === '朋友介紹' ? normalize(e.referrer) : '',
+          meal: !!duty.meal && !!e.meal, mealChoice: duty.meal && e.meal ? e.mealChoice || {} : {}, mealNote: duty.meal && e.meal ? String(e.mealNote || '').trim() : '', source: e.known === false ? e.source || '' : '', referrer: e.known === false && e.source === '朋友介紹' ? normalize(e.referrer) : '',
           sourceNote: e.known === false && e.source === '其他' ? normalize(e.sourceNote) : '', leader: !!duty.leaderTitle && !e.accompany && e.name === state.leader, note: duty.layout === '職司表' ? String(e.note || '').trim() : '', positionIds: duty.positions.filter((p) => e.positionIds.has(p.id)).map((p) => p.id) }))
       };
       // 每個人報的項目不一樣時，成功訊息逐人列出
@@ -709,6 +715,14 @@
       }
       if (t.dataset.meal !== undefined) {
         state.entries[Number(t.dataset.meal)].meal = t.checked;
+        if ((duty.mealOptions || []).length || t.checked) renderNames(); // 勾了才出現餐點選項、備註
+        return;
+      }
+      if (t.dataset.mealPick !== undefined) {
+        const e = state.entries[Number(t.dataset.mealPick)];
+        e.mealChoice = Object.assign({}, e.mealChoice, { [t.dataset.mealGroup]: t.value });
+        renderNames();
+        if (!state.entries.some((x) => x.meal && MealUI.missing(duty.mealOptions, x.mealChoice))) hideError();
         return;
       }
       if (t.dataset.accompany !== undefined) {
@@ -730,6 +744,7 @@
       if (t.dataset.entryNote !== undefined) state.entries[Number(t.dataset.entryNote)].note = t.value;
       if (t.dataset.referrer !== undefined) state.entries[Number(t.dataset.referrer)].referrer = t.value;
       if (t.dataset.sourceNote !== undefined) state.entries[Number(t.dataset.sourceNote)].sourceNote = t.value;
+      if (t.dataset.mealNote !== undefined) state.entries[Number(t.dataset.mealNote)].mealNote = t.value;
     });
     form.addEventListener('submit', submit);
 

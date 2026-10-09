@@ -144,7 +144,7 @@ const SUB = {
   '11': '打一兩個字，跳出名字就點它；沒有就打完整名字按「加入」',
   '12': '只有第一次要選；朋友介紹的話，填一下介紹人',
   '13': '靈魂健身房、槑青韜課館、植素園工作坊不用選項目',
-  '14': '有一起吃飯的活動才會出現，讓我們知道要準備幾份',
+  '14': '有一起吃飯的活動才會出現；有選項的話每組選一個，有特別需求寫在備註',
   '15': '想揪朋友？名字一個一個加進來就好',
   '16': '名字都加好了，按這裡送出',
   '17': '可以按「加到手機行事曆」，前一天會提醒你',
@@ -232,7 +232,7 @@ async function main() {
     await sleep(800);
     await run(c, `${frame('13', '', '.signup-form')}`);
     await shoot(c, '13');
-    await run(c, `await addName('測試戊', '官方 LINE'); const m = $('[data-meal]'); if (!m.checked) m.click(); await W(300); ${frame('14', '', '.meal-row')}`);
+    await run(c, `await addName('測試戊', '官方 LINE'); const m = $('[data-meal]'); if (!m.checked) m.click(); await W(300); const pk = (g, o) => { const r = document.querySelector('input[data-meal-group="' + g + '"][value="' + o + '"]'); if (r) r.click(); }; pk('主餐', '素便當'); await W(200); pk('飲料', '紅茶'); await W(300); ${frame('14', '', '.meal-row')}`);
     await shoot(c, '14');
     await run(c, `await addName('測試己', '朋友介紹', '測試戊'); ${frame('15', '', '[data-names]')}`);
     await shoot(c, '15');

@@ -546,6 +546,11 @@
             <div class="form-row"><span>種類</span>${segmented('nature', natures.map((n) => [n, Fmt.natureLabel(s.category, n)]), s.nature)}</div>
             ${simple || Fmt.feature('groups') || s.mode === '公告型' ? `<div class="form-row"><span>模式</span>${segmented('mode', ['報名型', '公告型'], s.mode)}</div>` : ''}
             ${s.mode === '公告型' ? '' : `<label class="check meal-toggle"><input type="checkbox" name="meal"${s.meal === true || s.meal === '是' ? ' checked' : ''}> 🍱 這次有吃飯（報名時每個人可以勾「我會一起吃飯」，後台算要準備幾份）</label>`}
+            ${s.mode !== '公告型' && (s.meal === true || s.meal === '是') ? `<label class="form-row meal-options"><span>餐點選項（選填）</span>
+              <textarea class="input" name="mealOptions" rows="3" placeholder="一行一組，例：
+主餐：素便當、素麵
+飲料：紅茶、綠茶、不用">${esc(s.mealOptions || '')}</textarea></label>
+            <p class="hint">有填的話，勾吃飯的人每組要選一個；也可以寫備註（不吃辣、少飯⋯）。後台名單上方會算好每樣幾份。不填＝只勾吃不吃。</p>` : ''}
             ${isNotice ? '<p class="hint">公告型：只顯示輪值組，不需報名、沒有項目。</p>' : ''}
           </fieldset>
 
@@ -846,7 +851,7 @@
       const f = body.querySelector('form');
       if (!f) return;
       const val = (n) => (f.elements[n] ? f.elements[n].value : undefined);
-      ['name', 'startTime', 'endTime', 'location', 'attire', 'description', 'start', 'end', 'groupType', 'group', 'deadline', 'stages', 'teachers', 'merge', 'lecturers', 'leaders', 'assistants'].forEach((k) => {
+      ['name', 'startTime', 'endTime', 'location', 'attire', 'description', 'start', 'end', 'groupType', 'group', 'deadline', 'stages', 'teachers', 'merge', 'lecturers', 'leaders', 'assistants', 'mealOptions'].forEach((k) => {
         if (val(k) !== undefined) s[k] = val(k);
       });
       const radio = (n) => { const el = f.querySelector(`input[name="${n}"]:checked`); return el ? el.value : undefined; };
@@ -892,7 +897,7 @@
       // 會改變表單結構的選項：讀回目前的值後重畫
       f.addEventListener('change', (ev) => {
         const n = ev.target.name;
-        if (['mode', 'dateType', 'groupType', 'groupMode', 'rotation', 'category', 'quotaMode', 'layout', 'multiFreq', 'multi'].indexOf(n) === -1) return;
+        if (['mode', 'dateType', 'groupType', 'groupMode', 'rotation', 'category', 'quotaMode', 'layout', 'multiFreq', 'multi', 'meal'].indexOf(n) === -1) return;
         sync();
         if (n === 'groupType') { s.group = ''; st.lunar.rotation = []; st.lunar.rotationStart = 0; }
         if (n === 'dateType' && st.dateType === 'range' && !s.end) s.end = s.start;
@@ -974,6 +979,7 @@
         stages: s.mode === '公告型' || isSimple(s.category) || s.layout !== '職司表' ? '' : (s.stages || ''),
         multi: s.mode === '公告型' ? false : !!(s.multi === true || s.multi === '是'),
         meal: s.mode !== '公告型' && (s.meal === true || s.meal === '是'),
+        mealOptions: s.mode !== '公告型' && (s.meal === true || s.meal === '是') ? String(s.mealOptions || '') : '',
         totalNeed: s.mode !== '公告型' && (s.multi === true || s.multi === '是') ? String(s.totalNeed || '') : '',
         leaderTitle: s.mode !== '公告型' && (s.category || '勤務') === '勤務' ? String(s.leaderTitle || '') : '',
         positions: s.mode === '公告型' ? [] : isSimple(s.category)

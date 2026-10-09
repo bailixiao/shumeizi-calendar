@@ -7,8 +7,10 @@
  *   - 每個帳號各自只能一台裝置登入。
  */
 
-var ROLES = ['總管理者', '勤務', '道務', '教育', '唯讀', '場管']; // 場管＝區中心場管：只審核場地借用
-var CATEGORIES = ['勤務', '道務', '教育'];
+var ROLES = ['總管理者', '勤務', '道務', '教育', '植素', '唯讀', '場管']; // 場管＝場地管理：只審核場地借用；植素＝植素園工作坊（書槑子加的第四個類別）
+var CATEGORIES = ['勤務', '道務', '教育', '植素']; // 一般活動類別（自由參加、不算缺人）見 FREE_CATEGORIES
+// 自由參加、鼓勵為主的類別（不算缺人、表單較簡單）：除了勤務以外都是
+var FREE_CATEGORIES = ['道務', '教育', '植素'];
 var SUPER_ACCOUNT = '總管理者';
 var PASSWORD_MIN = 6;
 
@@ -81,7 +83,7 @@ var ADMIN_CATEGORY_ACTIONS = ['adminCancel', 'adminReschedule', 'adminRestore', 
 // 成員、分組的編輯動作，與可以編輯的帳號（總管理者另外全部可以）
 var PEOPLE_EDIT_ACTIONS = ['adminSaveMember', 'adminDeleteMember', 'adminMemberCandidates', 'adminAddMembers', 'adminMergeNames', 'adminClearCandidates',
   'adminConfirmMembers', 'adminMergePendingMember', 'adminSaveGroup', 'adminDeleteGroup', 'adminMergeMembers', 'adminImportMembers', 'adminSameNameSignups', 'adminAssignSignupTemple'];
-var PEOPLE_EDIT_ROLES = ['道務', '教育'];
+var PEOPLE_EDIT_ROLES = ['道務', '教育', '植素'];
 
 function findDutyById_(id) {
   return findById_(readTableCached_(SHEETS.DUTIES), '勤務ID', id) || null;
@@ -132,7 +134,7 @@ function adminAuthorize_(session, body) {
   // 操作紀錄、舊的單日名單只給總管理者（「名單」分頁的 adminRoster 勤務／道務／教育帳號也能用，只看自己類別）
   if (['adminLogs', 'adminDay'].indexOf(action) !== -1) denied();
   // 各佛堂道務目標：總管理者、道務、唯讀看得到；只有總管理者、道務能改
-  if (action === 'adminGoals' && (role === '勤務' || role === '教育')) denied();
+  if (action === 'adminGoals' && (role === '勤務' || role === '教育' || role === '植素')) denied();
   if (action === 'adminSaveGoals' && role !== '道務') denied();
   // 場地借用：總管理者、場管審核；其他帳號只能看
   if (action === 'adminVenueDecide' || action === 'adminVenueWatch' || action === 'adminRepairUpdate') denied();

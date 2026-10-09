@@ -140,7 +140,7 @@
     events.filter((e) => e.date >= from && e.date <= today).forEach((e) => {
       const cat = e.category || '勤務';
       e.tan.concat(e.dao, e.unknown).forEach((n) => {
-        const v = map.get(n) || { count: 0, 勤務: 0, 道務: 0, 教育: 0, last: '', items: {} };
+        const v = map.get(n) || { count: 0, 勤務: 0, 道務: 0, 教育: 0, 植素: 0, last: '', items: {} };
         v.count += 1;
         if (v[cat] !== undefined) v[cat] += 1;
         if (e.date > v.last) v.last = e.date;

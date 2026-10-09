@@ -113,6 +113,26 @@ test('道務、教育的活動自由參加：不算缺人', () => {
   assert.equal(d.days['2026-11-22'].shortage, 0);
 });
 
+test('第四個類別「植素」（植素園工作坊）：自由參加不算缺人；植素帳號只能管自己類別；性質只能是工作坊、出攤、活動', () => {
+  const { env, login, superTok, save } = setup();
+  const c = env.post({ action: 'adminCreateDuties', token: superTok, duties: [{ name: '植素園出攤', category: '植素', nature: '出攤', start: '2026-11-22', positions: [{ name: '參加', min: 5 }] }] });
+  assert.equal(c.ok, true, JSON.stringify(c.error));
+  const d = env.get({ action: 'getEvents', from: '2026-11-22', to: '2026-11-22' }).data.duties.find((x) => x.name === '植素園出攤');
+  assert.equal(d.category, '植素');
+  assert.equal(d.days['2026-11-22'].shortage, 0);
+  const bad = env.post({ action: 'adminCreateDuties', token: superTok, duties: [{ name: '植素園', category: '植素', nature: '課程', start: '2026-11-23', positions: [{ name: '參加' }] }] });
+  assert.equal(bad.ok, false);
+  assert.match(JSON.stringify(bad.error), /工作坊、出攤、活動/);
+  save({ account: '植素組', role: '植素', password: 'abc12345' });
+  const tok = login('植素組', 'abc12345').data.token;
+  // 植素帳號新增時類別固定是植素；不能改志工（勤務）的排班
+  const mine = env.post({ action: 'adminCreateDuties', token: tok, duties: [{ name: '植素工作坊', category: '勤務', nature: '工作坊', start: '2026-11-29', positions: [{ name: '參加' }] }] });
+  assert.equal(mine.ok, true, JSON.stringify(mine.error));
+  assert.equal(env.get({ action: 'getEvents', from: '2026-11-29', to: '2026-11-29' }).data.duties.find((x) => x.name === '植素工作坊').category, '植素');
+  const vol = env.get({ action: 'getEvents', from: '2026-10-13', to: '2026-10-13' }).data.duties.find((x) => x.category === '勤務');
+  assert.equal(env.post({ action: 'adminDeleteDuty', token: tok, id: vol.id }).error.code, 'FORBIDDEN');
+});
+
 test('行事曆公開資料帶類別；操作紀錄記下是哪個帳號', () => {
   const { env, login, save } = setup();
   assert.equal(env.get({ action: 'getEvents', from: '2026-10-13', to: '2026-10-13' }).data.duties[0].category, '勤務');

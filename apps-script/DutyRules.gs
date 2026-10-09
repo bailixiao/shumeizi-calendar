@@ -64,7 +64,7 @@ function cleanTime_(v) {
  * 回傳 { duty: { 名稱: ..., ... }, positions: [{ id, 了愿項目名稱, 時段, 最少, 最多 }], errors: [字串] }
  */
 // 每個類別可選的性質（道務、教育是自由參加的法會、課程、活動）
-var NATURES_BY_CATEGORY_ = { 勤務: ['勤務', '支援', '烹飪', '活動'], 道務: ['法會', '課程', '會議'], 教育: ['課程', '活動'] };
+var NATURES_BY_CATEGORY_ = { 勤務: ['勤務', '支援', '烹飪', '活動'], 道務: ['法會', '課程', '會議'], 教育: ['課程', '活動'], 植素: ['工作坊', '出攤', '活動'] };
 var DM_MAX = 5;
 
 /** DM 附件清單：[{ id, name, mime }]（最多 5 個）→ 存成 JSON 文字；格式不對的略過 */
@@ -111,7 +111,8 @@ function normalizeDutyInput_(input, ctx) {
   if (natures.indexOf(duty['性質']) === -1) errors.push('「' + (duty['類別'] || '勤務') + '」的性質只能是' + natures.join('、'));
   if (duty['報名截止日'] && !isDateString_(duty['報名截止日'])) errors.push('報名截止日格式錯誤');
   if (['報名型', '公告型'].indexOf(duty['模式']) === -1) errors.push('模式只能是報名型或公告型');
-  if (['勤務', '道務', '教育'].indexOf(duty['類別']) === -1) errors.push('類別只能是勤務、道務或教育');
+  var cats = Object.keys(NATURES_BY_CATEGORY_);
+  if (cats.indexOf(duty['類別']) === -1) errors.push('類別只能是' + cats.map(function (c) { return (typeof SITE !== 'undefined' && SITE.categoryLabels[c]) || c; }).join('、'));
   if (['', '職司表'].indexOf(duty['版面']) === -1) errors.push('版面只能是空白或職司表');
   // 師資：只有教育；逗號、頓號、空白都當分隔，統一用「、」
   duty['師資'] = duty['類別'] === '教育' ? duty['師資'].split(/[、，,／\/\s]+/).filter(Boolean).join('、') : '';

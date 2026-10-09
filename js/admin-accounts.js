@@ -5,9 +5,10 @@
 
   const esc = Fmt.esc;
   const ROLE_NOTE = {
-    勤務: '只能新增、修改「勤務」類的勤務與報名',
-    道務: '只能新增、修改「道務」類的課程、法會、布達',
-    教育: '只能新增、修改「教育」類的課程、布達',
+    勤務: '只能新增、修改「' + Fmt.catLabel('勤務') + '」類的排班與報名',
+    道務: '只能新增、修改「' + Fmt.catLabel('道務') + '」類的活動',
+    教育: '只能新增、修改「' + Fmt.catLabel('教育') + '」類的活動',
+    植素: '只能新增、修改「' + Fmt.catLabel('植素') + '」類的活動',
     唯讀: '什麼都能看，什麼都不能改',
     場管: window.SITE.venue + '場管：只看、只審核場地借用'
   };
@@ -41,7 +42,7 @@
           <label class="form-row"><span>帳號（登入時輸入）</span><input class="input" id="acc-account" name="account" value="${esc(a ? a.account : '')}" placeholder="例：道務組" autocomplete="off"></label>
           <label class="form-row"><span>名稱或負責人（選填）</span><input class="input" id="acc-name" name="name" value="${esc(a ? a.name : '')}"></label>
           <div class="form-row"><span>角色</span><div class="role-pick">${data.roles.map((r) => `
-            <label class="role-option"><input type="radio" name="role" value="${esc(r)}"${(a ? a.role : '') === r ? ' checked' : ''}><b>${esc(r)}</b><small>${esc(ROLE_NOTE[r] || '')}</small></label>`).join('')}</div></div>
+            <label class="role-option"><input type="radio" name="role" value="${esc(r)}"${(a ? a.role : '') === r ? ' checked' : ''}><b>${esc(Fmt.catLabel(r))}</b><small>${esc(ROLE_NOTE[r] || '')}</small></label>`).join('')}</div></div>
           <label class="form-row"><span>${isNew ? '密碼（至少 6 個字）' : '新密碼（不改就留空）'}</span>
             <div class="pw-row"><input class="input" id="acc-password" name="password" type="text" autocomplete="new-password"><button type="button" class="btn btn-small" data-gen>產生一組</button></div></label>
           <p class="hint">密碼設定後只會加密保存，之後看不到原本的密碼；忘記了就在這裡重設。請把帳號、密碼親自交給負責的人。</p>

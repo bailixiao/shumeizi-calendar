@@ -9,7 +9,7 @@
   const DOTS_MAX = { year: 3, month: 4 };
   const VENUE_ORDER = { 早上: '08:00', 下午: '13:00', 晚上: '18:00' }; // 場地借用排在當天的順序
   const RECENT_DAYS = 31; // 近期＝今天起一個月
-  // 類別篩選（勤務／道務／教育）：有道務或教育的項目時才顯示篩選列；記住上次的選擇
+  // 類別篩選（志工／靈魂健身房／槑青韜課館／植素園工作坊）：有勤務（志工）以外的項目時才顯示篩選列；記住上次的選擇
   const CAT_KEY = 'shumeizi:cat';
   let catFilter = (() => { try { return localStorage.getItem(CAT_KEY) || '全部'; } catch (e) { return '全部'; } })();
   const KIND_ORDER = { short: 0, full: 1, ok: 2, notice: 3, venue: 4 };
@@ -553,7 +553,7 @@
 
   // ---------- 當天勤務卡片 ----------
 
-  /** 類別小標籤：勤務（赭紅）、道務（紫）、教育（藍綠）；舊資料沒有類別的算勤務 */
+  /** 類別小標籤：志工（深藍綠）、靈魂健身房（橘）、槑青韜課館（深紅）、植素園工作坊（橄欖綠）；舊資料沒有類別的算勤務 */
   function catTag(duty) {
     const c = duty.category || '勤務';
     return `<span class="cat-tag cat-${Fmt.esc(c)}">${Fmt.esc(Fmt.catLabel(c))}</span>`;

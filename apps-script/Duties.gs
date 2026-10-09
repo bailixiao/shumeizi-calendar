@@ -195,7 +195,7 @@ function dutyToJson_(d, positions) {
     id: d['勤務ID'],
     name: d['名稱'],
     nature: d['性質'],
-    category: ['勤務', '道務', '教育'].indexOf(d['類別']) !== -1 ? d['類別'] : '勤務',
+    category: CATEGORIES.indexOf(d['類別']) !== -1 ? d['類別'] : '勤務',
     dm: parseDm_(d['DM']),
     layout: d['版面'] === '職司表' ? '職司表' : '',
     teachers: d['師資'] || '', // 教育課程的負責師資（報名頁也顯示）
@@ -233,7 +233,7 @@ function dutyToJson_(d, positions) {
 function daysStatus_(duty, positions, signups, dates) {
   var days = {};
   if (duty['模式'] === '公告型') return days;
-  var free = ['道務', '教育'].indexOf(dutyCategory_(duty)) !== -1; // 道務、教育的活動自由參加，不算缺人
+  var free = FREE_CATEGORIES.indexOf(dutyCategory_(duty)) !== -1; // 道務、教育、植素的活動自由參加，不算缺人
   dates.forEach(function (date) {
     var s = dayStatus_(positions, signups, date);
     var counts = {};

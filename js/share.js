@@ -51,7 +51,7 @@
     const d = day || { total: 0, counts: {}, full: false };
     const counts = d.counts || {};
     if (d.full) return '已額滿，感恩大家 🙏';
-    if (duty.category === '道務' || duty.category === '教育') {
+    if (Fmt.isFreeCat(duty.category)) {
       if (duty.positions.some((p) => p.max === null)) return '不限名額，歡迎參加';
       const left = duty.positions.reduce((sum, p) => sum + Math.max(p.max - (counts[p.id] || 0), 0), 0);
       return `名額還有 ${left} 位`;

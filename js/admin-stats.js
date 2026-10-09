@@ -59,7 +59,7 @@
     // 教育：改成以課程為單位的統計
     // 教育、道務：改成以課程（道務含法會、會議）為單位的統計
     const eduCat = canPick ? state.category : Api.adminWho().role;
-    if (eduCat === '教育' || eduCat === '道務') return renderEdu(body, guard, data, stale, canPick, eduCat);
+    if (Fmt.isFreeCat(eduCat)) return renderEdu(body, guard, data, stale, canPick, eduCat);
     const ev = canPick && state.category !== '全部' ? data.events.filter((e) => (e.category || '勤務') === state.category) : data.events;
     const p = state.period;
     // 本期還沒過完時，比較期間只算到相同天數（見 StatsCalc.compare）
@@ -82,7 +82,7 @@
       ${AdminPage.staleNote(stale)}
       <div class="stats" data-stats>
         <div class="stats-top no-print">
-          ${canPick ? `<div class="seg stats-cats">${['勤務', '道務', '教育'].map((c) => `<label class="seg-item"><input type="radio" name="scat" value="${c}"${c === state.category ? ' checked' : ''}><span>${Fmt.catLabel(c)}</span></label>`).join('')}</div>` : `<p class="stats-cat-fixed">「${esc(Api.adminWho().role)}」類的統計</p>`}
+          ${canPick ? `<div class="seg stats-cats">${Fmt.categories().map((c) => `<label class="seg-item"><input type="radio" name="scat" value="${c}"${c === state.category ? ' checked' : ''}><span>${Fmt.catLabel(c)}</span></label>`).join('')}</div>` : `<p class="stats-cat-fixed">「${esc(Api.adminWho().role)}」類的統計</p>`}
           <div class="seg stats-units">${[['month', '月'], ['quarter', '季'], ['year', '年']].map(([v, l]) =>
             `<label class="seg-item"><input type="radio" name="unit" value="${v}"${v === p.unit ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div>
         </div>
@@ -215,12 +215,14 @@
   // 教育統計的「各班師資」只看這幾個班（課程名稱含這幾個字）
   const EDU_TEACHER_CLASSES = window.SITE.eduTeacherClasses; // 在 js/site.js
 
-  // 教育、道務統計的用詞
+  // 教育、道務、植素統計的用詞
   const EDU_LABELS = {
     教育: { item: '課程', unit: '堂', person: '學生', staff: '師資', staffTitle: '各課程負責師資', pick: '選課程',
       empty: '這段期間沒有課程（教育類、性質「課程」）', noStaff: '還沒有填師資。新增或編輯教育的課程時，在「師資」欄填上負責的師資。' },
     道務: { item: '項目', unit: '場', person: '參與者', staff: '負責人員', staffTitle: '負責人員（講師・帶班・助理帶班）', pick: '選項目',
-      empty: '這段期間沒有道務的課程、法會或會議', noStaff: '還沒有填講師、帶班、助理帶班。在道務的編輯畫面填寫，或用「安排整年的人員」一次排好。' }
+      empty: '這段期間沒有道務的課程、法會或會議', noStaff: '還沒有填講師、帶班、助理帶班。在道務的編輯畫面填寫，或用「安排整年的人員」一次排好。' },
+    植素: { item: '項目', unit: '場', person: '參加者', staff: '負責人員', staffTitle: '負責人員', pick: '選項目',
+      empty: '這段期間沒有植素園的工作坊或出攤', noStaff: '' }
   };
 
   const GRID_FIRST = 10; // 出缺勤表先列幾位
@@ -266,7 +268,7 @@
       ${AdminPage.staleNote(stale)}
       <div class="stats" data-stats>
         <div class="stats-top no-print">
-          ${canPick ? `<div class="seg stats-cats">${['勤務', '道務', '教育'].map((c) => `<label class="seg-item"><input type="radio" name="scat" value="${c}"${c === state.category ? ' checked' : ''}><span>${Fmt.catLabel(c)}</span></label>`).join('')}</div>` : `<p class="stats-cat-fixed">「${cat}」類的統計</p>`}
+          ${canPick ? `<div class="seg stats-cats">${Fmt.categories().map((c) => `<label class="seg-item"><input type="radio" name="scat" value="${c}"${c === state.category ? ' checked' : ''}><span>${Fmt.catLabel(c)}</span></label>`).join('')}</div>` : `<p class="stats-cat-fixed">「${cat}」類的統計</p>`}
           <div class="seg stats-units">${[['month', '月'], ['quarter', '季'], ['year', '年']].map(([v, l]) =>
             `<label class="seg-item"><input type="radio" name="unit" value="${v}"${v === p.unit ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div>
         </div>
@@ -353,7 +355,7 @@
           <p class="hint">依上面選的期間（月／季／年）計算；師資在新增或編輯課程時的「師資」欄填寫。</p>
         </section>`;
         })() : ''}
-        <section class="stats-section"${cat === '教育' ? ' hidden' : ''}>
+        <section class="stats-section"${cat !== '道務' ? ' hidden' : ''}>
           <h3 class="admin-sub">${L.staffTitle}</h3>
           ${teacherList.length ? `<ul class="edu-teacher-list">${teacherList.map((t) => `
             <li><span class="edu-teacher-name">${esc(t.name)}</span><span class="edu-teacher-total">共 ${t.total} ${L.unit}</span>

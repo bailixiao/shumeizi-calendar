@@ -55,11 +55,22 @@
   }
 
   /** 勤務時段文字；跨日單日勤務顯示「隔天」 */
-  /** 類別標籤上的字：勤務類寫「總務・勤務」，道務、教育照原樣 */
+  /** 類別標籤上的字（SITE.categoryLabels，例：勤務→志工） */
   function catLabel(category) {
     const c = category || '勤務';
     const labels = (window.SITE && window.SITE.categoryLabels) || {};
     return labels[c] || c;
+  }
+
+  /** 類別內部代號清單（依 SITE.categoryLabels 的順序；第一個「勤務」＝志工排班） */
+  function categories() {
+    const labels = window.SITE && window.SITE.categoryLabels;
+    return labels ? Object.keys(labels) : ['勤務', '道務', '教育'];
+  }
+
+  /** 自由參加、鼓勵為主的類別（不算缺人、表單較簡單）：勤務以外都是 */
+  function isFreeCat(category) {
+    return !!category && category !== '勤務' && categories().indexOf(category) !== -1;
   }
 
   function timeRange(duty) {
@@ -107,7 +118,7 @@
     }
     const d = day || { total: 0, shortage: 0, full: false, counts: {} };
     const counts = d.counts || {};
-    if (duty.category === '道務' || duty.category === '教育') { // 自由參加、鼓勵為主：不算缺人
+    if (isFreeCat(duty.category)) { // 自由參加、鼓勵為主：不算缺人
       return d.full ? { kind: 'full', label: '額滿' } : { kind: 'ok', label: `已報 ${d.total} 人` };
     }
     // 可兼任且有填共需人數：缺幾人＝共需人數－不重複人數；沒填照各項目最少人數
@@ -171,7 +182,7 @@
   }
 
   window.Fmt = {
-    esc, toDateStr, parseDate, addDays, datesBetween, rocYear, weekday, shortDate, rocDate, catLabel,
+    esc, toDateStr, parseDate, addDays, datesBetween, rocYear, weekday, shortDate, rocDate, catLabel, categories, isFreeCat,
     timeRange, cardTime, effectiveMin, dayState, groupText, sameName, byStroke, setContact, askAdmin, shortDateList
   };
 })();

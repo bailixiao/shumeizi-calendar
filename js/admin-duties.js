@@ -473,11 +473,11 @@
     DutyForm(body, { editing: !!opts.id, source, groups, guard });
   }
 
-  const CATEGORIES = ['勤務', '道務', '教育'];
+  const CATEGORIES = Fmt.categories();
   // 每個類別可選的性質（與 apps-script/DutyRules.gs 的 NATURES_BY_CATEGORY_ 相同）
-  const NATURES_BY_CAT = { 勤務: ['勤務', '支援', '烹飪', '活動'], 道務: ['法會', '課程', '會議'], 教育: ['課程', '活動'] };
+  const NATURES_BY_CAT = { 勤務: ['勤務', '支援', '烹飪', '活動'], 道務: ['法會', '課程', '會議'], 教育: ['課程', '活動'], 植素: ['工作坊', '出攤', '活動'] };
   // 道務、教育是自由參加的法會、課程、活動：沒有負責組、沒有了愿項目，只有名額（不限／限幾人）
-  const isSimple = (cat) => cat === '道務' || cat === '教育';
+  const isSimple = Fmt.isFreeCat;
   const DM_MAX = 5;
   const PDF_MAX_BYTES = 5 * 1024 * 1024;
 
@@ -542,7 +542,7 @@
             <label class="form-row"><span>名稱</span>
               <input class="input" name="name" value="${esc(s.name)}" placeholder="${esc(window.SITE.examples.dutyName)}" required></label>
             ${lunar ? '<p class="hint">勾「名稱前面加上農曆日期」時，這裡只填後半段，例如「拜香輪值」。</p>' : ''}
-            <div class="form-row"><span>類別</span>${Api.adminWho().role === '總管理者' ? segmented('category', CATEGORIES, s.category || '勤務') : `<strong>${esc(myCategory())}</strong>`}</div>
+            <div class="form-row"><span>類別</span>${Api.adminWho().role === '總管理者' ? segmented('category', CATEGORIES.map((c) => [c, Fmt.catLabel(c)]), s.category || '勤務') : `<strong>${esc(Fmt.catLabel(myCategory()))}</strong>`}</div>
             <div class="form-row"><span>性質</span>${segmented('nature', natures, s.nature)}</div>
             <div class="form-row"><span>模式</span>${segmented('mode', ['報名型', '公告型'], s.mode)}</div>
             ${isNotice ? '<p class="hint">公告型：只顯示輪值組，不需報名、沒有了愿項目。</p>' : ''}

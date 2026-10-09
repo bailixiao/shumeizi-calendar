@@ -162,9 +162,9 @@
     });
   }
 
-  /** 可以編輯成員、分組的帳號：總管理者、道務、教育 */
+  /** 可以編輯成員、分組的帳號：總管理者、一般活動類別（道務、教育、植素）帳號 */
   function canEditPeople() {
-    return ['總管理者', '道務', '教育'].indexOf(Api.adminWho().role) !== -1;
+    return Api.adminWho().role === '總管理者' || Fmt.isFreeCat(Api.adminWho().role);
   }
 
   // ---------- 成員 ----------

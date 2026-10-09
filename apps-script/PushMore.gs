@@ -13,7 +13,7 @@
 
 var PENDING_PUSH_ = [];
 var PUSH_BROADCAST_WINDOW_MIN = 60;
-var PUSH_PLAN_ROLES = [SUPER_ACCOUNT, '勤務', '道務', '教育'];
+var PUSH_PLAN_ROLES = [SUPER_ACCOUNT, '勤務', '道務', '教育', '植素'];
 
 /** 排進待送清單（同一支手機只送一次） */
 function queuePush_(endpoints) {

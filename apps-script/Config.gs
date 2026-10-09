@@ -16,7 +16,7 @@ var SITE = {
   org: '書槑子青年坊',
   venue: '場地',
   temple: '佛堂',
-  categoryLabels: { 勤務: '志工', 道務: '靈魂健身房', 教育: '槑青韜課館' },
+  categoryLabels: { 勤務: '志工', 道務: '靈魂健身房', 教育: '槑青韜課館', 植素: '植素園工作坊' },
   locations: ['竹北', '宏宗聖堂道學院', '安東彌勒山', '安東彌勒山（厚德樓）'],
   overseas: [], // 成員的「國外」選項（書槑子不用）
   siteUrl: 'https://bailixiao.github.io/shumeizi-calendar/', // 網站網址（推播服務聯絡用）

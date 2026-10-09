@@ -103,21 +103,20 @@
 
   /** 近一年出席次數（同名不同佛堂的，統計裡是「名字（佛堂）」） */
   function actOf(m) {
-    return st.activity.get(m.name + '（' + (m.temple || '') + '）') || st.activity.get(m.name) || { count: 0, 勤務: 0, 道務: 0, 教育: 0, last: '', items: {} };
+    return st.activity.get(m.name + '（' + (m.temple || '') + '）') || st.activity.get(m.name) || { count: 0, 勤務: 0, 道務: 0, 教育: 0, 植素: 0, last: '', items: {} };
   }
 
   /** 點名字：看這位的資料與出席情形，最下面才是「已成全清口」 */
   function vegDetail(m) {
     if (!m) return;
     const a = actOf(m);
-    const CAT_NAME = { 勤務: '總務・勤務', 道務: '道務', 教育: '教育' };
     const items = Object.entries(a.items || {}).sort((x, y) => y[1].count - x[1].count);
     const md = Modal.open(`
       <h2 class="modal-title">${esc(m.name)}${m.vegetarian ? '<span class="veg-tag">已清口</span>' : ''}</h2>
       <p class="modal-note">${[m.temple ? '佛堂：' + esc(m.temple) : '還沒填佛堂', m.overseas ? '國外：' + esc(m.overseas) : '', esc(m.identity || '未填身分'), m.age !== '' && m.age !== undefined && m.age !== null ? m.age + ' 歲' : ''].filter(Boolean).join('・')}</p>
       <div class="veg-detail">
         <p class="veg-detail-sum">近一年出席 <strong>${a.count}</strong> 次${a.last ? `<span class="muted">（最近一次 ${esc(Fmt.rocDate(a.last))}）</span>` : ''}</p>
-        <ul class="veg-detail-cats">${['勤務', '道務', '教育'].map((k) => `<li><span>${CAT_NAME[k]}</span><strong>${a[k]}</strong></li>`).join('')}</ul>
+        <ul class="veg-detail-cats">${Fmt.categories().map((k) => `<li><span>${esc(Fmt.catLabel(k))}</span><strong>${a[k] || 0}</strong></li>`).join('')}</ul>
         <h3 class="veg-detail-h">📝 成全紀錄</h3>
         ${st.canEdit ? `<textarea class="input textarea veg-care" rows="3" maxlength="300" data-care placeholder="例：10/8 已和她談過，由某某負責成全">${esc(m.careNote || '')}</textarea><button type="button" class="btn btn-small" data-care-save>存紀錄</button>` : `<p>${m.careNote ? esc(m.careNote) : '<span class="muted">還沒有紀錄</span>'}</p>`}
         ${items.length ? `<h3 class="veg-detail-h">參加過的項目</h3><ul class="veg-detail-items">${items.map(([, v]) => `<li><span>${esc(v.name)}<small>${esc(CAT_NAME[v.category] || v.category)}</small></span><strong>${v.count} 次</strong></li>`).join('')}</ul>` : '<p class="muted">近一年沒有出席紀錄</p>'}

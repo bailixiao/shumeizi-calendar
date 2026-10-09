@@ -1643,6 +1643,7 @@ body:not(.role-super) #view-admin .people-list [data-row] { cursor: default; }
 .cat-勤務 { background: var(--teal); }      /* 志工 */
 .cat-道務 { background: #c4612f; }          /* 靈魂健身房（橘） */
 .cat-教育 { background: var(--berry); }     /* 槑青韜課館（深紅） */
+.cat-植素 { background: var(--ok); }        /* 植素園工作坊（橄欖綠） */
 /* 帳號管理 */
 .account-list { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .account-main { width: 100%; text-align: left; display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); cursor: pointer; font: inherit; color: inherit; }

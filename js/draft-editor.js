@@ -8,9 +8,9 @@
   const esc = Fmt.esc;
   const NATURES = ['勤務', '支援', '烹飪', '活動'];
   // 類別與各類別的性質（同 apps-script/DutyRules.gs 的 NATURES_BY_CATEGORY_）；道務、教育沒有了愿項目，只有一個「參加」
-  const CATEGORIES = ['勤務', '道務', '教育'];
-  const NATURES_BY_CAT = { 勤務: NATURES, 道務: ['法會', '課程', '會議'], 教育: ['課程', '活動'] };
-  const isSimple = (c) => c === '道務' || c === '教育';
+  const CATEGORIES = Fmt.categories();
+  const NATURES_BY_CAT = { 勤務: NATURES, 道務: ['法會', '課程', '會議'], 教育: ['課程', '活動'], 植素: ['工作坊', '出攤', '活動'] };
+  const isSimple = Fmt.isFreeCat;
 
   // ---------- 農曆 → 國曆 ----------
 
@@ -134,7 +134,7 @@
         ${x.notes.length ? `<div class="de-notes">⚠️ 請特別確認：<ul>${x.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul></div>` : ''}
         ${f('名稱', inp('name'))}
         <div class="de-row">
-          ${f('類別', `<select class="input" data-k="category">${CATEGORIES.map((n) => `<option${n === x.category ? ' selected' : ''}>${n}</option>`).join('')}</select>`)}
+          ${f('類別', `<select class="input" data-k="category">${CATEGORIES.map((n) => `<option value="${n}"${n === x.category ? ' selected' : ''}>${esc(Fmt.catLabel(n))}</option>`).join('')}</select>`)}
           ${x.category === '教育' ? f('師資', inp('teachers', 'text', 'placeholder="好幾位用「、」隔開"')) : ''}
         </div>
         <div class="de-row">

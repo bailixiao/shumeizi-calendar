@@ -85,7 +85,7 @@
 
   /** 看得到「名單」的帳號：總管理者與勤務／道務／教育（類別帳號只看自己類別） */
   function seesRoster() {
-    return ['總管理者', '勤務', '道務', '教育'].indexOf(Api.adminWho().role) !== -1;
+    return (Api.adminWho().role === '總管理者' || Fmt.categories().indexOf(Api.adminWho().role) !== -1);
   }
 
   /** 看得到操作紀錄的帳號：只有總管理者 */
@@ -181,13 +181,13 @@
     if (role === '唯讀') return '<p class="role-note">👀 唯讀帳號：可以查看所有資料，不能修改。</p>';
     if (role === '場管') return `<p class="role-note">🏠 ${esc(window.SITE.venue)}場管帳號：審核家人們的場地借用申請。</p>`;
     if (role === '勤務') return '<p class="role-note">這個帳號管理「勤務」類的勤務；成員、分組只能查看。</p>';
-    if (['道務', '教育'].indexOf(role) !== -1) return `<p class="role-note">這個帳號管理「${esc(role)}」類的活動、課程與布達；也可以編輯成員、分組。</p>`;
+    if (Fmt.isFreeCat(role)) return `<p class="role-note">這個帳號管理「${esc(Fmt.catLabel(role))}」類的活動、課程與布達；也可以編輯成員、分組。</p>`;
     return '';
   }
 
   /** 畫面用詞：道務、教育帳號管的是課程、法會、布達，唯讀帳號三組都看得到，都叫「活動」；總管理者、勤務帳號叫「勤務」 */
   function term() {
-    return Api.isAdmin() && ['道務', '教育', '唯讀'].indexOf(Api.adminWho().role) !== -1 ? '活動' : '勤務';
+    return Api.isAdmin() && (Fmt.isFreeCat(Api.adminWho().role) || Api.adminWho().role === '唯讀') ? '活動' : '勤務';
   }
 
   /** 依角色在 body 加上 class，CSS 會把用不到的按鈕藏起來 */
@@ -195,7 +195,7 @@
     const role = Api.isAdmin() ? Api.adminWho().role : '';
     document.body.classList.toggle('role-super', role === '總管理者');
     document.body.classList.toggle('role-readonly', role === '唯讀');
-    document.body.classList.toggle('role-cat', ['勤務', '道務', '教育'].indexOf(role) !== -1);
+    document.body.classList.toggle('role-cat', Fmt.categories().indexOf(role) !== -1);
   }
 
   /** 管理 API 錯誤處理：登入過期就回登入畫面，其他顯示訊息；回傳 true 代表已處理 */
@@ -305,7 +305,7 @@
 
       body.innerHTML = `
         ${staleNote(stale)}
-        ${['道務', '教育'].indexOf(Api.adminWho().role) !== -1 ? '' : shortDates.size
+        ${Fmt.isFreeCat(Api.adminWho().role) ? '' : shortDates.size
           ? `<div class="notice notice-error" role="status"><p><strong>近一個月有 ${shortDates.size} 天缺人</strong></p><p>${Fmt.shortDateList(shortDates)}</p>${Share.buttonsHtml()}</div>`
           : '<div class="notice notice-success" role="status"><p><strong>近一個月都不缺人</strong></p></div>'}
         ${[...byDate.entries()].map(([date, items]) => `

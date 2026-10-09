@@ -8,8 +8,8 @@
   const strokeCompare = new Intl.Collator('zh-Hant-TW-u-co-stroke').compare;
   const splitTeachers = (t) => String(t || '').split(/[、，,\s]+/).filter(Boolean);
   // 每個類別算哪些性質、負責人員有哪些角色
-  const NATURES = { 教育: ['課程'], 道務: ['課程', '法會', '會議'] };
-  const ROLES = { 教育: [['teachers', '師資']], 道務: [['lecturers', '講師'], ['leaders', '帶班'], ['assistants', '助理帶班']] };
+  const NATURES = { 教育: ['課程'], 道務: ['課程', '法會', '會議'], 植素: ['工作坊', '出攤'] };
+  const ROLES = { 植素: [], 教育: [['teachers', '師資']], 道務: [['lecturers', '講師'], ['leaders', '帶班'], ['assistants', '助理帶班']] };
   const rolesOf = (s, category) => {
     const out = {};
     (ROLES[category] || ROLES['教育']).forEach(([k, label]) => { out[label] = splitTeachers(s[k]); });

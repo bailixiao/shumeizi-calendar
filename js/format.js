@@ -10,6 +10,18 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  /** 說明文字：跳脫後把網址變成可以點的連結（Google 地圖、菜單連結⋯），換行變 <br> */
+  function linkText(s) {
+    return esc(s)
+      .replace(/https?:\/\/[^\s<>，。、）」】]+/g, (url) => {
+        const trail = (url.match(/([.,;:!?)]|&#39;|&quot;)+$/) || [''])[0]; // 句尾的標點不算網址
+        const href = trail ? url.slice(0, -trail.length) : url;
+        const label = /maps\.app\.goo\.gl|google\.[^/]+\/maps|goo\.gl\/maps/.test(href) ? '📍 Google 地圖' : href;
+        return `<a href="${href}" target="_blank" rel="noopener">${label}</a>${trail}`;
+      })
+      .replace(/\n/g, '<br>');
+  }
+
   /** Date → 'yyyy-MM-dd'（用瀏覽器本地日期） */
   function toDateStr(date) {
     const y = date.getFullYear();
@@ -194,7 +206,7 @@
   }
 
   window.Fmt = {
-    esc, toDateStr, parseDate, addDays, datesBetween, rocYear, weekday, shortDate, rocDate, catLabel, categories, isFreeCat, feature, natureLabel,
+    esc, linkText, toDateStr, parseDate, addDays, datesBetween, rocYear, weekday, shortDate, rocDate, catLabel, categories, isFreeCat, feature, natureLabel,
     timeRange, cardTime, effectiveMin, dayState, groupText, sameName, byStroke, setContact, askAdmin, shortDateList
   };
 })();

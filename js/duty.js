@@ -168,7 +168,7 @@
       ${d.description ? `
         <section class="detail-section">
           <h2>說明</h2>
-          ${d.layout === '職司表' ? `<div class="rich-desc">${GridPage.richDesc(d.description)}</div>` : `<p class="detail-desc">${esc(d.description).replace(/\n/g, '<br>')}</p>`}
+          ${d.layout === '職司表' ? `<div class="rich-desc">${GridPage.richDesc(d.description)}</div>` : `<p class="detail-desc">${Fmt.linkText(d.description)}</p>`}
         </section>` : ''}
       ${images.length ? `
         <section class="detail-section">

@@ -673,7 +673,7 @@
 
           <fieldset class="form-block">
             <legend>DM（照片或 PDF）</legend>
-            <p class="hint">家人們打開這個${F()}就看得到。最多 ${DM_MAX} 個；照片會自動縮小，PDF 一個最大 5MB。</p>
+            <p class="hint">家人們打開這個${F()}就看得到。最多 ${DM_MAX} 個；照片會自動縮小，PDF 一個最大 5MB。有吃飯的話，餐廳的菜單照片也可以放這裡。</p>
             ${s.dm.length ? `<ul class="dm-edit">${s.dm.map((x, i) => `<li>${/^image\//.test(x.mime) ? `<img src="${esc(Api.fileUrl(x.id))}" alt="">` : '<span class="dm-pdf">PDF</span>'}<span class="dm-name">${esc(x.name || '')}</span><button type="button" class="btn btn-small btn-quiet-danger" data-dm-del="${i}">移除</button></li>`).join('')}</ul>` : ''}
             ${s.dm.length < DM_MAX ? '<label class="btn btn-block">＋ 加照片或 PDF<input type="file" accept="image/*,application/pdf" multiple hidden data-dm-file></label>' : ''}
           </fieldset>
@@ -687,6 +687,7 @@
           <fieldset class="form-block">
             <legend>說明</legend>
             <textarea class="input textarea" name="description" rows="4" placeholder="工作項目、注意事項⋯">${esc(s.description)}</textarea>
+            <p class="hint">貼網址會變成可以點的連結，例如 Google 地圖（分享 → 複製連結）、線上菜單。</p>
           </fieldset>
 
           ${lunar || st.dateType === 'multi' ? '<div data-preview></div>' : ''}

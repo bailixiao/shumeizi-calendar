@@ -6,8 +6,11 @@
 //   - 資料 API（script.google.com）一律不經過這裡，永遠向伺服器拿。
 'use strict';
 
-// 和教全區行事曆在同一個網域（bailixiao.github.io），快取名稱要不一樣，也只刪自己的舊快取。
-const CACHE = 'shumeizi-v4';
+// 同一個網域（bailixiao.github.io）底下有好幾個網站（教全區行事曆等），手機裡的快取是共用的：
+// 快取名稱帶上這個網站的路徑，清舊快取時只清自己的，不會清掉別的網站的（和教全區的 sw.js 同樣做法）。
+const PREFIX = 'shumeizi:' + new URL('./', self.location).pathname + ':';
+const CACHE = PREFIX + 'v5';
+const LEGACY = ['shumeizi-v1', 'shumeizi-v2', 'shumeizi-v3', 'shumeizi-v4']; // 改名前的舊快取（只有書槑子用過）
 const CDN_HOSTS = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', () => self.skipWaiting());
@@ -15,7 +18,8 @@ self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (ev) => {
   ev.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter((k) => k !== CACHE && k.indexOf('shumeizi-') === 0).map((k) => caches.delete(k)));
+    const mine = (k) => (k.indexOf(PREFIX) === 0 || LEGACY.indexOf(k) !== -1) && k !== CACHE;
+    await Promise.all(keys.filter(mine).map((k) => caches.delete(k)));
     await self.clients.claim();
   })());
 });

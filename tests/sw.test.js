@@ -12,9 +12,9 @@ function loadSw(summary) {
   const self = {
     addEventListener: (t, fn) => { listeners[t] = fn; },
     skipWaiting() {},
-    location: { origin: 'https://example.test' },
+    location: { origin: 'https://example.test', href: 'https://example.test/shumeizi-calendar/sw.js', toString() { return this.href; } },
     registration: {
-      scope: 'https://example.test/duty-calendar/',
+      scope: 'https://example.test/shumeizi-calendar/',
       pushManager: { getSubscription: async () => ({ endpoint: 'https://fcm.googleapis.com/fcm/send/abc' }) },
       showNotification: async (title, opts) => { shown.push({ title, ...opts }); }
     },
@@ -78,4 +78,23 @@ test('團購取貨提醒：填了我是誰、明天要取貨 → 標題「記得
   assert.equal(lines[0], '📦 09:00 宏宗聖堂道學院');
   assert.equal(lines[1], '　手工豆腐×2、果醬×1｜270 元（轉帳，記得填末五碼）');
   assert.equal(n.data.url, '#/mine');
+});
+
+test('快取名稱帶網站路徑：清舊快取只清自己的，不清同網域其他網站（教全區）的', async () => {
+  const listeners = {};
+  const deleted = [];
+  const self = {
+    addEventListener: (t, fn) => { listeners[t] = fn; }, skipWaiting() {},
+    location: { origin: 'https://example.test', href: 'https://example.test/shumeizi-calendar/sw.js', toString() { return this.href; } },
+    registration: { scope: 'https://example.test/shumeizi-calendar/' }, clients: { claim() {} }
+  };
+  const caches = {
+    keys: async () => ['shumeizi-v4', 'shumeizi:/shumeizi-calendar/:v4', 'shumeizi:/shumeizi-calendar/:v5', 'duty-calendar-v2', 'duty-calendar:/duty-calendar/:v3'],
+    delete: async (k) => { deleted.push(k); return true; }
+  };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8'), { self, caches, URL, console, importScripts() {} });
+  let p;
+  listeners.activate({ waitUntil: (x) => { p = x; } });
+  await p;
+  assert.deepStrictEqual(deleted.sort(), ['shumeizi-v4', 'shumeizi:/shumeizi-calendar/:v4']);
 });

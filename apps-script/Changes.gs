@@ -99,6 +99,8 @@ function rescheduleSignup_(body, opts) {
       '姓名': row['姓名'],
       '身分': row['身分'],
       '陪同': row['陪同'],
+      '佛堂': row['佛堂'] || '',
+      '吃飯': toDuty['有吃飯'] === '是' ? row['吃飯'] || '' : '', // 改期：吃飯跟著原本的
       '出席': '出席',
       '狀態': '有效',
       '建立時間': now,
@@ -190,6 +192,8 @@ function dutyDays_(duty, positions, signups, dates) {
 
 /** 操作紀錄的內容摘要：姓名（身分・陪同）｜日期｜勤務｜了愿項目 */
 function signupSummary_(row, duty, position) {
-  var who = row['姓名'] + '（' + (row['身分'] || '未填身分') + (row['陪同'] === '是' ? '・陪同' : '') + '）';
+  var who = SITE.identity === false
+    ? row['姓名'] + (row['吃飯'] === '是' ? '🍱' : '') // 書槑子：不選身分
+    : row['姓名'] + '（' + (row['身分'] || '未填身分') + (row['陪同'] === '是' ? '・陪同' : '') + '）';
   return [who, row['日期'], duty ? duty['名稱'] : row['勤務ID'], position ? position['了愿項目名稱'] : row['了愿項目ID']].join('｜');
 }

@@ -125,7 +125,8 @@ function dayStatus_(positions, signups, date) {
  *
  * req = {
  *   duty: 勤務列物件, positions: 該勤務的了愿項目列, signups: 該勤務的報名列,
- *   positionId, dates: [yyyy-MM-dd], entries: [{ name, identity: '壇辦'|'道親', accompany: boolean }], today
+ *   positionId, dates: [yyyy-MM-dd], entries: [{ name, identity: '壇辦'|'道親', accompany: boolean }], today,
+ *   identity: false 時不檢查身分、不能陪同（書槑子，SITE.identity）
  * }
  * 錯誤格式：{ name?, date?, message }
  */
@@ -149,6 +150,8 @@ function validateSignup_(req) {
   if (entries.some(function (e) { return e.name === ''; })) return [{ message: '名字不可空白' }];
   entries.forEach(function (e) {
     if (NAME_SEPARATORS_.test(e.name) || /^[一-鿿]{2,}([\s　]+[一-鿿]{2,})+$/.test(e.name)) { errors.push({ name: e.name, message: '「' + e.name + '」看起來是好幾個名字，請一個名字加一次' }); return; }
+    // 不選身分（書槑子）：沒有陪同。req.identity 沒給時看網站設定 SITE.identity（Rules.gs 單獨測試時沒有 SITE）
+    if (req.identity === false || (req.identity === undefined && typeof SITE !== 'undefined' && SITE.identity === false)) { if (e.accompany) errors.push({ name: e.name, message: '這個網站沒有「陪同」' }); return; }
     if (IDENTITIES_.indexOf(e.identity) === -1) errors.push({ name: e.name, message: '請選擇身分（道親、壇辦或未求道）' });
     else if (e.accompany && e.identity !== '壇辦') errors.push({ name: e.name, message: '只有壇辦可以選「陪同」' });
   });

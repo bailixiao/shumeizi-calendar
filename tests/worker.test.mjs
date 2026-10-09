@@ -47,7 +47,7 @@ test('報名、名額、取消、我的報名、名字提示都正常', async ()
   const ev = (await call('GET', { action: 'getEvents', from: '2026-11-08', to: '2026-11-08' })).data;
   const team = ev.duties.find((d) => d.name === '12人小組輪值');
   const cook = team.positions.find((p) => p.name === '烹飪');
-  const r = await call('POST', { action: 'signup', dutyId: team.id, positionId: cook.id, dates: ['2026-11-08'], entries: [{ name: '測試甲', identity: '道親' }] });
+  const r = await call('POST', { action: 'signup', dutyId: team.id, positionId: cook.id, dates: ['2026-11-08'], entries: [{ name: '測試甲', identity: '道親', source: '官網' }] });
   assert.equal(r.ok, true, JSON.stringify(r.error));
   const dup = await call('POST', { action: 'signup', dutyId: team.id, positionId: cook.id, dates: ['2026-11-08'], entries: [{ name: '測試甲', identity: '道親' }] });
   assert.equal(dup.error.code, 'VALIDATION');
@@ -55,6 +55,7 @@ test('報名、名額、取消、我的報名、名字提示都正常', async ()
   assert.equal(mine.data.items.length, 1);
   assert.equal((await call('POST', { action: 'cancel', signupId: r.data.created[0].id })).ok, true);
   assert.equal((await call('POST', { action: 'mySignups', name: '測試甲' })).data.items.length, 0);
+  // Cloudflare 版跑的是書槑子的設定（不選身分）：第一次來的人沒選認識管道會被擋
   assert.equal((await call('POST', { action: 'signup', dutyId: team.id, positionId: cook.id, dates: ['2026-11-08'], entries: [{ name: '測試乙', identity: '' }] })).error.code, 'VALIDATION');
 });
 
@@ -65,7 +66,7 @@ test('資料存回 SQLite 後重新啟動仍在；管理者登入通行碼不會
   const token = login.data.token;
   const ev = (await call('GET', { action: 'getEvents', from: '2026-10-13', to: '2026-10-13' })).data;
   const v = ev.duties.find((d) => d.name === '彌勒山志工輪值');
-  await call('POST', { action: 'signup', dutyId: v.id, positionId: v.positions[0].id, dates: ['2026-10-13'], entries: [{ name: '測試甲', identity: '道親' }] });
+  await call('POST', { action: 'signup', dutyId: v.id, positionId: v.positions[0].id, dates: ['2026-10-13'], entries: [{ name: '測試甲', identity: '道親', source: '官網' }] });
   // 模擬 Durable Object 重新啟動：同一份 store（記憶體版保留 props、cache）重新建立 app
   const app2 = createApp(store, { now: () => OCT_1 });
   const res = await app2.handle(new Request('https://w.test/', { method: 'POST', body: JSON.stringify({ action: 'adminRecent', token }) }));

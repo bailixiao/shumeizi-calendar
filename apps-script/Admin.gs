@@ -230,7 +230,9 @@ function adminDay_(body) {
             min: p.min,
             max: p.max,
             people: rows.filter(function (s) { return s['了愿項目ID'] === p.id; }).map(function (s) {
-              return { name: s['姓名'], accompany: s['陪同'] === '是' };
+              var o = { name: s['姓名'], accompany: s['陪同'] === '是' };
+              if (d.meal) o.meal = s['吃飯'] === '是'; // 有吃飯的活動：會一起吃飯
+              return o;
             })
           };
         })

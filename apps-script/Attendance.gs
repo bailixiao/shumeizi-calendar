@@ -57,7 +57,8 @@ function adminSetAttendance_(body) {
 }
 
 /**
- * body = { dutyId, positionId, date, name, identity, accompany, note }：管理者加人，直接記為出席。
+ * body = { dutyId, positionId, date, name, identity, accompany, note, meal, source, referrer, sourceNote }：管理者加人，直接記為出席。
+ * 第一次來的人一樣要選認識管道（SITE.sources，可選「不確定」）；有吃飯的活動可以記 meal。
  * 當天與過去＝補登（沒報名但有來）；未來＝管理者幫人報名（不受截止日、當天不能報的限制）。note：職司表的註記。
  */
 function adminAddAttendee_(body) {
@@ -68,9 +69,11 @@ function adminAddAttendee_(body) {
     // 成員名單上已登記身分的人，以名單為準（和一般報名相同）
     var entry = withMemberIdentity_([{ name: body.name, identity: body.identity, accompany: !!body.accompany, temple: body.temple }])[0];
     checkAmbiguous_([entry]);
+    var sources = newcomerSources_([{ name: entry.name, source: body.source, referrer: body.referrer, sourceNote: body.sourceNote }]);
     var problems = validateSignup_({
       duty: duty, positions: positions, signups: signups, positionId: body.positionId,
-      dates: [body.date], entries: [entry], today: '0000-00-00' // 補登不受日期限制
+      dates: [body.date], entries: [entry], today: '0000-00-00', // 補登不受日期限制
+      identity: SITE.identity !== false
     });
     // 資料本身的錯（找不到勤務、沒填名字、身分⋯）要擋；名額、同日重複只警告
     var blocking = problems.filter(function (e) { return !/額滿|名額|同一勤務同一天/.test(e.message); });
@@ -81,12 +84,13 @@ function adminAddAttendee_(body) {
     var now = nowString_();
     var row = {
       '報名ID': newId_('S'), '勤務ID': duty['勤務ID'], '日期': body.date, '了愿項目ID': body.positionId,
-      '姓名': normalizeName_(entry.name), '身分': entry.identity, '佛堂': entry.temple || '', '陪同': entry.accompany ? '是' : '否',
+      '姓名': normalizeName_(entry.name), '身分': entry.identity || '', '佛堂': entry.temple || '', '陪同': entry.accompany ? '是' : '否',
+      '吃飯': duty['有吃飯'] === '是' && body.meal ? '是' : '',
       '出席': '出席', '狀態': '有效', '建立時間': now, '更新時間': now
     };
     if (duty['版面'] === '職司表' && body.note) row['註記'] = cleanText_(body.note).slice(0, 100);
     appendRows_(SHEETS.SIGNUPS, [row]);
-    addPendingMembers_([row], duty['名稱']);
+    addPendingMembers_([row], duty['名稱'], sources);
     appendRows_(SHEETS.LOGS, [{
       '時間': now, '動作': '修正', '報名ID': row['報名ID'],
       '內容摘要': signupSummary_(row, duty, position) + (body.date > todayString_() ? '｜管理者幫人報名' : '｜補登') + (warnings.length ? '（警告：' + warnings.join('；') + '）' : ''),

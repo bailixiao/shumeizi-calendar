@@ -89,7 +89,8 @@ function dutyDetail_(duty, positions, signups) {
       temple: s['佛堂'] || '',
       accompany: s['陪同'] === '是',
       leader: s['組長'] === '是', // 職司表的組長 ★
-      note: s['註記'] || ''
+      note: s['註記'] || '',
+      meal: s['吃飯'] === '是' // 會一起吃飯（活動有開「有吃飯」時）
     };
   });
 
@@ -206,6 +207,7 @@ function dutyToJson_(d, positions) {
     mode: d['模式'] || '報名型',
     deadline: d['報名截止日'] || '',
     multi: d['可兼任'] === '是',
+    meal: d['有吃飯'] === '是', // 報名時可以勾「我會一起吃飯」
     leaderTitle: d['組長職稱'] || '', // 每天要一位組長（例：勤務組長），空白＝不需要
     totalNeed: d['可兼任'] === '是' ? Number(d['共需人數']) || 0 : 0, // 可兼任時這一天總共需要幾位（0＝照各項目最少人數）
     start: d['開始日'],
@@ -245,6 +247,12 @@ function daysStatus_(duty, positions, signups, dates) {
     var need = duty['可兼任'] === '是' ? Number(duty['共需人數']) || 0 : 0;
     var shortage = free ? 0 : need ? Math.max(need - people, 0) : s.shortage;
     days[date] = { total: s.total, people: people, shortage: shortage, full: s.full, counts: counts };
+    // 有吃飯的活動：這天要準備幾份（會一起吃飯的不重複人數）
+    if (duty['有吃飯'] === '是') {
+      var eat = {};
+      signups.forEach(function (x) { if (x['日期'] === date && x['狀態'] !== '已取消' && x['吃飯'] === '是') eat[normalizeName_(x['姓名']) + '|' + (x['佛堂'] || '')] = true; });
+      days[date].meals = Object.keys(eat).length;
+    }
   });
   return days;
 }

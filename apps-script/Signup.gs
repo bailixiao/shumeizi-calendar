@@ -8,7 +8,9 @@ var MAX_ENTRIES_PER_SIGNUP = 20;
 var MAX_DATES_PER_SIGNUP = 31;
 
 /**
- * body = { dutyId, positionId | positionIds: [..]（可兼任的勤務可多個）, dates: ['yyyy-MM-dd'], entries: [{ name, identity, accompany, note, leader }] }
+ * body = { dutyId, positionId | positionIds: [..]（可兼任的勤務可多個）, dates: ['yyyy-MM-dd'], entries: [{ name, identity, accompany, note, leader, meal, source, referrer, sourceNote }] }
+ * meal：活動有開「有吃飯」時，這個人會一起吃飯
+ * source、referrer、sourceNote：第一次報名的人（成員名單上沒有）怎麼認識的（SITE.sources；朋友介紹要填介紹人），記在成員名單
  * leader：勤務有組長職稱時，這次報名的其中一位當組長（一天一位）
  * note：職司表的勤務才收（例：8:00-19:00、代理人），最多 100 字
  */
@@ -26,6 +28,7 @@ function signup_(body) {
   // 成員名單上已登記身分的人，一律以名單為準（報名者不能改，統計才一致）
   entries = withMemberIdentity_(entries);
   checkAmbiguous_(entries);
+  var sources = newcomerSources_(entries);
 
   var duty = readTableCached_(SHEETS.DUTIES).filter(function (d) { return d['勤務ID'] === body.dutyId; })[0];
   var positions = duty ? readTableCached_(SHEETS.POSITIONS).filter(function (p) { return p['勤務ID'] === duty['勤務ID']; }) : [];
@@ -67,7 +70,8 @@ function signup_(body) {
         positionId: pid,
         dates: dates,
         entries: group,
-        today: todayString_()
+        today: todayString_(),
+        identity: SITE.identity !== false
       });
       var position = positions.filter(function (p) { return p['了愿項目ID'] === pid; })[0];
       if (positionIds.length > 1 && position) {
@@ -80,6 +84,7 @@ function signup_(body) {
         group.forEach(function (e) {
           var name = normalizeName_(e.name);
           var accompany = !!e.accompany;
+          var meal = duty['有吃飯'] === '是' && !!e.meal;
           var id = newId_('S');
           var row = {
             '報名ID': id,
@@ -87,8 +92,9 @@ function signup_(body) {
             '日期': date,
             '了愿項目ID': position['了愿項目ID'],
             '姓名': name,
-            '身分': e.identity,
+            '身分': e.identity || '',
             '佛堂': e.temple || '',
+            '吃飯': meal ? '是' : '',
             '陪同': accompany ? '是' : '否',
             '出席': '出席',
             '狀態': '有效',
@@ -101,10 +107,10 @@ function signup_(body) {
             '時間': now,
             '動作': '報名',
             '報名ID': id,
-            '內容摘要': [name + '（' + e.identity + (accompany ? '・陪同' : '') + '）', date, duty['名稱'], position['了愿項目名稱']].join('｜'),
+            '內容摘要': [name + (e.identity ? '（' + e.identity + (accompany ? '・陪同' : '') + '）' : '') + (meal ? '🍱' : ''), date, duty['名稱'], position['了愿項目名稱']].join('｜'),
             '還原用的前一版資料': ''
           });
-          created.push({ id: id, date: date, name: name, identity: e.identity, accompany: accompany, positionId: position['了愿項目ID'] });
+          created.push({ id: id, date: date, name: name, identity: e.identity || '', accompany: accompany, meal: meal, positionId: position['了愿項目ID'] });
         });
       });
     });
@@ -134,7 +140,7 @@ function signup_(body) {
 
     appendRows_(SHEETS.SIGNUPS, signupRows);
     appendRows_(SHEETS.LOGS, logRows);
-    addPendingMembers_(signupRows, duty['名稱']);
+    addPendingMembers_(signupRows, duty['名稱'], sources);
     SpreadsheetApp.flush();
     invalidateTable_(SHEETS.SIGNUPS);
 

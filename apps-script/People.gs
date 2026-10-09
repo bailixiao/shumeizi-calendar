@@ -377,7 +377,35 @@ function adminDeleteMember_(body) {
 // ---------- 新名字自動加入（待確認） ----------
 
 /** 報名、補登、匯入後呼叫（已在鎖定內）：名單上沒有的名字加一列「待確認」 */
-function addPendingMembers_(signupRows, dutyName) {
+/**
+ * 第一次報名的人（成員名單上任何狀態都沒有這個名字或別名）要選怎麼認識的（SITE.sources；空的＝不問）。
+ * 回傳 { 名字: { source, referrer, note } }（只有新朋友），缺了就擋下（整批不寫入）。
+ */
+function newcomerSources_(entries) {
+  var list = SITE.sources || [];
+  if (!list.length) return {};
+  var known = {};
+  readTable_(SHEETS.MEMBERS).forEach(function (m) {
+    if (m['姓名']) known[normalizeName_(m['姓名'])] = true;
+    splitAliases_(m['別名']).forEach(function (a) { known[a] = true; });
+  });
+  var out = {};
+  var errors = [];
+  (entries || []).forEach(function (e) {
+    var name = normalizeName_(e && e.name);
+    if (!name || known[name] || out[name]) return;
+    var source = cleanText_((e && e.source) || '');
+    var referrer = normalizeName_((e && e.referrer) || '').slice(0, 20);
+    if (list.indexOf(source) === -1) errors.push({ name: name, message: '第一次來的朋友，請選怎麼認識' + SITE.org + '的' });
+    else if (source === '朋友介紹' && !referrer) errors.push({ name: name, message: '請填介紹人是誰' });
+    else out[name] = { source: source, referrer: source === '朋友介紹' ? referrer : '', note: source === '其他' ? cleanText_((e && e.sourceNote) || '').slice(0, 50) : '' };
+  });
+  if (errors.length) throw new ApiError_('VALIDATION', '報名沒有完成，請看下面的說明', errors);
+  return out;
+}
+
+/** sources：newcomerSources_ 的結果（新朋友怎麼認識的），記在新加入的那一列 */
+function addPendingMembers_(signupRows, dutyName, sources) {
   if (!signupRows || !signupRows.length) return 0;
   var has = {};
   readTable_(SHEETS.MEMBERS).forEach(function (m) { if (m['姓名']) { has[normalizeName_(m['姓名'])] = true; has[normalizeName_(m['姓名']) + '|' + (m['佛堂'] || '')] = true; } });
@@ -389,7 +417,9 @@ function addPendingMembers_(signupRows, dutyName) {
     if (!name || has[name + '|' + temple] || (!temple && has[name])) return;
     has[name + '|' + temple] = true;
     has[name] = true;
-    add.push({ '姓名': name, '身分': OPTIONS.identity.indexOf(r['身分']) !== -1 ? r['身分'] : '', '佛堂': temple, '備註': '自動加入：' + r['日期'] + ' ' + (dutyName || ''), '啟用中': '是', '待確認': '是' });
+    var src = (sources && sources[name]) || {};
+    add.push({ '姓名': name, '身分': OPTIONS.identity.indexOf(r['身分']) !== -1 ? r['身分'] : '', '佛堂': temple, '備註': '自動加入：' + r['日期'] + ' ' + (dutyName || ''), '啟用中': '是', '待確認': '是',
+      '認識管道': src.source || '', '介紹人': src.referrer || '', '管道說明': src.note || '', '第一次報名日': todayString_() });
   });
   if (!add.length) return 0;
   appendRows_(SHEETS.MEMBERS, add);

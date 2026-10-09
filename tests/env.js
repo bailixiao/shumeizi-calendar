@@ -4,7 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
-function createEnv(fixedNow) {
+// opts.shumeizi：用書槑子的設定（不選身分、第一次報名填認識管道）；沒給＝教全區原本的行為（原本的測試照舊）
+function createEnv(fixedNow, opts) {
   const sheets = {};
   function makeSheet(name) {
     const data = [];
@@ -122,6 +123,7 @@ function createEnv(fixedNow) {
     const s = makeSheet(def.name);
     if (def.headers.length) s.data.push(def.headers.slice());
   });
+  if (!(opts && opts.shumeizi)) Object.assign(api.fn('SITE'), { identity: true, sources: [] });
   api.seedInitialDuties();
 
   return {
@@ -132,7 +134,7 @@ function createEnv(fixedNow) {
     get(params) { return JSON.parse(api.doGet({ parameter: params }).text); },
     // 報名的 entries 沒寫身分的，預設「道親」
     post(body) {
-      if (Array.isArray(body.entries)) body = { ...body, entries: body.entries.map(e => ({ identity: '道親', ...e })) };
+      if (Array.isArray(body.entries) && !(opts && opts.shumeizi)) body = { ...body, entries: body.entries.map(e => ({ identity: '道親', ...e })) };
       return this.postRaw(JSON.stringify(body));
     },
     postRaw(text) { return JSON.parse(api.doPost({ postData: { contents: text } }).text); },

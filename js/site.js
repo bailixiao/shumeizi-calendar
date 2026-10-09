@@ -26,7 +26,7 @@
     examples: { dutyName: '例：槑子的靈魂健身房', pushBody: '例：今晚 19:30 竹北，可以提早來吃飯喔 🍱' },
     // 功能開關：不需要的設成 false（只藏入口，程式和資料都還在；之後要用改回 true）
     //   venue 借場地、repair 修繕回報、help 常見問題、push 手機提醒、temple 佛堂（成員的佛堂、同名的舊紀錄）、
-    //   vegetarian 清口與年齡統計、goals 各佛堂道務目標、ai 從照片新增（AI 整理草稿）、groups 分組（勤務了愿組、打掃組、拜香輪值組）
-    features: { venue: false, repair: false, help: true, push: true, temple: false, vegetarian: false, goals: false, ai: false, groups: false }
+    //   vegetarian 清口與年齡統計、goals 各佛堂道務目標、ai 從照片新增（AI 整理草稿）、groups 分組（勤務了愿組、打掃組、拜香輪值組）、shop 團購
+    features: { venue: false, repair: false, help: true, push: true, temple: false, vegetarian: false, goals: false, ai: false, groups: false, shop: true }
   };
 })();

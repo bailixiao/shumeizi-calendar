@@ -2339,3 +2339,52 @@ button.veg-chip:hover { border-color: var(--ok); }
 .meal-row .check { display: inline-flex; align-items: center; gap: 6px; }
 .meal-line { margin: 0 0 10px; padding: 8px 12px; border-radius: var(--radius); background: var(--accent-soft); }
 .meal-toggle { margin-top: 10px; }
+
+/* ---------- 團購（後台） ---------- */
+.shop-tabs { margin-bottom: 12px; }
+.shop-group-list, .shop-product-list, .shop-orders, .shop-sold { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.shop-group-card { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); color: inherit; text-decoration: none; }
+.shop-group-name { font-weight: 700; font-size: 1.08rem; }
+.shop-group-meta { grid-column: 1 / -1; color: var(--muted); font-size: .92rem; }
+.shop-product-row { width: 100%; display: flex; align-items: center; gap: 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.shop-product-row:disabled { cursor: default; }
+.shop-product-row.is-inactive { opacity: .55; }
+.shop-product-row img, .shop-noimg { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; flex: none; background: var(--paper-2); display: flex; align-items: center; justify-content: center; font-size: 1.6rem; }
+.shop-product-row small { display: block; color: var(--muted); }
+.shop-photo { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.shop-photo img { width: 120px; height: 120px; object-fit: cover; border-radius: 12px; }
+.shop-two, .shop-three { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.shop-three { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 8px; }
+.shop-three label span { display: block; font-size: .85rem; color: var(--muted); }
+.shop-pick-list, .shop-item-list { display: flex; flex-direction: column; gap: 6px; }
+.shop-item-set { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; background: var(--card); }
+.shop-item-set.is-on { border-color: var(--ok); background: var(--ok-soft); }
+.shop-item-set small { color: var(--muted); margin-left: 6px; }
+.shop-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.shop-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.shop-sold li { display: flex; gap: 10px; align-items: baseline; padding: 6px 10px; border-bottom: 1px dashed var(--line); }
+.shop-sold li span { flex: 1; }
+.shop-sold small { color: var(--muted); }
+.shop-prep { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 8px; background: var(--card); }
+.shop-prep-head { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 0 0 6px; }
+.shop-prep ul { margin: 0; padding-left: 1.2em; }
+.shop-prep li strong { margin-left: 8px; }
+.shop-pickup-seg { margin-bottom: 6px; }
+.shop-order { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; background: var(--card); }
+.shop-order p { margin: 4px 0; }
+.shop-order.is-picked { background: var(--ok-soft); }
+.shop-order.is-cancelled { opacity: .55; }
+.shop-order-head { display: flex; justify-content: space-between; gap: 8px; }
+.shop-order-actions { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin-top: 6px; }
+.shop-qty-list { display: flex; flex-direction: column; gap: 6px; }
+.shop-qty-row { display: grid; grid-template-columns: 1fr 90px; gap: 10px; align-items: center; }
+.shop-qty-row small { display: block; color: var(--muted); }
+.shop-stats .stat-hint { text-wrap: wrap; }
+.shop-pick { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); cursor: pointer; }
+.shop-pick input { margin-top: 4px; width: 20px; height: 20px; flex: none; }
+.shop-pick-text .cat-tag { margin-right: 6px; }
+.shop-pick-text small { display: block; color: var(--muted); }
+.shop-pick:has(input:checked) { border-color: var(--ok); background: var(--ok-soft); }
+.shop-three label { display: flex; flex-direction: column; justify-content: flex-end; min-width: 0; }
+.shop-three .input { width: 100%; min-width: 0; }
+.shop-three-hint { grid-column: 1 / -1; color: var(--muted); margin-left: 0 !important; }

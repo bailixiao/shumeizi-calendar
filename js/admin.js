@@ -88,6 +88,11 @@
     return (Api.adminWho().role === '總管理者' || Fmt.categories().indexOf(Api.adminWho().role) !== -1);
   }
 
+  /** 看得到團購的帳號：總管理者、植素（植素園工作坊）、唯讀（只能看）；功能開關 features.shop */
+  function seesShop() {
+    return Fmt.feature('shop') && ['總管理者', '植素', '唯讀'].indexOf(Api.adminWho().role) !== -1;
+  }
+
   /** 看得到操作紀錄的帳號：只有總管理者 */
   function seesLogs() {
     return Api.adminWho().role === '總管理者';
@@ -142,6 +147,7 @@
     if (sub === 'logs' && seesLogs()) return AdminPages.logs(shell('logs'), guard);
     if (sub === 'day' && seesRoster()) return AdminPages.day(shell('day'), guard);
     if (sub === 'push' && seesRoster()) return PushAdminPage.show(shell('push'), guard);
+    if (/^shop(\/|$)/.test(sub) && seesShop()) return ShopAdminPage.show(shell('shop'), guard, sub);
     return showRecent();
   }
 
@@ -151,6 +157,7 @@
     const T = term();
     const tabs = [['', '近期' + T], ['duties', T + '管理'], ['members', '成員']].concat(Fmt.feature('groups') ? [['groups', '分組']] : [], [['stats', '統計'], ['logs', '操作紀錄'], ['day', '名單'], ['push', '📣 推播']]);
     if (Fmt.feature('venue') && ['總管理者', '唯讀'].indexOf(who.role) !== -1) tabs.push(['venue', '場地借用']);
+    if (seesShop()) tabs.splice(1, 0, ['shop', '🛒 團購']);
     if (who.role === '總管理者') tabs.push(['accounts', '帳號']);
     if (who.role === '唯讀') tabs.splice(tabs.findIndex((t) => t[0] === 'duties'), 1); // 唯讀帳號：不顯示活動管理
     if (!seesLogs()) tabs.splice(tabs.findIndex((t) => t[0] === 'logs'), 1); // 操作紀錄只給總管理者

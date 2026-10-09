@@ -69,3 +69,13 @@ test('只有一項：點了直接打開那個勤務；測試通知；問不到�
   assert.match(n.title, /^🌱 .*行事曆提醒$/);
   assert.equal(n.data.url, '#/recent');
 });
+
+test('團購取貨提醒：填了我是誰、明天要取貨 → 標題「記得取團購」，列品項、金額、付款、地點，點開到查我的報名', async () => {
+  const pickups = [{ group: '十月團購', items: [{ name: '手工豆腐', qty: 2 }, { name: '果醬', qty: 1 }], total: 270, pay: '轉帳', paid: false, last5: '', location: '宏宗聖堂道學院', time: '09:00' }];
+  const n = await loadSw({ ok: true, data: { when: 'tomorrow', date: '2026-10-18', items: [{ id: 'D1', name: '植素園出攤', time: '09:00', label: '' }], mine: [], shortItems: [], pickups } }).push();
+  assert.equal(n.title, '🛒 明天記得取團購（10/18 日）');
+  const lines = n.body.split('\n');
+  assert.equal(lines[0], '📦 09:00 宏宗聖堂道學院');
+  assert.equal(lines[1], '　手工豆腐×2、果醬×1｜270 元（轉帳，記得填末五碼）');
+  assert.equal(n.data.url, '#/mine');
+});

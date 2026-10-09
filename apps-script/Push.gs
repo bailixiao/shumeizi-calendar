@@ -242,6 +242,7 @@ function pushSummary_(params) {
   var dev = params.id ? readTable_(SHEETS.PUSH).filter(function (r) { return r['裝置ID'] === params.id && r['啟用'] !== '否'; })[0] : null;
   if (dev && dev['名字']) {
     data.mine = pushMine_(dev['名字'], data.date);
+    data.pickups = shopPickupsFor_(dev['名字'], data.date); // 團購要取貨的
     data.shortItems = data.items.filter(function (it) { return it.short; });
   }
   return data;
@@ -291,11 +292,14 @@ function pushSetName_(body) {
  */
 function dailyPushEndpoints_(when) {
   var info = pushItems_(when);
-  if (!info.items.length) return [];
+  var pickup = shopPickupNames_(info.date); // 團購：這天要取貨的人，沒有活動也要提醒
+  if (!info.items.length && !Object.keys(pickup).length) return [];
   var shortCount = info.items.filter(function (it) { return it.short; }).length;
   var mineCache = {};
   return readTable_(SHEETS.PUSH).filter(function (r) {
     if (r['啟用'] === '否' || !r['端點']) return false;
+    if (r['名字'] && pickup[normalizeName_(r['名字'])]) return true;
+    if (!info.items.length) return false;
     if (!r['名字']) return true;
     if (shortCount) return true;
     if (mineCache[r['名字']] === undefined) mineCache[r['名字']] = pushMine_(r['名字'], info.date).length;

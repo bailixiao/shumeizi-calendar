@@ -7,7 +7,7 @@
 'use strict';
 
 // 和教全區行事曆在同一個網域（bailixiao.github.io），快取名稱要不一樣，也只刪自己的舊快取。
-const CACHE = 'shumeizi-v2';
+const CACHE = 'shumeizi-v4';
 const CDN_HOSTS = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', () => self.skipWaiting());
@@ -133,7 +133,7 @@ async function buildNotification() {
     const d = json.data;
     if (d.message) return { title: d.message.title, body: d.message.body, url: d.message.url || '#/', tag: 'msg-' + d.message.id, plan: d.message.plan ? d.message.id : '', dev: await pushId(sub.endpoint) }; // 借場地通知、後台推播
     if (d.test) return { title: '🔔 測試通知', body: '嗨！通知收到了 😊\n有活動時，前一天晚上 8 點、當天早上 7 點會提醒你 🔔', url: '#/recent' };
-    if (!d.items.length) return fallback;
+    if (!d.items.length && !(d.pickups && d.pickups.length)) return fallback;
     const p = d.date.split('-').map(Number);
     const wd = WEEKDAYS[new Date(p[0], p[1] - 1, p[2]).getDay()];
     const day = d.when === 'today' ? '今天' : '明天';
@@ -150,6 +150,18 @@ async function buildNotification() {
         if (others.length) lines.push(`另外還有 ${others.length} 個你報名的活動`);
         lines.push('謝謝你帶大家 🙌');
         return { title: `★ ${day}您是「${lead.name}」的${lead.leader}（${p[1]}/${p[2]} ${wd}）`, body: lines.join('\n'), url: `#/rollcall/${encodeURIComponent(lead.id)}?date=${d.date}` };
+      }
+      // 團購要取貨（填了「我是誰」的手機）：品項、金額、付款、地點；點開到查我的報名
+      const picks = d.pickups || [];
+      if (picks.length) {
+        const lines = [];
+        picks.slice(0, 3).forEach((o) => {
+          lines.push(`📦 ${o.time ? o.time + ' ' : ''}${o.location || o.group}`);
+          lines.push(`　${o.items.map((it) => it.name + '×' + it.qty).join('、')}｜${o.total} 元${o.pay === '轉帳' ? (o.paid ? '（已付款）' : o.last5 ? '（已轉帳）' : '（轉帳，記得填末五碼）') : '（取貨時付現）'}`);
+        });
+        if (d.mine.length) lines.push(`🌱 另外還有 ${d.mine.length} 個你報名的活動`);
+        lines.push('到時候見 😊');
+        return { title: `🛒 ${day}記得取團購（${p[1]}/${p[2]} ${wd}）`, body: lines.join('\n'), url: '#/mine' };
       }
       if (d.mine.length) {
         const lines = d.mine.slice(0, 4).map((it) => `${dutyEmoji(it)} ${it.time ? it.time + ' ' : ''}${it.name}${it.position ? '・' + it.position : ''}${it.location ? '（📍' + it.location + '）' : ''}`);

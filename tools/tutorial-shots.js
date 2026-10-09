@@ -155,7 +155,12 @@ const SUB = {
   '22': '有活動時，前一天晚上 8 點、當天早上 7 點提醒你',
   '23': '開好後，下面可以填「我是誰」，只提醒你報名的',
   '24': '一定要按「允許」才收得到喔',
-  '25': '點一下就打開活動 😊'
+  '25': '點一下就打開活動 😊',
+  '26': '在行事曆最上面；沒有開放中的團購時不會出現',
+  '27': '點照片可以放大看；有寫「剩 N 份」的是限量',
+  '28': '植素園出攤的日期和地點',
+  '29': '下面會算好總金額；轉帳的送出後會看到帳號',
+  '30': '截止前都可以到「查我的報名」改單或取消'
 };
 const sub = (n, dev) => { const s = SUB[n]; return Array.isArray(s) ? s[dev === 'ios' ? 0 : 1] : (s || ''); };
 // target：CSS 選擇器字串，或「$(」開頭的一段程式（直接放進頁面裡算）
@@ -254,6 +259,24 @@ async function main() {
     await shoot(c, '22');
     await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); PushPage.openPanel(); await W(1500); ${frame('23', '', '[data-on]')}`);
     await shoot(c, '23');
+
+    // ---------- 團購 ----------
+    await go(c);
+    await sleep(1500);
+    await run(c, `${frame('26', '', '#shop-link')}`);
+    await shoot(c, '26');
+    await go(c, '#/shop');
+    await sleep(1500);
+    await run(c, `document.querySelectorAll('[data-plus]')[0].click(); await W(200); document.querySelectorAll('[data-plus]')[0].click(); await W(200); document.querySelectorAll('[data-plus]')[2].click(); await W(300); ${frame('27', '', '.shop-cards')}`);
+    await shoot(c, '27');
+    await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); document.querySelector('input[name=pickup]').click(); await W(300); ${frame('28', '', "$('.shop-pickups').closest('section')")}`);
+    await shoot(c, '28');
+    await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); const n = $('[data-name]'); type(n, '測試庚'); n.dispatchEvent(new Event('change', { bubbles: true })); await W(2500);
+      const s = document.querySelector('input[data-src][value="官方 LINE"]'); if (s) { s.click(); await W(300); }
+      ${frame('29', '', '.shop-total-bar')}`);
+    await shoot(c, '29');
+    await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); $('form.shop-order-form').requestSubmit(); for (let i = 0; i < 30 && !$('.notice-success'); i++) await W(500); if (!$('.notice-success')) throw new Error('團購沒有送出：' + (($('[data-error]') || {}).textContent || '')); ${frame('30', '', '.notice-success')}`);
+    await shoot(c, '30');
   } finally {
     c.close();
     proc.kill();

@@ -162,3 +162,43 @@ test('權限：植素帳號可以開團、管訂單；志工帳號不行；唯�
   assert.equal(as(ro, 'adminShopSaveProduct', { product: { name: 'x', price: 1 } }).error.code, 'FORBIDDEN');
   assert.equal(as(ro, 'adminShop', {}).ok, true);
 });
+
+test('通知：開團自動排「明天截止」推播（截止前一天 20:00）；改截止時間會重排；結束、刪除就不送', () => {
+  const { env, call, ok, gid, tofu, ids } = setup();
+  env.fn('ensurePushKeys_')();
+  const autos = () => env.fn('readTable_')(env.fn('SHEETS').PUSH_PLANS).filter((r) => r['建立帳號'] === '自動');
+  assert.deepEqual(autos().map((r) => [r['預定時間'], r['網址'], r['狀態']]), [['2026-10-14 20:00', '#/shop/' + gid, '排定']]);
+  const g = { id: gid, name: '十月植素園團購', deadline: '2026-10-16 22:00', pickups: ids, items: [{ id: tofu.id }] };
+  assert.equal(ok(call('adminShopSaveGroup', { group: g })).remindAt, '2026-10-15 20:00');
+  assert.deepEqual(autos().map((r) => r['預定時間']), ['2026-10-15 20:00'], '只留一則');
+  // 到了時間送出
+  env.clock.now = Date.UTC(2026, 9, 15, 12, 1); // 台北 10/15 20:01
+  assert.equal(env.fn('runDuePushPlans_')().sent, 1);
+  assert.equal(autos()[0]['狀態'], '已送出');
+  // 再開一團、結束了才到時間：不送
+  const g2 = ok(call('adminShopSaveGroup', { group: { name: '十一月團購', deadline: '2026-11-15 22:00', pickups: ids, items: [{ id: tofu.id }] } })).id;
+  ok(call('adminShopSaveGroup', { group: { id: g2, name: '十一月團購', deadline: '2026-11-15 22:00', pickups: ids, items: [{ id: tofu.id }], status: '結束' } }));
+  assert.equal(autos().filter((r) => r['網址'] === '#/shop/' + g2).length, 0, '結束的團購不排');
+  const g3 = ok(call('adminShopSaveGroup', { group: { name: '十二月團購', deadline: '2026-12-15 22:00', pickups: ids, items: [{ id: tofu.id }] } })).id;
+  ok(call('adminShopDeleteGroup', { id: g3 }));
+  assert.equal(autos().filter((r) => r['網址'] === '#/shop/' + g3).length, 0, '刪除的團購一起刪');
+});
+
+test('通知：後台推播可以選團購（點了打開團購頁）；明天要取貨的人，每日提醒附上取貨內容', () => {
+  const { env, call, ok, gid, tofu, ids, order } = setup();
+  env.fn('ensurePushKeys_')();
+  const r = ok(call('adminPushSave', { plan: { shopId: gid, title: '🛒 團購開跑了', body: '快來看看', now: true } }));
+  const p = r.plans.find((x) => x.title === '🛒 團購開跑了');
+  assert.equal(p.url, '#/shop/' + gid);
+  assert.equal(p.shopId, gid);
+  ok(order({ name: '測試甲', source: '官網', items: [{ id: tofu.id, qty: 2 }], pay: '轉帳' }));
+  env.clock.now = Date.UTC(2026, 9, 17, 12, 0); // 台北 10/17 20:00，明天 10/18 取貨
+  const A = 'https://fcm.googleapis.com/fcm/send/me-device-1';
+  env.post({ action: 'pushSubscribe', endpoint: A });
+  ok(env.post({ action: 'pushSetName', endpoint: A, name: '測試甲' }));
+  assert.ok(env.fn('dailyPushEndpoints_')('tomorrow').includes(A));
+  const s = ok(env.get({ action: 'pushSummary', id: env.fn('pushIdOf_')(A) }));
+  assert.equal(s.pickups.length, 1);
+  assert.deepEqual([s.pickups[0].group, s.pickups[0].total, s.pickups[0].location, s.pickups[0].items[0].qty], ['十月植素園團購', 120, '宏宗聖堂道學院', 2]);
+  assert.ok(ids.length);
+});

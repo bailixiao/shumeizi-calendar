@@ -153,7 +153,7 @@
   const FEATURE_OF = {
     'adm-goals': 'goals', 'adm-veg-age': 'vegetarian', 'adm-draft': 'ai', 'faq-repair': 'repair', 'adm-repair': 'repair'
   };
-  const FEATURE_CATEGORY = { 借場地: 'venue', 場地審核: 'venue' };
+  const FEATURE_CATEGORY = { 借場地: 'venue', 場地審核: 'venue', 團購: 'shop' };
   function visible(f) {
     const need = FEATURE_OF[f.id] || FEATURE_CATEGORY[f.category];
     return !need || Fmt.feature(need);

@@ -248,7 +248,9 @@
         const res = await Api.admin('adminShopSaveGroup', { group });
         Busy.hide();
         AdminPage.clearMemo();
-        flash = res.warnings.length ? AdminPage.notice('error', '已存檔，請注意', res.warnings.join('；')) : AdminPage.notice('success', id ? '已存檔' : '開團了 🎉', group.name);
+        const remind = res.remindAt ? `截止前一天的提醒會在 ${res.remindAt} 自動推播。` : '';
+        flash = res.warnings.length ? AdminPage.notice('error', '已存檔，請注意', res.warnings.join('；') + (remind ? '　' + remind : ''))
+          : AdminPage.notice('success', id ? '已存檔' : '開團了 🎉', (id ? '' : '按「📣 推播開團通知」告訴大家吧！') + remind);
         location.hash = '#/admin/shop/g/' + encodeURIComponent(res.id);
       } catch (e) {
         Busy.hide();
@@ -304,6 +306,7 @@
         <a class="btn" href="#/admin/shop/edit/${encodeURIComponent(g.id)}">✏️ 修改團購</a>
         <a class="btn" href="#/admin/shop/new?from=${encodeURIComponent(g.id)}">另存成新團購</a>
         <button type="button" class="btn" data-admin-order>＋ 幫人下單</button>
+        ${g.status !== '結束' && !g.closed ? '<button type="button" class="btn" data-push-open>📣 推播開團通知</button>' : ''}
         ${s.orders ? '' : '<button type="button" class="btn btn-quiet-danger" data-delete>刪除這次團購</button>'}
       </div>` : ''}
 
@@ -373,6 +376,8 @@
       if (v !== null) set(o.id, { note: v }, '存檔中');
     }));
     body.querySelectorAll('[data-edit-order]').forEach((b) => b.addEventListener('click', () => orderForm(d, d.orders.find((x) => x.id === b.dataset.editOrder), guard, reload)));
+    const po = body.querySelector('[data-push-open]');
+    if (po) po.addEventListener('click', () => pushForm(g, guard, reload));
     const ao = body.querySelector('[data-admin-order]');
     if (ao) ao.addEventListener('click', () => orderForm(d, null, guard, reload));
     const del = body.querySelector('[data-delete]');
@@ -381,6 +386,47 @@
       if (!ok) return;
       Busy.show('刪除中⋯');
       try { await Api.admin('adminShopDeleteGroup', { id: g.id }); Busy.hide(); AdminPage.clearMemo(); location.hash = '#/admin/shop'; } catch (e) { Busy.hide(); if (!guard(e)) { flash = AdminPage.notice('error', e.message); reload(); } }
+    });
+  }
+
+  /** 📣 推播開團通知：帶好標題與內容（可以改），現在送或排時間；點通知打開團購頁 */
+  function pushForm(g, guard, after) {
+    const lines = [g.items.slice(0, 4).map((it) => it.name).join('、') + (g.items.length > 4 ? ` 等 ${g.items.length} 樣` : ''),
+      `⏰ ${g.deadline} 截止`, `📦 取貨：${g.pickups.map((p) => Fmt.shortDate(p.date)).join('、')}`, '點我看看、下單 😊'];
+    const m = Modal.open(`
+      <form class="modal-form admin-form" novalidate>
+        <h2 class="modal-title">📣 推播開團通知</h2>
+        <p class="modal-note">送給所有開了「手機提醒」的手機，點通知會打開這次團購。截止前一天晚上 8 點的提醒已經自動排好了。</p>
+        <label class="form-row"><span>標題</span><input class="input" name="title" maxlength="60" value="${esc('🛒 團購開跑了：' + g.name)}"></label>
+        <label class="form-row"><span>內容</span><textarea class="input textarea" name="body" rows="5" maxlength="300">${esc(lines.join('\n'))}</textarea></label>
+        <div class="form-row"><span>什麼時候送</span><div class="seg">${[['now', '現在'], ['later', '排時間']].map(([v, l]) => `<label class="seg-item"><input type="radio" name="when" value="${v}"${v === 'now' ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div></div>
+        <label class="form-row" data-at hidden><span>推播時間</span><input class="input" type="datetime-local" name="at"></label>
+        <div class="form-error" data-error hidden></div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-block btn-primary">送出</button>
+          <button type="button" class="btn btn-block" data-close>返回</button>
+        </div>
+      </form>`);
+    const f = m.el.querySelector('form');
+    f.querySelectorAll('input[name=when]').forEach((r) => r.addEventListener('change', () => { f.querySelector('[data-at]').hidden = r.value !== 'later' || !r.checked; }));
+    m.el.querySelector('[data-close]').addEventListener('click', () => m.close());
+    f.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const box = f.querySelector('[data-error]');
+      const now = f.querySelector('input[name=when]:checked').value === 'now';
+      Busy.show(now ? '推播中⋯' : '排定中⋯');
+      try {
+        await Api.admin('adminPushSave', { plan: { shopId: g.id, title: f.elements.title.value, body: f.elements.body.value, now, at: now ? '' : f.elements.at.value } });
+        Busy.hide();
+        m.close();
+        flash = AdminPage.notice('success', now ? '已推播出去了 📣' : '已排定 ⏰', '可以到「📣 推播」分頁看送出的情形');
+        after();
+      } catch (e) {
+        Busy.hide();
+        if (e.code === 'UNAUTHORIZED') { m.close(); guard(e); return; }
+        box.innerHTML = `<strong>${esc(e.message)}</strong>${(e.details || []).map((x) => '<br>' + esc(x.message)).join('')}`;
+        box.hidden = false;
+      }
     });
   }
 

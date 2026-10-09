@@ -5,7 +5,7 @@
   'use strict';
 
   const esc = Fmt.esc;
-  const form = { id: '', key: '', title: '', body: '', mode: 'now', times: [] }; // 正在填的內容（切分頁回來還在）
+  const form = { id: '', key: '', shopId: '', title: '', body: '', mode: 'now', times: [] }; // 正在填的內容（切分頁回來還在）；shopId＝團購的推播（點了打開團購頁）
 
   function show(body, guard) {
     AdminPage.swr('push', () => Api.admin('adminPushList', {}, true), (data, stale) => render(body, guard, data, stale), body);
@@ -145,13 +145,13 @@
       Busy.show(now ? '推播中⋯' : '儲存中⋯');
       try {
         let res = null;
-        const base = { id: form.id || '', dutyId: d ? d.id : '', date: d ? d.date : '', title: form.title, body: form.body };
+        const base = { id: form.id || '', dutyId: d ? d.id : '', date: d ? d.date : '', shopId: d ? '' : form.shopId, title: form.title, body: form.body };
         if (now) res = await Api.admin('adminPushSave', { plan: Object.assign(base, { now: true }) });
         else {
           for (const t of times) res = await Api.admin('adminPushSave', { plan: Object.assign({}, base, { at: t }) });
         }
         Busy.hide();
-        Object.assign(form, { id: '', key: '', title: '', body: '', mode: 'now', times: [] });
+        Object.assign(form, { id: '', key: '', shopId: '', title: '', body: '', mode: 'now', times: [] });
         AdminPage.clearMemo();
         data = res;
         render(body, guard, res, false);
@@ -167,7 +167,7 @@
     body.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => {
       const p = data.plans.find((x) => x.id === b.dataset.edit);
       if (!p) return;
-      Object.assign(form, { id: p.id, key: p.dutyId ? p.dutyId + '|' + p.date : '', title: p.title, body: p.body, mode: 'later', times: [p.at.replace(' ', 'T')] });
+      Object.assign(form, { id: p.id, key: p.dutyId ? p.dutyId + '|' + p.date : '', shopId: p.shopId || '', title: p.title, body: p.body, mode: 'later', times: [p.at.replace(' ', 'T')] });
       render(body, guard, data, false);
       body.querySelector("[data-push-form]").scrollIntoView({ behavior: 'smooth', block: 'start' });
     }));

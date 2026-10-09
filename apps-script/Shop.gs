@@ -421,10 +421,11 @@ function adminShopSaveGroup_(body) {
       row = Object.assign({ '團購ID': newId_('B'), '建立者': ADMIN_SESSION_ ? ADMIN_SESSION_.account : '', '建立時間': now }, values);
       appendRows_(SHEETS.SHOP_GROUPS, [row]);
     }
+    var remindAt = shopScheduleDeadlinePush_(row); // 截止前一天晚上 8 點自動提醒
     writeDutyLog_('團購', (g.id ? '修改' : '開團') + '｜' + name + '｜截止 ' + deadline + '｜' + items.length + ' 樣商品' + (values['狀態'] === '結束' ? '｜已結束' : '') + adminTag_());
     SpreadsheetApp.flush();
     invalidateTable_(SHEETS.SHOP_GROUPS);
-    return { id: row['團購ID'], warnings: warnings };
+    return { id: row['團購ID'], warnings: warnings, remindAt: remindAt || '' };
   });
 }
 
@@ -436,6 +437,7 @@ function adminShopDeleteGroup_(body) {
     var n = readTable_(SHEETS.SHOP_ORDERS).filter(function (o) { return o['團購ID'] === row['團購ID'] && o['狀態'] !== '已取消'; }).length;
     if (n) throw new ApiError_('FORBIDDEN', '還有 ' + n + ' 張訂單，不能刪除；不賣了請改成「結束」');
     getSheet_(SHEETS.SHOP_GROUPS).deleteRow(row._row);
+    shopScheduleDeadlinePush_(row, true); // 還沒送出的截止提醒一起刪
     writeDutyLog_('團購', '刪除｜' + row['名稱'] + adminTag_(), rowSnapshot_(SHEETS.SHOP_GROUPS, row));
     SpreadsheetApp.flush();
     invalidateTable_(SHEETS.SHOP_GROUPS);
@@ -474,4 +476,53 @@ function adminShopOrderSet_(body) {
     invalidateTable_(SHEETS.SHOP_ORDERS);
     return { order: shopOrderOut_(o, null, false) };
   });
+}
+
+// ---------- 通知（5d） ----------
+
+/** 某人某天要取的團購（有效、還沒取貨）：給每日提醒用 [{ group, items, total, pay, paid, last5, location, time }] */
+function shopPickupsFor_(name, date) {
+  var who = normalizeName_(name);
+  if (!who) return [];
+  var groups = readTableCached_(SHEETS.SHOP_GROUPS);
+  return readTableCached_(SHEETS.SHOP_ORDERS).filter(function (o) {
+    return o['取貨日期'] === date && o['狀態'] !== '已取消' && o['已取貨'] !== '是' && normalizeName_(o['姓名']) === who;
+  }).map(function (o) {
+    var g = findById_(groups, '團購ID', o['團購ID']);
+    var pk = g ? shopPickups_(g).filter(function (p) { return p.id === o['取貨活動ID']; })[0] : null;
+    return {
+      group: g ? g['名稱'] : '', groupId: o['團購ID'], items: shopJson_(o['品項'], []).map(function (it) { return { name: it.name, qty: it.qty, unit: it.unit || '' }; }),
+      total: Number(o['金額']) || 0, pay: o['付款方式'], paid: o['已付款'] === '是', last5: o['末五碼'] || '',
+      location: pk ? pk.location : '', time: pk ? pk.startTime : ''
+    };
+  });
+}
+
+/** 這一天有團購要取的人（名字 → true），每日提醒決定要不要送 */
+function shopPickupNames_(date) {
+  var out = {};
+  readTableCached_(SHEETS.SHOP_ORDERS).forEach(function (o) {
+    if (o['取貨日期'] === date && o['狀態'] !== '已取消' && o['已取貨'] !== '是') out[normalizeName_(o['姓名'])] = true;
+  });
+  return out;
+}
+
+/**
+ * 開團、改截止時間時：排一則「團購明天截止」推播（截止日前一天晚上 8 點；已經過了就不排）。
+ * 先刪掉這次團購還沒送出的自動提醒再排；團購結束或刪除就不排。在 withSignupLock_ 裡呼叫。
+ */
+function shopScheduleDeadlinePush_(g, removeOnly) {
+  var url = '#/shop/' + g['團購ID'];
+  var old = readTable_(SHEETS.PUSH_PLANS).filter(function (r) { return r['狀態'] === '排定' && r['建立帳號'] === '自動' && r['網址'] === url; });
+  if (old.length) deleteRows_(SHEETS.PUSH_PLANS, old.map(function (r) { return r._row; }));
+  if (removeOnly || g['狀態'] === '結束' || !g['截止時間']) return null;
+  var at = addDaysStr_(g['截止時間'].slice(0, 10), -1) + ' 20:00';
+  if (at <= shopNowMinute_()) return null;
+  var row = {
+    '推播ID': newId_('P'), '類別': '植素', '勤務ID': g['團購ID'], '日期': '', '標題': '🛒 團購明天截止：' + g['名稱'],
+    '內容': '⏰ ' + g['截止時間'] + ' 截止\n還沒訂的快來看看，訂過的可以再確認一下 😊', '網址': url, '預定時間': at,
+    '狀態': '排定', '送出時間': '', '手機數': '', '建立帳號': '自動', '建立時間': nowString_(), '備註': '團購截止前一天自動提醒'
+  };
+  appendRows_(SHEETS.PUSH_PLANS, [row]);
+  return at;
 }

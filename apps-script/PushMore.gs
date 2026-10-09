@@ -122,7 +122,8 @@ function pushPlanRows_() {
 }
 
 function pushPlanOut_(r) {
-  return { id: r['推播ID'], category: r['類別'], dutyId: r['勤務ID'], date: r['日期'], title: r['標題'], body: r['內容'], url: r['網址'],
+  var shop = String(r['網址'] || '').indexOf('#/shop/') === 0;
+  return { id: r['推播ID'], category: r['類別'], dutyId: shop ? '' : r['勤務ID'], shopId: shop ? r['勤務ID'] : '', date: r['日期'], title: r['標題'], body: r['內容'], url: r['網址'],
     at: r['預定時間'], status: r['狀態'], sentAt: r['送出時間'], devices: r['手機數'], by: r['建立帳號'], createdAt: r['建立時間'], note: r['備註'],
     received: Number(r['收到數']) || 0, clicks: Number(r['點開數']) || 0 };
 }
@@ -153,7 +154,7 @@ function adminPushList_() {
 }
 
 /**
- * body = { plan: { id?, dutyId, date, title, body, at | now: true } }：新增或修改推播。
+ * body = { plan: { id?, dutyId, date, shopId?, title, body, at | now: true } }：新增或修改推播（shopId＝團購，點了打開團購頁）。
  * at 格式 yyyy-MM-dd HH:mm（台北時間）；now＝馬上送。只能改還沒送出的。
  */
 function adminPushSave_(body) {
@@ -172,16 +173,22 @@ function adminPushSave_(body) {
     else if (cat && dutyCategory_(duty) !== cat) throw new ApiError_('FORBIDDEN', '這是「' + dutyCategory_(duty) + '」的活動，這個帳號不能推播');
     if (p.date && !isDateString_(p.date)) errors.push('日期格式不對');
   }
+  var shop = null;
+  if (p.shopId && !duty) {
+    shop = findById_(readTable_(SHEETS.SHOP_GROUPS), '團購ID', p.shopId);
+    if (!shop) errors.push('找不到這次團購，可能已經刪除');
+    if (cat && cat !== '植素') throw new ApiError_('FORBIDDEN', '這個帳號不能推播團購');
+  }
   if (!p.now) {
     if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(at)) errors.push('請選推播的日期和時間');
     else if (at <= nowString_().slice(0, 16)) errors.push('推播時間要在現在之後（要馬上送請按「現在推播」）');
   }
   if (errors.length) throw new ApiError_('VALIDATION', '推播沒有存起來', errors.map(function (m) { return { message: m }; }));
-  var url = duty ? '#/duty/' + encodeURIComponent(duty['勤務ID']) + (p.date ? '?date=' + p.date + '&go=signup' : '') : '#/';
+  var url = duty ? '#/duty/' + encodeURIComponent(duty['勤務ID']) + (p.date ? '?date=' + p.date + '&go=signup' : '') : shop ? '#/shop/' + shop['團購ID'] : '#/';
   return withSignupLock_(function () {
     var now = nowString_();
     var who = ADMIN_SESSION_.role === SUPER_ACCOUNT ? '總管理者' : ADMIN_SESSION_.account;
-    var fields = { '類別': duty ? dutyCategory_(duty) : (cat || '全部'), '勤務ID': duty ? duty['勤務ID'] : '', '日期': duty ? (p.date || '') : '',
+    var fields = { '類別': duty ? dutyCategory_(duty) : shop ? '植素' : (cat || '全部'), '勤務ID': duty ? duty['勤務ID'] : shop ? shop['團購ID'] : '', '日期': duty ? (p.date || '') : '',
       '標題': title, '內容': text, '網址': url, '預定時間': p.now ? now.slice(0, 16) : at };
     var row;
     if (p.id) {
@@ -230,8 +237,17 @@ function runDuePushPlans_() {
   var today = todayString_();
   var sent = 0;
   withSignupLock_(function () {
+    var shopGroups = null;
     pushPlanRows_().filter(function (r) { return r['狀態'] === '排定' && r['預定時間'] && r['預定時間'] <= now; }).forEach(function (r) {
-      if (r['勤務ID'] && !findDutyById_(r['勤務ID'])) {
+      if (String(r['網址'] || '').indexOf('#/shop/') === 0) {
+        // 團購的推播：團購刪了、結束了不送；自動的截止提醒過了截止時間也不送
+        shopGroups = shopGroups || readTable_(SHEETS.SHOP_GROUPS);
+        var g = findById_(shopGroups, '團購ID', r['勤務ID']);
+        if (!g) updateRow_(SHEETS.PUSH_PLANS, r, { '狀態': '沒有送出', '備註': '團購已經刪除' });
+        else if (g['狀態'] === '結束') updateRow_(SHEETS.PUSH_PLANS, r, { '狀態': '沒有送出', '備註': '團購已經結束' });
+        else if (r['建立帳號'] === '自動' && g['截止時間'] && now > g['截止時間']) updateRow_(SHEETS.PUSH_PLANS, r, { '狀態': '沒有送出', '備註': '團購已經截止' });
+        else { sendPushPlan_(r); sent++; }
+      } else if (r['勤務ID'] && !findDutyById_(r['勤務ID'])) {
         updateRow_(SHEETS.PUSH_PLANS, r, { '狀態': '沒有送出', '備註': '活動已經刪除' });
       } else if (r['日期'] && r['日期'] < today) {
         updateRow_(SHEETS.PUSH_PLANS, r, { '狀態': '沒有送出', '備註': '活動日期已經過去' });

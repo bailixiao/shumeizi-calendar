@@ -120,6 +120,9 @@ const SHOTS = [
       const b = [...document.querySelectorAll('[data-reschedule]')].pop(); b.click(); await __wait(2000);`,
     clip: `return __box('.modal-box', 4);` },
   { name: 'push-panel', hash: '#/', js: `PushPage.openPanel(); await __wait(1200);`, clip: `return __box('.modal-box', 4);` },
+  // 團購頁：選了兩樣商品（示範資料的團購）
+  { name: 'shop-page', hash: '#/shop', js: `await __wait(2500); const p = document.querySelectorAll('[data-plus]'); p[0].click(); await __wait(200); document.querySelectorAll('[data-plus]')[0].click(); await __wait(200); document.querySelectorAll('[data-plus]')[1].click(); await __wait(300);`,
+    clip: `const t = document.querySelector('#view-shop .page-title'); t.scrollIntoView(); const r = t.getBoundingClientRect(); const c = document.querySelectorAll('.shop-card'); const e = c[c.length - 1].getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 8, width: innerWidth, height: e.bottom - r.top + 20 };` },
   { name: 'venue-pick', hash: '#/venue', js: `await __wait(1500); const chip = [...document.querySelectorAll('#view-venue button, #view-venue label')].find((b) => /早上/.test(b.textContent)); if (chip) chip.click(); await __wait(300);`,
     clip: `const s = document.querySelector('#view-venue .venue-step, #view-venue section, #view-venue form'); return { x: 0, y: 0, width: innerWidth, height: 1100 };` },
   { name: 'venue-form', hash: '#/venue', js: `await __wait(1500); const f = document.querySelector('#view-venue form'); f.elements.name.value = '測試甲'; f.elements.phone.value = '0900-000000'; f.elements.purpose.value = '讀書會'; f.elements.people.value = '15'; f.elements.note.value = '要用投影機';`,
@@ -132,6 +135,9 @@ const SHOTS = [
     clip: `return { x: 0, y: 0, width: innerWidth, height: 1200 };` },
   { name: 'adm-push', admin: true, hash: '#/admin/push', js: `await __wait(2000); const sel = document.querySelector('select[name=duty]'); sel.selectedIndex = 1; sel.dispatchEvent(new Event('change')); await __wait(300); document.querySelector('[name=mode][value=later]').click(); await __wait(300); const q = document.querySelector('[data-quick]'); if (q) q.click(); await __wait(300);`,
     clip: `return __box('.push-form', 6);` },
+  // 後台團購：總覽＋備貨清單
+  { name: 'adm-shop', admin: true, hash: '#/admin/shop', js: `await __wait(2000); document.querySelector('.shop-group-card').click(); await __wait(2500);`,
+    clip: `const a = document.querySelector('.shop-title'); a.scrollIntoView(); const r = a.getBoundingClientRect(); const b = document.querySelector('[data-copy-prep]').getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 8, width: innerWidth, height: b.bottom - r.top + 16 };` },
   { name: 'adm-venue', admin: true, hash: '#/admin/venue', js: `await __wait(2000);`,
     clip: `const el = document.querySelector('.venue-reqs'); return __box(el.closest('[data-body]') || el, 4);` }
 ];

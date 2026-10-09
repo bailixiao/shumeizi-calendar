@@ -89,7 +89,7 @@
         </fieldset>
         ${target && target.positions.length > 1 ? `
         <fieldset class="field">
-          <legend><span class="step">2</span>了愿項目</legend>
+          <legend><span class="step">2</span>項目</legend>
           <div class="choices">
             ${target.positions.map((p) => {
               const full = isFull(target, state.date, p);
@@ -139,14 +139,14 @@
       const target = state.dutyId && targetDuty();
       const position = target && target.positions.find((p) => p.id === state.positionId);
       if (!target || !state.date) return showError('請選擇要改到哪一天');
-      if (!position) return showError('請選擇了愿項目');
-      if (isCurrent(target, state.date, position.id)) return showError('日期和了愿項目都沒有變更');
+      if (!position) return showError('請選擇項目');
+      if (isCurrent(target, state.date, position.id)) return showError('日期和項目都沒有變更');
 
       const ok = await Confirm.open({
         title: '確定要改期嗎？',
         rows: [
           ['姓名', signup.name + (signup.accompany ? '（陪同）' : '')],
-          ['勤務', duty.name],
+          ['活動', duty.name],
           ['原本', `${Fmt.rocDate(signup.date)} ${fromPosition ? fromPosition.name : ''}`],
           ['改成', `${Fmt.rocDate(state.date)} ${position.name}`]
         ],

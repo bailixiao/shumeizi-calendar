@@ -80,7 +80,7 @@
         window.DutyPage.show(id, m[2] || '');
       } else {
         views.duty.innerHTML = `
-          <p class="panel-empty">勤務詳情與報名將在下一段完成。</p>`;
+          <p class="panel-empty">活動詳情與報名將在下一段完成。</p>`;
       }
     } else {
       show('calendar');

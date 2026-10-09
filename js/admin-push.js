@@ -208,13 +208,13 @@
     if (!a || !canAuto()) return '';
     return `<form class="push-form push-auto" data-auto novalidate>
       <h2 class="admin-sub">🙋 缺人自動推播 <span class="badge ${a.on ? 'badge-ok' : 'badge-full'}">${a.on ? '開啟中' : '關閉'}</span></h2>
-      <p class="hint">開啟後，每天到設定的時間，系統會找「勤務前幾天」還缺人的${esc(Fmt.catLabel('勤務'))}，自動推播給大家（道務、教育不算）。沒有缺人就不送。</p>
+      <p class="hint">開啟後，每天到設定的時間，系統會找「活動前幾天」還缺人的${esc(Fmt.catLabel('勤務'))}，自動推播給大家（道務、教育不算）。沒有缺人就不送。</p>
       <label class="check"><input type="checkbox" name="on"${a.on ? ' checked' : ''}> 開啟缺人自動推播</label>
-      <div class="push-auto-days"><span class="field-label">勤務前幾天推播（可以多選）</span>
+      <div class="push-auto-days"><span class="field-label">活動前幾天推播（可以多選）</span>
         ${AUTO_DAYS.map(([n, label]) => `<label class="check"><input type="checkbox" name="day" value="${n}"${a.days.indexOf(n) !== -1 ? ' checked' : ''}> ${label}</label>`).join('')}
       </div>
       <label class="form-row push-auto-time"><span>每天幾點送</span><input class="input" type="time" name="time" value="${esc(a.time)}"></label>
-      <p class="hint">例如勾「前 3 天」「前 1 天」、時間 19:00：每天晚上 7 點，推播 3 天後和明天還缺人的勤務。每天晚上 8 點的手機提醒照常。${a.last ? `（上次檢查：${esc(a.last)}）` : ''}</p>
+      <p class="hint">例如勾「前 3 天」「前 1 天」、時間 19:00：每天晚上 7 點，推播 3 天後和明天還缺人的活動。每天晚上 8 點的手機提醒照常。${a.last ? `（上次檢查：${esc(a.last)}）` : ''}</p>
       <div class="form-error" data-auto-err hidden></div>
       <button type="submit" class="btn btn-primary">儲存設定</button>
     </form>`;

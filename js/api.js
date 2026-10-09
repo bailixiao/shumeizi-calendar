@@ -69,7 +69,7 @@
           if (!done) finish(resolve, data, ctrl);
         }, (err) => {
           if (done) return;
-          if (err.code !== 'NETWORK') return finish(reject, err); // 伺服器明確回錯誤（例如找不到勤務）：不用再問
+          if (err.code !== 'NETWORK') return finish(reject, err); // 伺服器明確回錯誤（例如找不到活動）：不用再問
           failed++;
           if (failed < started) return; // 還有其他請求在等
           if (started <= waits.length) launch(); // 全部都失敗了：馬上再送一個

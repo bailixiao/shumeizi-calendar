@@ -69,7 +69,7 @@
       positions: (Array.isArray(d.positions) && d.positions.length ? d.positions : [{ name: '了愿', min: 2, max: '' }])
         .map((p) => ({ name: String(p.name || ''), min: p.min === '' || p.min === undefined ? '' : String(p.min), max: p.max === '' || p.max === undefined || p.max === null ? '' : String(p.max) })),
       notes: Array.isArray(d.uncertain) ? d.uncertain.slice() : [],
-      people: {} // 了愿項目名稱 → [{ name, status, original?, candidates? }]
+      people: {} // 項目名稱 → [{ name, status, original?, candidates? }]
     };
     const natures = NATURES_BY_CAT[x.category];
     x.nature = natures.indexOf(d.nature) !== -1 ? d.nature : natures[0];
@@ -138,7 +138,7 @@
           ${x.category === '教育' ? f('師資', inp('teachers', 'text', 'placeholder="好幾位用「、」隔開"')) : ''}
         </div>
         <div class="de-row">
-          ${f('性質', `<select class="input" data-k="nature">${(NATURES_BY_CAT[x.category] || NATURES).map((n) => `<option${n === x.nature ? ' selected' : ''}>${n}</option>`).join('')}</select>`)}
+          ${f('性質', `<select class="input" data-k="nature">${(NATURES_BY_CAT[x.category] || NATURES).map((n) => `<option value="${n}"${n === x.nature ? ' selected' : ''}>${esc(Fmt.natureLabel(x.category, n))}</option>`).join('')}</select>`)}
           ${f('模式', `<select class="input" data-k="mode">${['報名型', '公告型'].map((n) => `<option${n === x.mode ? ' selected' : ''}>${n}</option>`).join('')}</select>`)}
         </div>
         <div class="de-row">
@@ -156,7 +156,7 @@
           <label class="de-check"><input type="checkbox" data-k="multi"${x.multi ? ' checked' : ''}> 一人可兼任好幾項</label>
         </div>
         ${f('說明', `<textarea class="input" rows="3" data-k="description">${esc(x.description)}</textarea>`)}
-        <p class="draft-sub">了愿項目與已排的人</p>
+        <p class="draft-sub">項目與已排的人</p>
         ${x.positions.map((p, pi) => `
           <div class="de-pos" data-pi="${pi}">
             <div class="de-pos-row">

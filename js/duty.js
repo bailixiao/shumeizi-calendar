@@ -291,7 +291,7 @@
         }).join('')}
       </div>` : '';
 
-    const canChange = date > d.today; // 勤務當天（含）之後不能自己取消、改期
+    const canChange = date > d.today; // 活動當天（含）之後不能自己取消、改期
     const rows = d.positions.map((p) => {
       const label = positionLabel(p, day);
       const people = d.signups ? d.signups.filter((s) => s.date === date && s.positionId === p.id) : [];

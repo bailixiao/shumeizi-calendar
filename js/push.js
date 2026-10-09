@@ -117,9 +117,9 @@
         body.innerHTML = `${note}<p>通知目前被封鎖了。麻煩您到手機的 <strong>設定 → 通知</strong>（或瀏覽器的網站設定），允許本網站傳送通知，再回來開啟，謝謝您 🙏</p><div class="modal-actions">${close}</div>`;
       } else if (st === 'on') {
         const me = myName();
-        body.innerHTML = `${note}<p>✅ <strong>已為您開啟提醒</strong>。有勤務或活動時，會在<strong>前一天晚上 8 點</strong>、<strong>當天早上 7 點</strong>溫馨提醒您。感恩您的發心 🙏</p>
+        body.innerHTML = `${note}<p>✅ <strong>已為您開啟提醒</strong>。有活動時，會在<strong>前一天晚上 8 點</strong>、<strong>當天早上 7 點</strong>溫馨提醒您。感恩您的發心 🙏</p>
           <div class="push-me">
-            <p><strong>👤 我是誰（選填）</strong><br>${me ? `目前只提醒 <strong>${esc(me)}</strong> 報名的勤務，另外告訴您還缺人的。` : '填了名字，就只提醒您報名的勤務，另外告訴您還缺人的；不填就提醒全部。'}</p>
+            <p><strong>👤 我是誰（選填）</strong><br>${me ? `目前只提醒 <strong>${esc(me)}</strong> 報名的活動，另外告訴您還缺人的。` : '填了名字，就只提醒您報名的活動，另外告訴您還缺人的；不填就提醒全部。'}</p>
             <div class="name-row"><input class="input" data-me type="text" autocomplete="name" placeholder="例如：王小明" value="${esc(me)}"><button type="button" class="btn" data-me-save>儲存</button></div>
             <div class="suggestions" data-me-sug></div>
             ${me ? '<button type="button" class="link-btn" data-me-clear>不要只提醒我的，全部都提醒</button>' : ''}
@@ -130,7 +130,7 @@
             ${close}
           </div>`;
       } else {
-        body.innerHTML = `${note}<p>開啟後，每逢有勤務或活動，會在<strong>前一天晚上 8 點</strong>、<strong>當天早上 7 點</strong>溫馨提醒您 🙏</p><p class="muted">沒有勤務的日子不會打擾您。</p>
+        body.innerHTML = `${note}<p>開啟後，每逢有活動，會在<strong>前一天晚上 8 點</strong>、<strong>當天早上 7 點</strong>溫馨提醒您 🙏</p><p class="muted">沒有活動的日子不會打擾您。</p>
           <div class="modal-actions">
             <button type="button" class="btn btn-block btn-primary" data-on>好的，請提醒我</button>
             ${close}
@@ -160,7 +160,7 @@
         if (!sub) throw new Error('提醒目前沒有開啟喔');
         const res = await Api.pushSetName(sub.endpoint, name);
         setMyName(res.name);
-      }, name ? `好的，之後只提醒「${name.replace(/[\s　]+/g, '')}」報名的勤務 😊` : '好的，之後全部的勤務都會提醒您 😊');
+      }, name ? `好的，之後只提醒「${name.replace(/[\s　]+/g, '')}」報名的活動 😊` : '好的，之後全部的活動都會提醒您 😊');
       if (q('[data-me-save]')) q('[data-me-save]').addEventListener('click', (ev) => {
         const v = q('[data-me]').value.trim();
         if (v.replace(/[\s　]+/g, '').length < 2) { q('[data-me]').focus(); return; }
@@ -220,7 +220,7 @@
       : st === 'ios-install'
       ? `<p><strong>🔔 想收到行事曆提醒嗎？</strong></p><p>iPhone 只要把本網站<strong>加到主畫面</strong>，就能收到溫馨提醒 😊</p>
          <div class="push-card-actions"><button type="button" class="btn btn-primary" data-card-how>教我怎麼做</button><button type="button" class="btn" data-card-later>以後再說</button></div>`
-      : `<p><strong>🔔 需要為您開啟行事曆提醒嗎？</strong></p><p>有勤務或活動時，會在前一天晚上溫馨提醒您，讓您不錯過每一次了愿的機會 🙏</p>
+      : `<p><strong>🔔 需要為您開啟行事曆提醒嗎？</strong></p><p>有活動時，會在前一天晚上溫馨提醒您，讓您不錯過每一次相聚 😊</p>
          <div class="push-card-actions"><button type="button" class="btn btn-primary" data-card-on>好的，請提醒我</button><button type="button" class="btn" data-card-later>以後再說</button></div>`;
     card.hidden = false;
     card.querySelector('[data-card-later]').addEventListener('click', () => {

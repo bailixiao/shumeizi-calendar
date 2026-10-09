@@ -24,7 +24,7 @@
         <input class="input rc-code-input" name="code" inputmode="numeric" maxlength="4" autocomplete="one-time-code" placeholder="例：1234" value="">
         ${err ? `<p class="form-error">${esc(err)}</p>` : ''}
         <button type="submit" class="btn btn-primary btn-block">開始點名</button>
-        <p class="hint">點名連結只有勤務當天能用。</p>
+        <p class="hint">點名連結只有活動當天能用。</p>
       </form>`;
     const f = box.querySelector('form');
     f.elements.code.focus();

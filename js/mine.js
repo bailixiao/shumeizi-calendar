@@ -188,7 +188,7 @@
     const who = current.name + (it.accompany ? '（陪同）' : '');
     const ok = await Confirm.open({
       title: '確定要取消這筆報名嗎？',
-      rows: [['姓名', who], ['日期', Fmt.rocDate(it.date)], ['項目', it.dutyName], ['了愿項目', it.positionName]],
+      rows: [['姓名', who], ['日期', Fmt.rocDate(it.date)], ['活動', it.dutyName], ['項目', it.positionName]],
       confirmText: '確定取消報名',
       cancelText: '不要取消',
       danger: true
@@ -223,7 +223,7 @@
     if ((await PushPage.state()) !== 'on' || !box.isConnected) return;
     const card = document.createElement('div');
     card.className = 'notice push-me-offer';
-    card.innerHTML = `<p>🔔 要讓手機提醒<strong>只通知「${esc(name)}」報名的勤務</strong>嗎？（還缺人的也會告訴您）</p>
+    card.innerHTML = `<p>🔔 要讓手機提醒<strong>只通知「${esc(name)}」報名的活動</strong>嗎？（還缺人的也會告訴您）</p>
       <div class="push-card-actions"><button type="button" class="btn btn-primary" data-yes>好的</button><button type="button" class="btn" data-no>不用，全部都提醒</button></div>`;
     box.insertBefore(card, box.querySelector('.mine-title') ? box.querySelector('.mine-title').nextSibling : box.firstChild);
     card.querySelector('[data-no]').addEventListener('click', () => card.remove());
@@ -231,7 +231,7 @@
       ev.target.disabled = true;
       try {
         await PushPage.setMe(name);
-        card.innerHTML = `<p>✅ 好的，之後只提醒「${esc(name)}」報名的勤務 😊（可以在「🔔 手機提醒」改）</p>`;
+        card.innerHTML = `<p>✅ 好的，之後只提醒「${esc(name)}」報名的活動 😊（可以在「🔔 手機提醒」改）</p>`;
       } catch (e) {
         card.innerHTML = `<p class="form-error">${esc(e.message || '沒有設定成功')}</p>`;
       }

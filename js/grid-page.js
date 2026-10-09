@@ -148,7 +148,7 @@
 
   function render() {
     const d = data;
-    if (d.layout !== '職司表') { // 不是職司表的勤務：直接去勤務頁
+    if (d.layout !== '職司表') { // 不是職司表的活動：直接去活動頁
       location.replace(`#/duty/${encodeURIComponent(d.id)}`);
       return;
     }

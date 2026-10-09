@@ -24,7 +24,7 @@
   // 同名勤務一次改的欄位（與 apps-script/DutyRules.gs 的 BULK_FIELDS_ 相同）
   const BULK_FIELDS = [
     ['name', '名稱'], ['nature', '性質'], ['mode', '模式'], ['time', '時段'], ['location', '地點'],
-    ['group', '負責組'], ['attire', '服裝'], ['description', '說明'], ['positions', '了愿項目'], ['teachers', '師資'], ['dm', 'DM'], ['merge', '合併顯示'], ['staff', '講師・帶班・助理帶班']
+    ['group', '負責組'], ['attire', '服裝'], ['description', '說明'], ['positions', '項目'], ['teachers', '師資'], ['dm', 'DM'], ['merge', '合併顯示'], ['staff', '講師・帶班・助理帶班']
   ];
   const MAX_LUNAR_DAYS = 800;
 
@@ -282,7 +282,7 @@
       <div class="admin-actions">
         <a class="btn btn-primary" href="#/admin/duties/new">＋ 新增${T()}</a>
         <a class="btn" href="#/admin/import">批次匯入</a>
-        <button type="button" class="btn" data-draft-open>📷 從照片新增</button>
+        <button type="button" class="btn" data-draft-open${Fmt.feature('ai') ? '' : ' hidden'}>📷 從照片新增</button>
         ${Api.adminWho().role === '唯讀' ? '' : '<button type="button" class="btn" data-att-import>📋 匯入出勤名單</button>'}
       </div>
       <div class="list-filter">
@@ -421,7 +421,7 @@
       const ids = ['壇辦', '道親', '未求道', '點傳師'];
       el.querySelector('[data-att-preview]').innerHTML = `<ul class="att-preview">${parsed.sessions.map((s) => {
         const d = s.dutyId ? data.duties.find((x) => x.id === s.dutyId) : null;
-        const name = d ? d.name : s.create ? s.create.name + '（新增）' : '⚠️ 找不到勤務';
+        const name = d ? d.name : s.create ? s.create.name + '（新增）' : '⚠️ 找不到活動';
         const noId = (s.entries || []).filter((e) => ids.indexOf(e.identity) === -1).length;
         return `<li><strong>${esc(Fmt.shortDate(s.date))} ${esc(name)}</strong>：${(s.entries || []).length} 位${noId ? `<span class="tag tag-warn">${noId} 位沒填身分（名單上有的照名單）</span>` : ''}</li>`;
       }).join('')}</ul>`;
@@ -543,9 +543,9 @@
               <input class="input" name="name" value="${esc(s.name)}" placeholder="${esc(window.SITE.examples.dutyName)}" required></label>
             ${lunar ? '<p class="hint">勾「名稱前面加上農曆日期」時，這裡只填後半段，例如「拜香輪值」。</p>' : ''}
             <div class="form-row"><span>類別</span>${Api.adminWho().role === '總管理者' ? segmented('category', CATEGORIES.map((c) => [c, Fmt.catLabel(c)]), s.category || '勤務') : `<strong>${esc(Fmt.catLabel(myCategory()))}</strong>`}</div>
-            <div class="form-row"><span>性質</span>${segmented('nature', natures, s.nature)}</div>
-            <div class="form-row"><span>模式</span>${segmented('mode', ['報名型', '公告型'], s.mode)}</div>
-            ${isNotice ? '<p class="hint">公告型：只顯示輪值組，不需報名、沒有了愿項目。</p>' : ''}
+            <div class="form-row"><span>種類</span>${segmented('nature', natures.map((n) => [n, Fmt.natureLabel(s.category, n)]), s.nature)}</div>
+            ${simple || Fmt.feature('groups') || s.mode === '公告型' ? `<div class="form-row"><span>模式</span>${segmented('mode', ['報名型', '公告型'], s.mode)}</div>` : ''}
+            ${isNotice ? '<p class="hint">公告型：只顯示輪值組，不需報名、沒有項目。</p>' : ''}
           </fieldset>
 
           <fieldset class="form-block">
@@ -577,7 +577,7 @@
             <datalist id="opt-attire">${ATTIRES.map((x) => `<option value="${esc(x)}">`).join('')}</datalist>
           </fieldset>
 
-          ${simple ? '' : `<fieldset class="form-block">
+          ${simple || !Fmt.feature('groups') ? '' : `<fieldset class="form-block">
             <legend>負責組</legend>
             <label class="form-row"><span>分組類型</span>
               <select class="input" name="groupType">
@@ -599,10 +599,10 @@
             ${st.quota === 'limit' ? `<label class="form-row"><span>最多幾人</span><input class="input" name="quotaMax" inputmode="numeric" value="${esc(st.quotaMax)}" placeholder="例：30"></label>` : '<p class="hint">不限人數，大家都可以報名。</p>'}
           </fieldset>` : `
           <fieldset class="form-block">
-            <legend>了愿項目與名額</legend>
+            <legend>項目與名額</legend>
             <p class="hint">「最少」留空預設 2 人；「最多」留空代表不限。</p>
-            <label class="check"><input type="checkbox" name="multi"${s.multi === true || s.multi === '是' ? ' checked' : ''}> 同一人可以兼任多個了愿項目（同一天可報好幾項）</label>
-            ${(s.category || '勤務') === '勤務' ? `<label class="form-row"><span>每天要一位組長（填職稱；不需要就空白）</span><input class="input" name="leaderTitle" maxlength="10" value="${esc(s.leaderTitle || '')}" placeholder="例：勤務組長"></label>
+            <label class="check"><input type="checkbox" name="multi"${s.multi === true || s.multi === '是' ? ' checked' : ''}> 同一人可以兼任多個項目（同一天可報好幾項）</label>
+            ${(s.category || '勤務') === '勤務' ? `<label class="form-row"><span>每天要一位組長（填職稱；不需要就空白）</span><input class="input" name="leaderTitle" maxlength="10" value="${esc(s.leaderTitle || '')}" placeholder="例：志工組長"></label>
             <p class="hint">有填的話，家人們報名時可以選其中一位當組長（一天一位），名單上會標 ★。</p>` : ''}
             ${s.multi === true || s.multi === '是' ? `<label class="form-row"><span>這一天共需幾位（不重複的人，選填）</span><input class="input" name="totalNeed" inputmode="numeric" maxlength="3" value="${esc(s.totalNeed ? String(s.totalNeed) : '')}" placeholder="例：8"></label>
             <p class="hint">有填的話，缺幾人＝共需幾位－已報名的人數（一人報好幾項只算一位）；沒填就把各項目的最少人數加起來。</p>` : ''}
@@ -613,16 +613,16 @@
                   <label><span>時段</span><input class="input" data-pos="${i}" data-k="slot" value="${esc(p.slot)}" placeholder="可空白"></label>
                   <label><span>最少</span><input class="input" data-pos="${i}" data-k="min" value="${esc(p.min)}" inputmode="numeric" placeholder="2"></label>
                   <label><span>最多</span><input class="input" data-pos="${i}" data-k="max" value="${esc(p.max)}" inputmode="numeric" placeholder="不限"></label>
-                  ${p.signups ? `<span class="pos-lock">已有 ${p.signups} 筆報名</span>` : `<button type="button" class="btn btn-small btn-quiet-danger" data-del-pos="${i}" aria-label="刪除這個了愿項目">刪除</button>`}
+                  ${p.signups ? `<span class="pos-lock">已有 ${p.signups} 筆報名</span>` : `<button type="button" class="btn btn-small btn-quiet-danger" data-del-pos="${i}" aria-label="刪除這個項目">刪除</button>`}
                 </li>`).join('')}
             </ul>
-            <button type="button" class="btn btn-small" data-add-pos>＋ 加一個了愿項目</button>
+            <button type="button" class="btn btn-small" data-add-pos>＋ 加一個項目</button>
           </fieldset>
 
           <fieldset class="form-block">
             <legend>職司表（12人小組這類多天輪值）</legend>
-            <label class="check"><input type="checkbox" name="layout"${s.layout === '職司表' ? ' checked' : ''}> 用職司表顯示：一欄一天、一列一個了愿項目，報名的人自動排進去</label>
-            ${s.layout === '職司表' ? `<label class="form-row"><span>階段（留空會自動推算）</span><textarea class="input textarea" name="stages" rows="4" placeholder="一行一個，例：&#10;即日起~9/13｜向區中心報名了愿日期&#10;9/14~9/18｜職司初安排&#10;9/27~10/4｜12人小組輪值">${esc(s.stages || '')}</textarea></label>
+            <label class="check"><input type="checkbox" name="layout"${s.layout === '職司表' ? ' checked' : ''}> 用職司表顯示：一欄一天、一列一個項目，報名的人自動排進去</label>
+            ${s.layout === '職司表' ? `<label class="form-row"><span>階段（留空會自動推算）</span><textarea class="input textarea" name="stages" rows="4" placeholder="一行一個，例：&#10;即日起~9/13｜向區中心報名日期&#10;9/14~9/18｜職司初安排&#10;9/27~10/4｜12人小組輪值">${esc(s.stages || '')}</textarea></label>
             <p class="hint">家人們的頁面上方會顯示成進度條，自動亮起現在這個階段。${s.start ? `留空時依第一天自動推算：<br>${esc(RosterGrid.autoStages(s.start)).replace(/\n/g, '<br>')}` : '留空時會依第一天自動推算。'}<br>組長 ★ 和註記在報名名單上設定。</p>` : ''}
           </fieldset>`}
 

@@ -75,7 +75,7 @@
     [['recent', () => Api.admin('adminRecent', { days: 31 }, true)],
       ['members', () => Api.admin('adminMembers', {}, true)],
       ['groups', () => Api.admin('adminGroups', {}, true)],
-      ...(Api.adminWho().role === '唯讀' ? [] : [['dutyList', () => Api.admin('adminDutyList', {}, true)]]), // 唯讀帳號看不到勤務管理
+      ...(Api.adminWho().role === '唯讀' ? [] : [['dutyList', () => Api.admin('adminDutyList', {}, true)]]), // 唯讀帳號看不到活動管理
       ...(seesLogs() ? [['logs', () => Api.admin('adminLogs', { offset: 0, limit: 50 }, true)]] : []), // 操作紀錄：只有總管理者
       ...(seesRoster() ? [['roster', () => Api.admin('adminRoster', {}, true)]] : []),
       ['stats', () => Api.admin('adminStats', {}, true)]].forEach(([key, fetcher]) => {
@@ -149,10 +149,10 @@
   function shell(active) {
     const who = Api.adminWho();
     const T = term();
-    const tabs = [['', '近期' + T], ['duties', T + '管理'], ['members', '成員'], ['groups', '分組'], ['stats', '統計'], ['logs', '操作紀錄'], ['day', '名單'], ['push', '📣 推播']];
-    if (['總管理者', '唯讀'].indexOf(who.role) !== -1) tabs.push(['venue', '場地借用']);
+    const tabs = [['', '近期' + T], ['duties', T + '管理'], ['members', '成員']].concat(Fmt.feature('groups') ? [['groups', '分組']] : [], [['stats', '統計'], ['logs', '操作紀錄'], ['day', '名單'], ['push', '📣 推播']]);
+    if (Fmt.feature('venue') && ['總管理者', '唯讀'].indexOf(who.role) !== -1) tabs.push(['venue', '場地借用']);
     if (who.role === '總管理者') tabs.push(['accounts', '帳號']);
-    if (who.role === '唯讀') tabs.splice(tabs.findIndex((t) => t[0] === 'duties'), 1); // 唯讀帳號：不顯示勤務管理
+    if (who.role === '唯讀') tabs.splice(tabs.findIndex((t) => t[0] === 'duties'), 1); // 唯讀帳號：不顯示活動管理
     if (!seesLogs()) tabs.splice(tabs.findIndex((t) => t[0] === 'logs'), 1); // 操作紀錄只給總管理者
     if (!seesRoster()) ['day', 'push'].forEach((k) => tabs.splice(tabs.findIndex((t) => t[0] === k), 1)); // 名單、推播：總管理者、勤務、道務、教育
     if (who.role === '場管') tabs.splice(0, tabs.length, ['venue', '場地借用']);
@@ -180,13 +180,14 @@
   function roleNote(role) {
     if (role === '唯讀') return '<p class="role-note">👀 唯讀帳號：可以查看所有資料，不能修改。</p>';
     if (role === '場管') return `<p class="role-note">🏠 ${esc(window.SITE.venue)}場管帳號：審核家人們的場地借用申請。</p>`;
-    if (role === '勤務') return '<p class="role-note">這個帳號管理「勤務」類的勤務；成員、分組只能查看。</p>';
+    if (role === '勤務') return '<p class="role-note">這個帳號管理「勤務」類的活動；成員、分組只能查看。</p>';
     if (Fmt.isFreeCat(role)) return `<p class="role-note">這個帳號管理「${esc(Fmt.catLabel(role))}」類的活動、課程與布達；也可以編輯成員、分組。</p>`;
     return '';
   }
 
-  /** 畫面用詞：道務、教育帳號管的是課程、法會、布達，唯讀帳號三組都看得到，都叫「活動」；總管理者、勤務帳號叫「勤務」 */
+  /** 畫面用詞：書槑子一律叫「活動」（SITE.term；教全區原本是總管理者、勤務帳號叫「勤務」，其他叫「活動」） */
   function term() {
+    if (window.SITE.term) return window.SITE.term;
     return Api.isAdmin() && (Fmt.isFreeCat(Api.adminWho().role) || Api.adminWho().role === '唯讀') ? '活動' : '勤務';
   }
 
@@ -436,7 +437,7 @@
     }).join('');
 
     body.innerHTML = `
-      <a class="back-link" href="#/admin">‹ 近期勤務</a>
+      <a class="back-link" href="#/admin">‹ 近期活動</a>
       ${staleNote(dutyPage.stale)}
       <h2 class="detail-title">${esc(d.name)}</h2>
       ${dutyPage.flash}
@@ -471,7 +472,7 @@
     body.querySelectorAll('[data-cancel]').forEach((b) => b.addEventListener('click', () => adminCancel(find(b.dataset.cancel))));
     body.querySelectorAll('[data-split]').forEach((b) => b.addEventListener('click', async () => {
       const s = find(b.dataset.split);
-      if (!(await Confirm.open({ title: '拆成多人嗎？', rows: [['原本', s.name]], note: '會拆成一人一筆報名（同一天、同一個了愿項目）。', confirmText: '拆開' }))) return;
+      if (!(await Confirm.open({ title: '拆成多人嗎？', rows: [['原本', s.name]], note: '會拆成一人一筆報名（同一天、同一個項目）。', confirmText: '拆開' }))) return;
       Busy.show('處理中⋯');
       try {
         const res = await Api.admin('adminSplitSignup', { signupId: s.id });
@@ -682,7 +683,7 @@
     const p = d.positions.find((x) => x.id === s.positionId);
     const ok = await Confirm.open({
       title: '確定要取消這筆報名嗎？',
-      rows: [['姓名', s.name + (s.accompany ? '（陪同）' : '')], ['日期', Fmt.rocDate(s.date)], ['勤務', d.name], ['了愿項目', p ? p.name : '']],
+      rows: [['姓名', s.name + (s.accompany ? '（陪同）' : '')], ['日期', Fmt.rocDate(s.date)], ['活動', d.name], ['項目', p ? p.name : '']],
       note: '取消後可在「操作紀錄」還原。',
       confirmText: '確定取消報名',
       cancelText: '不要取消',

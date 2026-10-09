@@ -41,7 +41,7 @@
         <form class="admin-form" novalidate>
           <label class="form-row"><span>帳號（登入時輸入）</span><input class="input" id="acc-account" name="account" value="${esc(a ? a.account : '')}" placeholder="例：道務組" autocomplete="off"></label>
           <label class="form-row"><span>名稱或負責人（選填）</span><input class="input" id="acc-name" name="name" value="${esc(a ? a.name : '')}"></label>
-          <div class="form-row"><span>角色</span><div class="role-pick">${data.roles.map((r) => `
+          <div class="form-row"><span>角色</span><div class="role-pick">${data.roles.filter((r) => r !== '場管' || Fmt.feature('venue')).map((r) => `
             <label class="role-option"><input type="radio" name="role" value="${esc(r)}"${(a ? a.role : '') === r ? ' checked' : ''}><b>${esc(Fmt.catLabel(r))}</b><small>${esc(ROLE_NOTE[r] || '')}</small></label>`).join('')}</div></div>
           <label class="form-row"><span>${isNew ? '密碼（至少 6 個字）' : '新密碼（不改就留空）'}</span>
             <div class="pw-row"><input class="input" id="acc-password" name="password" type="text" autocomplete="new-password"><button type="button" class="btn btn-small" data-gen>產生一組</button></div></label>

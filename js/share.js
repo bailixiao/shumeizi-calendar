@@ -31,7 +31,7 @@
     const short = rows.filter((r) => r.state.kind === 'short')
       .slice().sort((a, b) => a.date.localeCompare(b.date) || (a.duty.startTime || '').localeCompare(b.duty.startTime || ''));
     if (!short.length) return '';
-    const lines = [window.SITE.shortageTitle, '以下勤務還缺人，歡迎發心了愿報名 💪', '點連結就能報名 👇'];
+    const lines = [window.SITE.shortageTitle, '以下勤務還缺人，歡迎一起來幫忙 💪', '點連結就能報名 👇'];
     let lastDate = '';
     short.forEach(({ duty, date, state }) => {
       if (date !== lastDate) {
@@ -42,7 +42,7 @@
       lines.push(`${dutyEmoji(duty)} ${duty.name}　🙋 ${state.label}${meta ? `（📍${meta}）` : ''}`);
       lines.push(`👉 ${siteUrl()}#/duty/${encodeURIComponent(duty.id)}?date=${date}&go=signup`);
     });
-    lines.push('', `🗓️ 行事曆：${siteUrl()}`, '', '感謝大家歡喜了愿，感謝慈悲 🙏😊');
+    lines.push('', `🗓️ 行事曆：${siteUrl()}`, '', '謝謝大家，我們現場見 🙌😊');
     return lines.join('\n');
   }
 

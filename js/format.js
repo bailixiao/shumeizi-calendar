@@ -73,6 +73,18 @@
     return !!category && category !== '勤務' && categories().indexOf(category) !== -1;
   }
 
+  /** 功能開關（SITE.features）：沒設定的算開著 */
+  function feature(name) {
+    const f = window.SITE && window.SITE.features;
+    return !f || f[name] !== false;
+  }
+
+  /** 性質顯示的名字（只有志工類＝勤務有 SITE.natureLabels，其他類別照原樣） */
+  function natureLabel(category, nature) {
+    const labels = (category || '勤務') === '勤務' && window.SITE && window.SITE.natureLabels;
+    return (labels && labels[nature]) || nature;
+  }
+
   function timeRange(duty) {
     const { start, end, startTime, endTime } = duty;
     const md = (s) => `${Number(s.slice(5, 7))}/${Number(s.slice(8, 10))}`;
@@ -182,7 +194,7 @@
   }
 
   window.Fmt = {
-    esc, toDateStr, parseDate, addDays, datesBetween, rocYear, weekday, shortDate, rocDate, catLabel, categories, isFreeCat,
+    esc, toDateStr, parseDate, addDays, datesBetween, rocYear, weekday, shortDate, rocDate, catLabel, categories, isFreeCat, feature, natureLabel,
     timeRange, cardTime, effectiveMin, dayState, groupText, sameName, byStroke, setContact, askAdmin, shortDateList
   };
 })();

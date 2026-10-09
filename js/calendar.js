@@ -21,7 +21,7 @@
     selected: null,
     today: Fmt.toDateStr(new Date()),
     range: null, // { from, to } 目前畫面上的資料區間
-    loading: true, // 載入中不顯示舊區間的資料，避免誤判「沒有勤務」
+    loading: true, // 載入中不顯示舊區間的資料，避免誤判「沒有活動」
     pendingScroll: null, // 年檢視載入完成後要捲到的月份
     showPast: false // 年檢視是否顯示今年已過的月份（每次開啟預設收起）
   };
@@ -370,11 +370,11 @@
     const more = mine.items.length - 1;
     box.hidden = false;
     box.innerHTML = next
-      ? `<a class="my-next-main" href="#/mine"><span class="my-next-who">👤 ${Fmt.esc(mine.name)} 的下一個勤務</span>
+      ? `<a class="my-next-main" href="#/mine"><span class="my-next-who">👤 ${Fmt.esc(mine.name)} 的下一個活動</span>
           <strong>${Fmt.esc(Fmt.shortDate(next.date))}${next.startTime && next.start === next.end ? ' ' + Fmt.esc(next.startTime) : ''}　${Fmt.esc(next.dutyName)}${next.positionName ? '・' + Fmt.esc(next.positionName) : ''}</strong>
           ${more > 0 ? `<span class="my-next-more">之後還有 ${more} 個 ›</span>` : '<span class="my-next-more">看我的報名 ›</span>'}</a>
          <a class="my-next-switch" href="#/mine">不是我／換名字</a>`
-      : `<p class="my-next-main"><span class="my-next-who">👤 ${Fmt.esc(mine.name)}</span>目前沒有報名的勤務，看看哪裡缺人 🙋</p><a class="my-next-switch" href="#/mine">不是我／換名字</a>`;
+      : `<p class="my-next-main"><span class="my-next-who">👤 ${Fmt.esc(mine.name)}</span>目前沒有報名的活動，看看哪裡缺人 🙋</p><a class="my-next-switch" href="#/mine">不是我／換名字</a>`;
   }
 
   /** 看的日期接近年底或年初時，先在背景載入相鄰年份 */
@@ -572,7 +572,7 @@
     const { duty, state: st } = item;
     const meta = [duty.location, Fmt.cardTime(duty, date)].filter(Boolean);
     const group = Fmt.groupText(duty);
-    const href = `#/duty/${encodeURIComponent(duty.id)}?date=${date}`; // 職司表的勤務也先到報名頁，頁面上有「打開大張職司表」
+    const href = `#/duty/${encodeURIComponent(duty.id)}?date=${date}`; // 職司表的活動也先到報名頁，頁面上有「打開大張職司表」
     return `
       <a class="duty-card kind-${st.kind}${compact ? ' is-compact' : ''}" href="${href}">
         <span class="card-main">
@@ -639,8 +639,8 @@
     const dates = Fmt.datesBetween(state.range.from, state.range.to).filter((d) => (dayMap.get(d) || []).length);
     const shortDates = dates.filter((d) => dayMap.get(d).some((it) => it.state.kind === 'short'));
     const alert = catFilter === '場地' ? '' : shortDates.length
-      ? `<div class="notice notice-error recent-alert" role="status"><p><strong>近一個月有 ${shortDates.length} 天缺人</strong></p><p>${Fmt.shortDateList(shortDates)}</p><p class="muted">點勤務就可以報名幫忙</p>${Share.buttonsHtml()}</div>`
-      : `<div class="notice recent-alert" role="status"><p>近一個月的勤務都不缺人</p></div>`;
+      ? `<div class="notice notice-error recent-alert" role="status"><p><strong>近一個月有 ${shortDates.length} 天缺人</strong></p><p>${Fmt.shortDateList(shortDates)}</p><p class="muted">點活動就可以報名幫忙</p>${Share.buttonsHtml()}</div>`
+      : `<div class="notice recent-alert" role="status"><p>近一個月的活動都不缺人</p></div>`;
     if (!dates.length) {
       el.week.innerHTML = `<p class="panel-empty">近一個月沒有行程</p>`;
       return;

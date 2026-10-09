@@ -73,7 +73,7 @@
     const arrange = [addDays(adjust, -7), addDays(adjust, -3)];
     const signup = [addDays(adjust, -21), addDays(adjust, -8)];
     return [
-      `${md(signup[0])}~${md(signup[1])}｜報名了愿日期`,
+      `${md(signup[0])}~${md(signup[1])}｜報名日期`,
       `${md(arrange[0])}~${md(arrange[1])}｜職司安排`,
       `${md(adjust)}(${WEEK[weekdayOf(adjust)]})｜壇辦班職司最後調整`
     ].join('\n');

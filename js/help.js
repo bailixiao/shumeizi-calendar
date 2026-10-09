@@ -300,7 +300,7 @@
     if (em) em.addEventListener('click', () => { editState.editing = true; adminRender(body, guard, data, false); });
   }
 
-  const ROLE_LIST = ['總管理者'].concat(Fmt.categories(), ['唯讀', '場管']);
+  const ROLE_LIST = ['總管理者'].concat(Fmt.categories(), ['唯讀'], Fmt.feature('venue') ? ['場管'] : []);
 
   function editorRender(body, guard, data) {
     const all = data.all || [];

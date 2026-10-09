@@ -120,7 +120,7 @@
         </div>
         ${partial ? `<p class="stats-note">本${C.UNIT_NAME[p.unit]}還沒結束：算到今天 ${Number(data.today.slice(5, 7))}/${Number(data.today.slice(8, 10))}，比較的期間也只算到相同日期。</p>` : ""}
         ${s.shortEvents || s.accompany || s.absent ? `<p class="stats-note">${[s.shortEvents ? `缺人的場次 ${s.shortEvents} 場` : '', s.accompany ? `陪同 ${s.accompany} 人次（不算人數）` : '', s.absent ? `報名但未到 ${s.absent} 人次` : ''].filter(Boolean).join('・')}</p>` : ''}
-        ${missing.length ? `<div class="notice notice-error no-print"><p><strong>${missing.length} 位沒有填身分</strong>（道親佔比可能不準）：${missing.map(esc).join('、')}</p><p>請到勤務名單或試算表「報名」分頁補上身分。</p></div>` : ''}
+        ${missing.length ? `<div class="notice notice-error no-print"><p><strong>${missing.length} 位沒有填身分</strong>（道親佔比可能不準）：${missing.map(esc).join('、')}</p><p>請到活動名單或試算表「報名」分頁補上身分。</p></div>` : ''}
 
         <section class="stats-section">
           <h3 class="admin-sub">最近 ${trend.length} ${p.unit === 'month' ? '個月' : p.unit === 'quarter' ? '季' : '年'}<span class="h2-sub">深色＝道親、淺色＝壇辦</span></h3>
@@ -218,11 +218,11 @@
   // 教育、道務、植素統計的用詞
   const EDU_LABELS = {
     教育: { item: '課程', unit: '堂', person: '學生', staff: '師資', staffTitle: '各課程負責師資', pick: '選課程',
-      empty: '這段期間沒有課程（教育類、性質「課程」）', noStaff: '還沒有填師資。新增或編輯教育的課程時，在「師資」欄填上負責的師資。' },
+      empty: '這段期間沒有「' + Fmt.catLabel('教育') + '」的課程（種類「課程」）', noStaff: '還沒有填師資。新增或編輯課程時，在「師資」欄填上負責的師資。' },
     道務: { item: '項目', unit: '場', person: '參與者', staff: '負責人員', staffTitle: '負責人員（講師・帶班・助理帶班）', pick: '選項目',
-      empty: '這段期間沒有道務的課程、法會或會議', noStaff: '還沒有填講師、帶班、助理帶班。在道務的編輯畫面填寫，或用「安排整年的人員」一次排好。' },
+      empty: '這段期間沒有「' + Fmt.catLabel('道務') + '」的活動', noStaff: '還沒有填講師、帶班、助理帶班。在活動的編輯畫面填寫，或用「安排整年的人員」一次排好。' },
     植素: { item: '項目', unit: '場', person: '參加者', staff: '負責人員', staffTitle: '負責人員', pick: '選項目',
-      empty: '這段期間沒有植素園的工作坊或出攤', noStaff: '' }
+      empty: '這段期間沒有「' + Fmt.catLabel('植素') + '」的工作坊或出攤', noStaff: '' }
   };
 
   const GRID_FIRST = 10; // 出缺勤表先列幾位
@@ -365,7 +365,7 @@
         </section>
         ${careHtml((data.events || []).filter((e) => (e.category || '勤務') === cat), data.today)}
         <div class="stats-actions no-print"><button type="button" class="btn btn-primary" data-xlsx>⬇ 匯出 Excel（${L.item}總覽＋每個${L.item}的出缺勤表）</button></div>
-        ${cat === '道務' ? '<section class="stats-section" data-veg></section><section class="stats-section" data-ages></section><section class="stats-section" data-goals></section>' : ''}
+        ${cat === '道務' && Fmt.feature('vegetarian') ? '<section class="stats-section" data-veg></section><section class="stats-section" data-ages></section>' : ''}${cat === '道務' && Fmt.feature('goals') ? '<section class="stats-section" data-goals></section>' : ''}
       </div>`;
 
     bindNav(body, data, () => render(body, guard, data, false));

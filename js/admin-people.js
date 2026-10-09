@@ -193,7 +193,7 @@
       ${AdminPage.staleNote(stale)}
       ${flash}
       ${pendingList.length ? `<div class="notice pending-banner" role="status"><p>🆕 <strong>有 ${pendingList.length} 位新成員待確認</strong>（報名時自動加入的新名字）</p>${memberState.filter === 'pending' ? '<p class="muted">確認每一位：沒問題按「保留」；其實是名單上的某人（寫法不同）按「合併到⋯」；打錯或不需要的按「刪除」。</p>' : '<button type="button" class="btn btn-primary" data-show-pending>查看待確認的人</button>'}</div>` : ''}
-      ${canEditPeople() ? '<div class="admin-actions"><button type="button" class="btn btn-primary" data-add>＋ 新增成員</button><button type="button" class="btn" data-from-signups>從出勤紀錄加入成員</button><button type="button" class="btn" data-import-members>📋 匯入成員資料</button><button type="button" class="btn" data-same-name>👥 同名的舊紀錄</button></div>' : ''}
+      ${canEditPeople() ? '<div class="admin-actions"><button type="button" class="btn btn-primary" data-add>＋ 新增成員</button><button type="button" class="btn" data-from-signups>從出勤紀錄加入成員</button>' + (Fmt.feature('temple') ? '<button type="button" class="btn" data-import-members>📋 匯入成員資料</button><button type="button" class="btn" data-same-name>👥 同名的舊紀錄</button>' : '') + '</div>' : ''}
       <div class="list-filter">
         <select class="input" data-filter aria-label="狀態">
           ${pendingList.length ? `<option value="pending"${memberState.filter === 'pending' ? ' selected' : ''}>🆕 待確認（${pendingList.length}）</option>` : ''}
@@ -201,7 +201,7 @@
           <option value="inactive"${memberState.filter === 'inactive' ? ' selected' : ''}>已停用（${counts.inactive}）</option>
           <option value="all"${memberState.filter === 'all' ? ' selected' : ''}>全部（${data.members.length}）</option>
         </select>
-        <input class="input" type="search" data-q placeholder="搜尋姓名、${esc(window.SITE.temple)}或組別" value="${esc(memberState.q)}">
+        <input class="input" type="search" data-q placeholder="搜尋姓名${Fmt.feature('temple') ? '、' + esc(window.SITE.temple) : ''}或組別" value="${esc(memberState.q)}">
       </div>
       <div class="seg identity-filter" data-identity-filter></div>
       <div data-rows></div>
@@ -316,8 +316,10 @@
     if (canEditPeople()) {
       body.querySelector('[data-add]').addEventListener('click', () => editMember(null, data.groups, guard, reload));
       body.querySelector('[data-from-signups]').addEventListener('click', () => fromSignups(guard, reload));
-      body.querySelector('[data-import-members]').addEventListener('click', () => importMembers(guard, reload));
-      body.querySelector('[data-same-name]').addEventListener('click', () => sameNameSignups(guard));
+      const im = body.querySelector('[data-import-members]'); // 匯入成員資料、同名的舊紀錄：佛堂功能（features.temple）關掉時沒有
+      if (im) im.addEventListener('click', () => importMembers(guard, reload));
+      const sn = body.querySelector('[data-same-name]');
+      if (sn) sn.addEventListener('click', () => sameNameSignups(guard));
     }
     rows.addEventListener('click', (ev) => {
       const b = ev.target.closest('[data-row]');
@@ -335,17 +337,17 @@
       <h2 class="modal-title">${m ? '編輯成員' : '新增成員'}</h2>
       <label class="form-row"><span>姓名（請用真名）</span><input class="input" name="name" value="${esc(v.name)}" required></label>
       <label class="form-row"><span>別名（小名、其他寫法，用「、」分開；報名打別名會記成這位）</span><input class="input" name="aliases" value="${esc((v.aliases || []).join('、'))}" placeholder="例：小明、阿明"></label>
-      <label class="form-row"><span>${esc(window.SITE.temple)}（同名同姓時用來分；不知道可以空著）</span><select class="input" name="temple"><option value="">（不知道／空白）</option>${templeOptions.concat(v.temple && templeOptions.indexOf(v.temple) === -1 ? [v.temple] : []).map((t) => `<option${t === v.temple ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></label>
+      <label class="form-row"${Fmt.feature('temple') ? '' : ' hidden'}><span>${esc(window.SITE.temple)}（同名同姓時用來分；不知道可以空著）</span><select class="input" name="temple"><option value="">（不知道／空白）</option>${templeOptions.concat(v.temple && templeOptions.indexOf(v.temple) === -1 ? [v.temple] : []).map((t) => `<option${t === v.temple ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></label>
       ${(window.SITE.overseas || []).length ? `<div class="form-row"><span>國外（在國外的人選；台灣的選「台灣」）</span>${seg('overseas', [['', '台灣']].concat(window.SITE.overseas.map((o) => [o, o])), v.overseas || '')}</div>` : ''}
       <div class="form-row"><span>身分</span>${seg('identity', [['道親', '道親'], ['壇辦', '壇辦'], ['未求道', '未求道'], ['點傳師', '點傳師'], ['', '未填']], v.identity || '')}</div>
       ${GROUP_TYPES.map((t) => `
-        <label class="form-row"><span>${t}</span>
+        <label class="form-row"${Fmt.feature('groups') ? '' : ' hidden'}><span>${t}</span>
           <select class="input" name="g-${t}">
             <option value="">（無）</option>
             ${groups.filter((g) => g.type === t).map((g) => `<option${g.name === v.groups[t] ? ' selected' : ''}>${esc(g.name)}</option>`).join('')}
           </select></label>`).join('')}
       <label class="form-row"><span>年齡（選填，今年幾歲；之後每年自動加一歲）</span><input class="input" name="age" inputmode="numeric" maxlength="3" value="${esc(v.age === undefined ? '' : v.age)}" placeholder="例：45"></label>
-      <label class="check" data-veg-row${(v.identity || '') === '道親' ? '' : ' hidden'}><input type="checkbox" name="vegetarian"${v.vegetarian ? ' checked' : ''}> 🥬 已清口</label>
+      <label class="check" data-veg-row${(v.identity || '') === '道親' && Fmt.feature('vegetarian') ? '' : ' hidden'}><input type="checkbox" name="vegetarian"${v.vegetarian ? ' checked' : ''}> 🥬 已清口</label>
       <label class="form-row"><span>備註</span><input class="input" name="note" value="${esc(v.note)}"></label>
       <label class="check"><input type="checkbox" name="active"${v.active ? ' checked' : ''}> 啟用中（取消勾選＝停用）</label>`,
     async (f) => {
@@ -361,7 +363,7 @@
     }, guard, (m ? '<button type="button" class="btn btn-block" data-merge-member>👥 這個人和另一位是同一人</button>' : '') + (canDelete ? '<button type="button" class="btn btn-block btn-quiet-danger" data-delete-member>刪除這位成員</button>'
       : (m ? '<p class="hint">要刪除成員，請先取消勾選「啟用中」存檔（停用），再回來刪除。</p>' : '')));
 
-    modal.el.querySelectorAll('input[name=identity]').forEach((r) => r.addEventListener('change', () => { modal.el.querySelector('[data-veg-row]').hidden = r.value !== '道親' || !r.checked; }));
+    modal.el.querySelectorAll('input[name=identity]').forEach((r) => r.addEventListener('change', () => { modal.el.querySelector('[data-veg-row]').hidden = r.value !== '道親' || !r.checked || !Fmt.feature('vegetarian'); }));
     const mg = modal.el.querySelector('[data-merge-member]');
     if (mg) mg.addEventListener('click', () => { modal.close(); mergeMembers(m, guard, reload); });
     const del = modal.el.querySelector('[data-delete-member]');
@@ -635,12 +637,12 @@
             <h2 class="admin-day-title">${esc(t)}<span class="h2-sub">${items.length} 組</span></h2>
             <ul class="people-list">${items.map((g) => `
               <li><button type="button" class="person-card" data-row="${g.row}">
-                <span class="person-card-name">${esc(g.name)}${g.duties ? `<span class="tag">負責 ${g.duties} 筆勤務</span>` : ''}</span>
+                <span class="person-card-name">${esc(g.name)}${g.duties ? `<span class="tag">負責 ${g.duties} 筆活動</span>` : ''}</span>
                 <span class="person-card-meta">${esc(['組長：' + (g.leader || '未填'), g.assistant ? '佐理：' + g.assistant : '', g.phone || '未填電話', `組員 ${g.members.length} 人`].filter(Boolean).join('・'))}</span>
               </button></li>`).join('') || '<li class="muted">還沒有分組</li>'}</ul>
           </section>`;
       }).join('')}
-      <p class="hint">組長電話只在管理後台顯示。改組名時，勤務的負責組與成員的組別會一併更新。</p>`;
+      <p class="hint">組長電話只在管理後台顯示。改組名時，活動的負責組與成員的組別會一併更新。</p>`;
     flash = '';
     const addG = body.querySelector('[data-add]');
     if (addG) addG.addEventListener('click', () => editGroup(null, guard, reload));
@@ -655,7 +657,7 @@
     const deletable = g && !g.duties;
     const { m } = formModal(`
       <h2 class="modal-title">${g ? '編輯分組' : '新增分組'}</h2>
-      ${g ? `<p class="modal-note">分組類型：${esc(g.type)}${g.duties ? `・負責 ${g.duties} 筆勤務` : ''}</p>` : `
+      ${g ? `<p class="modal-note">分組類型：${esc(g.type)}${g.duties ? `・負責 ${g.duties} 筆活動` : ''}</p>` : `
         <label class="form-row"><span>分組類型</span>
           <select class="input" name="type" required>
             <option value="">（請選）</option>
@@ -673,10 +675,10 @@
       });
       const r = res.renamed || {};
       notice(AdminPage.notice('success', g ? '已存檔' : '已新增分組',
-        r.duties || r.members ? `已一併更新 ${r.duties} 筆勤務的負責組、${r.members} 位成員的組別` : f.elements.name.value.trim()));
+        r.duties || r.members ? `已一併更新 ${r.duties} 筆活動的負責組、${r.members} 位成員的組別` : f.elements.name.value.trim()));
       afterWrite(reload);
     }, guard, g ? `<button type="button" class="btn btn-block btn-quiet-danger" data-delete${deletable ? '' : ' disabled'}>刪除這一組</button>
-      ${deletable ? '' : '<p class="hint">還有勤務由這一組負責，不能刪除。</p>'}` : '');
+      ${deletable ? '' : '<p class="hint">還有活動由這一組負責，不能刪除。</p>'}` : '');
 
     const del = m.el.querySelector('[data-delete]');
     if (del && deletable) del.addEventListener('click', async () => {

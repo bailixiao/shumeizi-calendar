@@ -12,9 +12,10 @@ class_name = "DutyStore"
 tag = "v1"
 new_sqlite_classes = ["DutyStore"]
 
-# 台北 07:00 與 20:00 的手機提醒（UTC 23:00、12:00）
+# 每 5 分鐘一次（後台推播）；台北 07:00 與 20:00 的手機提醒也在這裡判斷（見 src/index.js）。
+# Cloudflare 免費方案整個帳號最多 5 個排程，教全區已經用了 3 個，所以書槑子只用 1 個。
 [triggers]
-crons = ["0 23 * * *", "0 12 * * *", "*/5 * * * *"]
+crons = ["*/5 * * * *"]
 
 [observability]
 enabled = true

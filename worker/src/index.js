@@ -37,9 +37,14 @@ function stub(env) {
 
 export default {
   fetch: (request, env) => stub(env).fetch(request),
-  // 台北 07:00（UTC 23:00）提醒今天、台北 20:00（UTC 12:00）提醒明天；每 5 分鐘送排定時間到了的後台推播
+  // 只用一個「每 5 分鐘」的排程（Cloudflare 免費方案整個帳號最多 5 個，教全區已經用了 3 個）：
+  // 每次都送排定時間到了的後台推播；台北 07:00（UTC 23:00）那次再提醒今天、台北 20:00（UTC 12:00）那次再提醒明天。
   async scheduled(event, env, ctx) {
-    const when = event.cron === '0 23 * * *' ? 'today' : event.cron === '0 12 * * *' ? 'tomorrow' : 'plans';
-    ctx.waitUntil(stub(env).cron(when));
+    const d = new Date(event.scheduledTime);
+    const jobs = [];
+    if (d.getUTCMinutes() < 5 && d.getUTCHours() === 23) jobs.push('today');
+    if (d.getUTCMinutes() < 5 && d.getUTCHours() === 12) jobs.push('tomorrow');
+    jobs.push('plans');
+    ctx.waitUntil((async () => { for (const j of jobs) await stub(env).cron(j); })());
   }
 };

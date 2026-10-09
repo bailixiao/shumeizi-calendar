@@ -2355,6 +2355,10 @@ button.veg-chip:hover { border-color: var(--ok); }
 .meal-stats p { margin: 0 0 4px; }
 .meal-stats ul { margin: 4px 0 8px; padding-left: 1.2em; }
 .meal-options textarea { min-height: 4.5em; }
+.meal-menus { display: grid; gap: 6px; margin: 4px 0 10px; }
+.meal-menus-title { font-size: .9em; color: var(--muted); }
+.meal-menu { display: grid; gap: 2px; text-align: left; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); color: inherit; font: inherit; cursor: pointer; }
+.meal-menu small { color: var(--muted); }
 
 /* ---------- 團購（後台） ---------- */
 .shop-tabs { margin-bottom: 12px; }

@@ -101,3 +101,16 @@ test('後台幫人報名可以選餐點；改期時餐點跟著原本的', () =>
   assert.equal(st.groups[0].counts[1].count, 1);
   assert.deepEqual(st.notes, [{ name: '測試甲', note: '加辣' }]);
 });
+
+test('用過的菜單：同樣內容只列一次，最近用過的在前面', () => {
+  const { call } = setup('主餐：素便當、素麵');
+  const add = (start, mealOptions) => assert.equal(call('adminCreateDuties', { duties: [{ name: '槑青韜課館', category: '教育', nature: '課程', start, meal: true, mealOptions, positions: [{ name: '參加', min: '0' }] }] }).ok, true);
+  add('2026-10-11', '主餐: 素便當，素麵');
+  add('2026-10-25', '便當：咖哩飯、炒麵\n飲料：豆漿、不用');
+  const menus = call('adminMealMenus', {}).data.menus;
+  assert.deepEqual(menus.map((m) => [m.text, m.lastDate, m.times]), [
+    ['便當：咖哩飯、炒麵\n飲料：豆漿、不用', '2026-10-25', 1],
+    ['主餐：素便當、素麵', '2026-10-16', 2]
+  ]);
+  assert.equal(menus[1].dutyName, '槑子的靈魂健身房');
+});

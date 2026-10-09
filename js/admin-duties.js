@@ -30,6 +30,27 @@
 
   let flash = '';
 
+
+  // 用過的菜單（spec 第 0.5 節）：之前活動填過的餐點選項，點一下帶入「餐點選項」
+  let mealMenus = null;
+  let mealMenusAt = 0; // 一分鐘內重畫表單不重抓（剛存的活動下次打開就會出現）
+  async function showMealMenus(box, textarea) {
+    try {
+      if (!mealMenus || Date.now() - mealMenusAt > 60000) { mealMenus = (await Api.admin('adminMealMenus', {}, true)).menus || []; mealMenusAt = Date.now(); }
+    } catch (err) { return; }
+    if (!mealMenus.length || !box.isConnected) return;
+    box.innerHTML = '<span class="meal-menus-title">📋 用過的菜單（點一下帶入）</span>' + mealMenus.map((m, i) =>
+      `<button type="button" class="meal-menu" data-menu="${i}"><span class="meal-menu-text">${Fmt.esc(m.text.split('\n').join('／'))}</span><small>最近一次：${Fmt.esc(Fmt.shortDate(m.lastDate))} ${Fmt.esc(m.dutyName)}${m.times > 1 ? '・用過 ' + m.times + ' 次' : ''}</small></button>`).join('');
+    box.hidden = false;
+    box.addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-menu]');
+      if (!b) return;
+      textarea.value = mealMenus[Number(b.dataset.menu)].text;
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      textarea.focus();
+    });
+  }
+
   function afterWrite() {
     AdminPage.clearMemo();
     if (window.CalendarPage) CalendarPage.refresh();
@@ -550,7 +571,8 @@
               <textarea class="input" name="mealOptions" rows="3" placeholder="一行一組，例：
 主餐：素便當、素麵
 飲料：紅茶、綠茶、不用">${esc(s.mealOptions || '')}</textarea></label>
-            <p class="hint">有填的話，勾吃飯的人每組要選一個；也可以寫備註（不吃辣、少飯⋯）。後台名單上方會算好每樣幾份。不填＝只勾吃不吃。</p>` : ''}
+            <p class="hint">有填的話，勾吃飯的人每組要選一個；也可以寫備註（不吃辣、少飯⋯）。後台名單上方會算好每樣幾份。不填＝只勾吃不吃。</p>
+            <div class="meal-menus" data-meal-menus hidden></div>` : ''}
             ${isNotice ? '<p class="hint">公告型：只顯示輪值組，不需報名、沒有項目。</p>' : ''}
           </fieldset>
 
@@ -894,6 +916,8 @@
 
     function bind() {
       const f = body.querySelector('form');
+      const mm = f.querySelector('[data-meal-menus]');
+      if (mm) showMealMenus(mm, f.elements.mealOptions);
       // 會改變表單結構的選項：讀回目前的值後重畫
       f.addEventListener('change', (ev) => {
         const n = ev.target.name;

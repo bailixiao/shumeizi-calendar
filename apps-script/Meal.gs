@@ -155,3 +155,24 @@ function mealStats_(duty, signups, date) {
     notes: notes
   };
 }
+
+/**
+ * 用過的菜單（後台新增／編輯活動時點一下帶入）：所有活動填過的餐點選項，同樣內容只列一次，
+ * 最近用過的在前面，最多 MEAL_MENUS_MAX 個。回傳 { menus: [{ text, lastDate, dutyName, times }] }
+ */
+var MEAL_MENUS_MAX = 10;
+
+function adminMealMenus_() {
+  var byText = {};
+  readTableCached_(SHEETS.DUTIES).forEach(function (d) {
+    if (d['有吃飯'] !== '是' || !d['餐點選項']) return;
+    var text = normalizeMealOptions_(d['餐點選項']).text;
+    if (!text) return;
+    var m = byText[text] || (byText[text] = { text: text, lastDate: '', dutyName: '', times: 0 });
+    m.times++;
+    if (String(d['開始日']) >= m.lastDate) { m.lastDate = String(d['開始日']); m.dutyName = d['名稱']; }
+  });
+  var menus = Object.keys(byText).map(function (k) { return byText[k]; });
+  menus.sort(function (a, b) { return a.lastDate < b.lastDate ? 1 : a.lastDate > b.lastDate ? -1 : 0; });
+  return { menus: menus.slice(0, MEAL_MENUS_MAX) };
+}

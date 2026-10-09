@@ -312,6 +312,7 @@ function adminRun_(body) {
     case 'adminDuty': return adminDuty_(body);
     case 'adminCancel': return cancelSignup_(body, { admin: true });
     case 'adminUpdateMeal': return updateMeal_(body, { admin: true });
+    case 'adminMealMenus': return adminMealMenus_();
     case 'adminReschedule': return rescheduleSignup_(body, { admin: true });
     case 'adminLogs': return adminLogs_(body);
     case 'adminRestore': return adminRestore_(body);

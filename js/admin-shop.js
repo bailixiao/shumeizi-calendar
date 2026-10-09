@@ -42,10 +42,10 @@
         <span class="shop-group-meta">截止 ${esc(g.deadline)}・${g.orders} 張訂單・${money(g.total)}<br>取貨：${g.pickups.map((p) => esc(Fmt.shortDate(p.date))).join('、') || '—'}</span>
       </a></li>`).join('')}</ul>` : '<p class="panel-empty">還沒有團購。先到「📦 商品庫」建好商品，再按「＋ 開團」。</p>';
     const productsHtml = data.products.length ? `<ul class="shop-product-list">${data.products.map((p) => `
-      <li><button type="button" class="shop-product-row${p.active ? '' : ' is-inactive'}" data-product="${esc(p.id)}"${edit ? '' : ' disabled'}>
-        ${p.photo ? `<img src="${esc(Api.fileUrl(p.photo))}" alt="" loading="lazy">` : '<span class="shop-noimg">🌿</span>'}
-        <span><strong>${esc(p.name)}</strong><small>${money(p.price)}${p.unit ? '／' + esc(p.unit) : ''}${p.active ? '' : '・已停用'}</small></span>
-      </button></li>`).join('')}</ul>` : '<p class="panel-empty">商品庫是空的，按「＋ 新增商品」。</p>';
+      <li class="shop-product-row${p.active ? '' : ' is-inactive'}">
+        ${thumb(p.photo, p.name)}
+        <button type="button" class="shop-product-name" data-product="${esc(p.id)}"${edit ? '' : ' disabled'}><strong>${esc(p.name)}</strong><small>${money(p.price)}${p.unit ? '／' + esc(p.unit) : ''}${p.active ? '' : '・已停用'}${edit ? '・點我修改' : ''}</small></button>
+      </li>`).join('')}</ul>` : '<p class="panel-empty">商品庫是空的，按「＋ 新增商品」。</p>';
     body.innerHTML = `
       ${AdminPage.staleNote(stale)}
       <div class="seg shop-tabs">${[['groups', '🛒 團購'], ['products', '📦 商品庫']].map(([v, l]) => `<label class="seg-item"><input type="radio" name="shoptab" value="${v}"${state.tab === v ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div>
@@ -55,12 +55,24 @@
         ${edit ? '<div class="admin-actions"><button type="button" class="btn btn-primary" data-new-product>＋ 新增商品</button></div>' : ''}
         ${productsHtml}
         <p class="hint">停用的商品不能再加進新的團購，已經開的團購不受影響。</p>`}`;
+    bindZoom(body);
     body.querySelectorAll('input[name=shoptab]').forEach((r) => r.addEventListener('change', () => { state.tab = r.value; renderList(body, guard, data, false); }));
     const np = body.querySelector('[data-new-product]');
     if (np) np.addEventListener('click', () => editProduct(null, guard, () => showList(body, guard)));
     body.querySelectorAll('[data-product]').forEach((b) => b.addEventListener('click', () => {
       editProduct(data.products.find((p) => p.id === b.dataset.product), guard, () => showList(body, guard));
     }));
+  }
+
+  /** 商品縮圖（點了放大）；沒照片顯示 🌿 */
+  function thumb(photo, name, cls) {
+    return photo
+      ? `<button type="button" class="shop-thumb${cls ? ' ' + cls : ''}" data-zoom="${esc(Api.fileUrl(photo))}" data-cap="${esc(name)}" aria-label="放大看${esc(name)}的照片"><img src="${esc(Api.fileUrl(photo))}" alt="" loading="lazy"></button>`
+      : `<span class="shop-thumb shop-noimg${cls ? ' ' + cls : ''}" aria-hidden="true">🌿</span>`;
+  }
+
+  function bindZoom(root) {
+    root.querySelectorAll('[data-zoom]').forEach((b) => b.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); Modal.image(b.dataset.zoom, b.dataset.cap); }));
   }
 
   /** 照片縮小成長邊 1200px 的 JPEG，回傳 base64（不含 data: 開頭） */
@@ -109,7 +121,8 @@
     const f = m.el.querySelector('form');
     const box = f.querySelector('[data-error]');
     const drawPhoto = () => {
-      f.querySelector('[data-photo-box]').innerHTML = photo ? `<img src="${esc(Api.fileUrl(photo))}" alt=""><button type="button" class="link-btn" data-photo-del>拿掉照片</button>` : '<span class="muted">還沒有照片</span>';
+      f.querySelector('[data-photo-box]').innerHTML = photo ? `${thumb(photo, f.elements.name.value || '商品', 'shop-thumb-big')}<button type="button" class="link-btn" data-photo-del>拿掉照片</button>` : '<span class="muted">還沒有照片</span>';
+      bindZoom(f.querySelector('[data-photo-box]'));
       const del = f.querySelector('[data-photo-del]');
       if (del) del.addEventListener('click', () => { photo = ''; drawPhoto(); });
     };
@@ -298,7 +311,7 @@
         <div class="stat-card"><span class="stat-label">訂單</span><span class="stat-num">${s.orders}</span><span class="stat-hint">已取貨 ${s.picked} 張</span></div>
         <div class="stat-card"><span class="stat-label">總金額</span><span class="stat-num">${Number(s.total).toLocaleString('zh-TW')}</span><span class="stat-hint">已付 ${money(s.paid)}<br>未付 ${money(s.unpaid)}</span></div>
       </div>
-      <ul class="shop-sold">${g.items.map((it) => `<li><span>${esc(it.name)}</span><strong>${it.sold}${it.unit ? ' ' + esc(it.unit) : ''}</strong>${it.limit !== null ? `<small>${it.left ? `剩 ${it.left}` : '已售完'}／限量 ${it.limit}</small>` : ''}</li>`).join('')}</ul>
+      <ul class="shop-sold">${g.items.map((it) => `<li>${thumb(it.photo, it.name, 'shop-thumb-sm')}<span>${esc(it.name)}</span><strong>${it.sold}${it.unit ? ' ' + esc(it.unit) : ''}</strong>${it.limit !== null ? `<small>${it.left ? `剩 ${it.left}` : '已售完'}／限量 ${it.limit}</small>` : ''}</li>`).join('')}</ul>
 
       <section class="stats-section">
         <h3 class="admin-sub">📦 備貨清單<span class="h2-sub">每一場要帶幾份</span></h3>
@@ -330,6 +343,7 @@
         ${orphan.length ? `<div class="notice notice-error"><p>有 ${orphan.length} 張訂單的取貨場次已經拿掉了：${orphan.map((o) => esc(o.name)).join('、')}，請幫他們「改單」換場次。</p></div>` : ''}
       </section>`;
     flash = '';
+    bindZoom(body);
     const reload = () => { AdminPage.clearMemo(); showGroup(body, guard, g.id); };
     const set = async (orderId, change, label) => {
       Busy.show(label + '⋯');
@@ -381,7 +395,7 @@
         <label class="form-row"><span>第一次來的話：怎麼認識的？（名單上有的人不用選）</span><select class="input" name="source"><option value="">（名單上有，不用選）</option>${(window.SITE.sources || []).map((x) => `<option>${esc(x)}</option>`).join('')}</select></label>
         <label class="form-row" data-ref hidden><span>介紹人</span><input class="input" name="referrer" maxlength="20"></label>`}
         <label class="form-row"><span>取貨場次</span><select class="input" name="pickup">${g.pickups.map((p) => `<option value="${esc(p.id)}"${o && o.pickupId === p.id ? ' selected' : ''}>${esc(pickupText(p))}</option>`).join('')}</select></label>
-        <div class="form-row"><span>數量</span><div class="shop-qty-list">${g.items.map((it) => `<label class="shop-qty-row"><span>${esc(it.name)}<small>${money(it.price)}${it.left !== null ? `・剩 ${it.left + qty(it.id)}` : ''}</small></span><input class="input" type="number" min="0" max="99" data-qty="${esc(it.id)}" value="${qty(it.id)}"></label>`).join('')}</div></div>
+        <div class="form-row"><span>數量</span><div class="shop-qty-list">${g.items.map((it) => `<label class="shop-qty-row">${thumb(it.photo, it.name, 'shop-thumb-sm')}<span>${esc(it.name)}<small>${money(it.price)}${it.left !== null ? `・剩 ${it.left + qty(it.id)}` : ''}</small></span><input class="input" type="number" min="0" max="99" data-qty="${esc(it.id)}" value="${qty(it.id)}"></label>`).join('')}</div></div>
         <div class="form-row"><span>付款</span><div class="seg">${[['現場', '取貨付現'], ['轉帳', '轉帳']].map(([v, l]) => `<label class="seg-item"><input type="radio" name="pay" value="${v}"${(o ? o.pay : '現場') === v ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div></div>
         <label class="form-row"><span>轉帳末五碼（選填）</span><input class="input" name="last5" inputmode="numeric" maxlength="5" value="${esc(o ? o.last5 : '')}"></label>
         <label class="form-row"><span>備註（只有後台看得到）</span><input class="input" name="note" maxlength="100" value="${esc(o ? o.note : '')}" placeholder="例：電話訂的"></label>
@@ -392,6 +406,7 @@
         </div>
       </form>`);
     const f = m.el.querySelector('form');
+    bindZoom(f);
     if (f.elements.source) f.elements.source.addEventListener('change', () => { f.querySelector('[data-ref]').hidden = f.elements.source.value !== '朋友介紹'; });
     m.el.querySelector('[data-close]').addEventListener('click', () => m.close());
     f.addEventListener('submit', async (ev) => {

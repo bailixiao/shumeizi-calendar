@@ -63,6 +63,20 @@
     });
   }
 
-  window.Modal = { open };
+  /** 放大看圖片（活動頁的 DM、重點圖片、團購的商品照片）：整張寬度顯示，可上下捲動，也可以開新頁用手指放大 */
+  function image(src, caption) {
+    const m = open(`
+      ${caption ? `<h2 class="modal-title">${esc(caption)}</h2>` : ''}
+      <img class="image-full" src="${esc(src)}" alt="${esc(caption || '')}">
+      <div class="modal-actions">
+        <a class="btn btn-block image-open" href="${esc(src)}" target="_blank" rel="noopener">開新頁看原圖（可以用手指放大）</a>
+        <button type="button" class="btn btn-block" data-close>關閉</button>
+      </div>`);
+    m.el.classList.add('modal-wide');
+    m.el.querySelector('[data-close]').addEventListener('click', () => m.close());
+    return m;
+  }
+
+  window.Modal = { open, image };
   window.Confirm = { open: confirm };
 })();

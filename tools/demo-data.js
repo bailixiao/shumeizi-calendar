@@ -55,10 +55,12 @@ async function seedDemo(call, get) {
   await signup(vol, sun, [{ name: '王小明' }], vol.positions[0].id);
   await signup(find('植素園出攤', sun), sun, [{ name: '測試乙' }]);
   // 團購：三樣商品、一次開放中的團購（在兩場植素園出攤取貨）、幾張訂單
-  const prod = async (name, price, unit, description) => (await admin('adminShopSaveProduct', { product: { name, price, unit, description } })).data.product.id;
-  const tofu = await prod('手工豆腐', 60, '盒', '當天現做，冷藏 3 天內吃完');
-  const jam = await prod('桑葚果醬', 150, '罐', '植素園自己熬的，少糖');
-  const bread = await prod('全麥饅頭', 80, '包', '一包 4 顆');
+  // 商品照片：tools/demo-photos/*.png（自己畫的示範圖），上傳到 Cloudflare（同 DM）
+  const upload = async (file) => { const data = require('fs').readFileSync(require('path').join(__dirname, 'demo-photos', file)).toString('base64'); const r = await admin('adminUploadFile', { mime: 'image/png', name: file, data }); return r.ok ? r.data.id : ''; };
+  const prod = async (name, price, unit, description, photo) => (await admin('adminShopSaveProduct', { product: { name, price, unit, description, photo: photo ? await upload(photo) : '' } })).data.product.id;
+  const tofu = await prod('手工豆腐', 60, '盒', '當天現做，冷藏 3 天內吃完', 'tofu.png');
+  const jam = await prod('桑葚果醬', 150, '罐', '植素園自己熬的，少糖', 'jam.png');
+  const bread = await prod('全麥饅頭', 80, '包', '一包 4 顆', 'bread.png');
   const pickups = [find('植素園出攤', sun).id, find('植素園出攤', sun2).id];
   const g = await admin('adminShopSaveGroup', { group: {
     name: '植素園十月團購', description: '這次有新鮮的手工豆腐、果醬和饅頭 🌿 在出攤時取貨', deadline: addDays(sun, -1) + ' 22:00', pickups,

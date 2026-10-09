@@ -38,6 +38,7 @@
         <p class="hint">打一個字就會提示成員名單上的名字，點一下就查。要和報名時寫的名字一樣（例如有沒有寫姓）。</p>
       </form>
       <div data-result aria-live="polite"></div>
+      <div data-shop-result aria-live="polite"></div>
       <a class="help-inline" href="#/help?c=取消改期">❓ 不知道怎麼用？看常見問題</a>
       <a class="btn btn-block back-bottom" href="#/">‹ 回行事曆</a>`;
     const form = root.querySelector('form');
@@ -112,6 +113,7 @@
       saveName(name);
       current = data;
       render(flash);
+      if (window.ShopPage) ShopPage.mineSection(root.querySelector('[data-shop-result]'), name); // 🛒 我的團購
     } catch (err) {
       if (t !== token) return;
       box.innerHTML = `<div class="notice notice-error" role="alert"><p>${esc(err.message || '查詢失敗，請稍後再試')}</p></div>`;

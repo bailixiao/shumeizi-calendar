@@ -125,11 +125,13 @@
           ${info.map((row) => `<div><dt>${row[0]}</dt><dd>${esc(row[1])}</dd></div>`).join('')}
         </dl>
         <div id="duty-extra"></div>
+        <div id="duty-shop"></div>
         ${isNotice ? '' : '<section id="duty-roster" class="detail-section"></section><section id="duty-signup" class="detail-section"></section>'}
       </article>
       <a class="btn btn-block back-bottom" href="#/">‹ 回行事曆</a>`;
 
     renderExtra();
+    if (window.ShopPage) ShopPage.dutyNote(document.getElementById('duty-shop'), d.id); // 這場可以取團購
     if (!isNotice) {
       renderRoster();
       mountSignup();

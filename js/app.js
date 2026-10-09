@@ -6,6 +6,7 @@
 //   #/venue?date=…           借區中心場地（見 venue.js）
 //   #/help、#/help/<問題ID>、#/help?c=分類   常見問題（見 help.js）
 //   #/rollcall/<勤務ID>?date=…   當天點名（見 rollcall.js）
+//   #/shop、#/shop/<團購ID>   團購（見 shop.js）
 //   #/admin…                 管理後台（見 admin.js）
 (function () {
   'use strict';
@@ -65,6 +66,12 @@
     if (grid) {
       show('grid');
       GridPage.show(decodeURIComponent(grid[1]));
+      return;
+    }
+    const shop = location.hash.match(/^#\/shop(?:\/([^?]+))?\/?$/);
+    if (shop && Fmt.feature('shop')) {
+      show('shop');
+      ShopPage.show(shop[1] ? decodeURIComponent(shop[1]) : '');
       return;
     }
     if (/^#\/mine\/?$/.test(location.hash)) {
@@ -235,6 +242,7 @@
     views.admin = document.getElementById('view-admin');
     views.help = document.getElementById('view-help');
     views.rollcall = document.getElementById('view-rollcall');
+    views.shop = document.getElementById('view-shop');
     CalendarPage.init();
     // 搬家測試：用 ?api=cf 試用 Cloudflare 版時，左下角顯示提示，按一下切回正式版
     if (window.APP_CONFIG.TEST) {
@@ -246,6 +254,7 @@
     }
     document.getElementById('push-open').addEventListener('click', () => PushPage.openPanel());
     hideSplashWhenReady();
+    if (window.ShopPage) ShopPage.checkButton(); // 有開放中的團購才出現「🛒 團購」
     window.addEventListener('hashchange', route);
     route();
   });

@@ -2393,3 +2393,38 @@ span.shop-thumb { cursor: default; }
 .shop-product-name:disabled { cursor: default; }
 .shop-product-name small { display: block; color: var(--muted); }
 .shop-sold li { align-items: center; }
+
+/* ---------- 團購（大家） ---------- */
+.shop-deadline { margin: 0 0 8px; color: var(--accent); font-weight: 700; }
+.shop-deadline.is-closed { color: var(--muted); }
+.shop-desc { margin: 0 0 12px; }
+.shop-step { margin: 18px 0; }
+.shop-step h2 { display: flex; align-items: center; gap: 8px; font-size: 1.15rem; margin: 0 0 10px; }
+.shop-step h2 small { font-weight: 400; color: var(--muted); font-size: .85rem; }
+.shop-cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.shop-card { display: grid; grid-template-columns: 76px 1fr; grid-template-areas: "img body" "img step"; gap: 6px 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.shop-card.is-on { border-color: var(--ok); background: var(--ok-soft); }
+.shop-card.is-soldout { opacity: .6; }
+.shop-card-img { grid-area: img; width: 76px; height: 76px; }
+.shop-card-body { grid-area: body; display: flex; flex-direction: column; min-width: 0; }
+.shop-card-name { font-size: 1.08rem; }
+.shop-card-price { color: var(--accent); font-weight: 700; }
+.shop-card-price small { color: var(--muted); font-weight: 400; }
+.shop-card-desc { color: var(--ink-2); font-size: .92rem; }
+.shop-card-left { color: var(--muted); font-size: .85rem; }
+.shop-stepper { grid-area: step; display: flex; align-items: center; gap: 10px; justify-self: end; }
+.shop-step-btn { min-width: 44px; min-height: 44px; padding: 0; font-size: 1.3rem; font-weight: 700; }
+.shop-step-n { min-width: 1.6em; text-align: center; font-size: 1.2rem; font-weight: 700; }
+.shop-pickups { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.shop-source { margin-top: 10px; }
+.shop-existing { margin-top: 10px; }
+.shop-last5 { margin-top: 10px; }
+.shop-total-bar { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; margin: 16px -4px 0; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 -4px 14px rgba(0,0,0,.08); }
+.shop-total { display: flex; flex-direction: column; }
+.shop-total small { color: var(--muted); }
+.shop-total strong { font-size: 1.35rem; color: var(--accent); }
+.shop-total-bar .btn { min-width: 9em; }
+.shop-duty-note { display: flex; flex-direction: column; gap: 2px; text-decoration: none; color: inherit; margin: 12px 0; background: var(--ok-soft); border-color: var(--ok); }
+.shop-payinfo p, .shop-payinfo-small { white-space: normal; }
+.shop-payinfo-small { font-size: .92rem; background: var(--paper-2); border-radius: 10px; padding: 8px 10px; }
+.shop-last5-form { display: flex; gap: 8px; margin-top: 8px; } .shop-last5-form .input { flex: 1; min-width: 0; }

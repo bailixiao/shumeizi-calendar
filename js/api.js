@@ -221,6 +221,12 @@
     rollcallGet: (p) => post(Object.assign({ action: 'rollcallGet' }, p)),
     rollcallSet: (p) => post(Object.assign({ action: 'rollcallSet' }, p)),
     loginAccounts: () => get('loginAccounts', {}),
+    // 團購（見 shop.js）：名字放在 POST 內容（不放網址）
+    getShop: () => get('getShop', {}),
+    shopOrder: (p) => post(Object.assign({ action: 'shopOrder' }, p)),
+    shopMyOrders: (name) => post({ action: 'shopMyOrders', name }),
+    shopCancel: (orderId, name) => post({ action: 'shopCancel', orderId, name }),
+    shopSetLast5: (orderId, name, last5) => post({ action: 'shopSetLast5', orderId, name, last5 }),
     // DM 檔案（照片、PDF）的網址
     fileUrl: (id) => window.APP_CONFIG.API_URL + (window.APP_CONFIG.API_URL.indexOf('?') === -1 ? '?' : '&') + 'action=file&id=' + encodeURIComponent(id),
     // 開網站時一次打包：行事曆＋近 30 天勤務詳情（資料較多，第一次等久一點）

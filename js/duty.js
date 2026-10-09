@@ -387,7 +387,7 @@
 
   function onSignedUp(result, res) {
     try { if (result.entries[0]) localStorage.setItem(LAST_NAME_KEY, result.entries[0].name); } catch (e) { /* 無痕模式 */ }
-    const who = (e) => window.SITE.identity === false ? e.name + (e.meal ? ' 🍱' + (MealUI.label(null, e.mealChoice) ? '（' + MealUI.label(null, e.mealChoice) + '）' : '') : '') : `${e.name}（${e.identity}${e.accompany ? '・陪同' : ''}）`;
+    const who = (e) => window.SITE.identity === false ? e.name + (e.meal ? ' 🍱' + MealUI.label(null, e.mealChoice) : '') : `${e.name}（${e.identity}${e.accompany ? '・陪同' : ''}）`;
     const dates = result.dates.map(Fmt.shortDate).join('、');
     // 大家報同樣的項目：一行名字＋項目；各報各的：逐人列出
     const body = result.positionName

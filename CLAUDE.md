@@ -20,6 +20,9 @@
 ## 開發流程
 
 - 每完成一個段落就 commit 並 push 到 GitHub。
-- **每次加新功能或畫面（行事曆排版）改變，都要同時更新常見問題**：apps-script/FaqSeed.gs 的題目（家人們與管理者）、img/help 截圖（先重開測試版再執行 node tools/help-shots.js）、圖解教學（img/tutorial、js/tutorial.js）要和畫面對得上。
+- **每次加新功能或畫面（行事曆排版）改變，都要同時更新常見問題**：apps-script/FaqSeed.gs 的題目（大家與管理者）、img/help 截圖、圖解教學（img/tutorial、js/tutorial.js）要和畫面對得上。
+  - 截圖：先開示範版 `node tools/dev-server.js --mock --demo`（書槑子的示範資料，tools/demo-data.js），再 `node tools/help-shots.js`；圖解教學 `node tools/tutorial-shots.js`（拍之前要重開示範版）。
+  - 加到主畫面示意圖：`node tools/help-art.js`。
+  - 改了 js／css 要把 index.html 裡的 `?v=` 版本號換新，手機才會拿到新版。
 - 推播、拍照、加到主畫面要早點用真的手機測。
 - 用詞：對象是青年，口語輕鬆、活潑；不用「道親、壇辦、佛堂、點傳師、了愿」這類詞（見 spec 第 0 節）。

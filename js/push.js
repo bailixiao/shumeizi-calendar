@@ -130,7 +130,7 @@
             ${close}
           </div>`;
       } else {
-        body.innerHTML = `${note}<p>開啟後，每逢有活動，會在<strong>前一天晚上 8 點</strong>、<strong>當天早上 7 點</strong>溫馨提醒您 🙏</p><p class="muted">沒有活動的日子不會打擾您。</p>
+        body.innerHTML = `${note}<p>開啟後，有活動時會在<strong>前一天晚上 8 點</strong>、<strong>當天早上 7 點</strong>提醒你 🔔</p><p class="muted">沒有活動的日子不會吵你 😊</p>
           <div class="modal-actions">
             <button type="button" class="btn btn-block btn-primary" data-on>好的，請提醒我</button>
             ${close}

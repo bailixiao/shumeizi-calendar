@@ -29,6 +29,7 @@ function doGet(e) {
       case 'getFaq': return getFaq_(p);
       case 'getRepairs': return getRepairs_(p);
       case 'pushClick': return pushClick_(p);
+      case 'getShop': return getShop_(p); // 團購（Shop.gs）
       default: throw new ApiError_('BAD_REQUEST', '未知的 action：' + (p.action || '（空白）'));
     }
   });
@@ -65,6 +66,10 @@ function doPost(e) {
       case 'pushUnsubscribe': return pushUnsubscribe_(body);
       case 'pushTest': return pushTest_(body);
       case 'pushSetName': return pushSetName_(body);
+      case 'shopOrder': return shopOrder_(body);
+      case 'shopMyOrders': return shopMyOrders_(body);
+      case 'shopCancel': return shopCancel_(body);
+      case 'shopSetLast5': return shopSetLast5_(body);
       default: throw new ApiError_('BAD_REQUEST', '未知的 action：' + (body.action || '（空白）'));
     }
   });

@@ -318,6 +318,13 @@ function adminRun_(body) {
     case 'adminRepairs': return adminRepairs_(body);
     case 'adminSetMemberExtra': return adminSetMemberExtra_(body);
     case 'adminSplitSignup': return adminSplitSignup_(body);
+    case 'adminShop': return adminShop_(body);
+    case 'adminShopGroup': return adminShopGroup_(body);
+    case 'adminShopSaveProduct': return adminShopSaveProduct_(body);
+    case 'adminShopSaveGroup': return adminShopSaveGroup_(body);
+    case 'adminShopDeleteGroup': return adminShopDeleteGroup_(body);
+    case 'adminShopOrder': return shopOrder_(body, { admin: true });
+    case 'adminShopOrderSet': return adminShopOrderSet_(body);
     case 'adminMergeMembers': return adminMergeMembers_(body);
     case 'adminImportMembers': return adminImportMembers_(body);
     case 'adminSameNameSignups': return adminSameNameSignups_();

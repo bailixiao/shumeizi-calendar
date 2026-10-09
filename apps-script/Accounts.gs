@@ -75,10 +75,13 @@ function currentTokenKey_(account) {
 
 // 所有角色都能用的讀取
 var ADMIN_READ_ACTIONS = ['adminPing', 'adminLogout', 'adminMe', 'adminRecent', 'adminDuty', 'adminLogs', 'adminDay', 'adminRoster',
-  'adminDutyList', 'adminDutyForEdit', 'adminStats', 'adminMembers', 'adminGroups', 'adminGoals', 'adminVenue', 'adminPushList', 'adminFaq', 'adminRepairs'];
+  'adminDutyList', 'adminDutyForEdit', 'adminStats', 'adminMembers', 'adminGroups', 'adminGoals', 'adminVenue', 'adminPushList', 'adminFaq', 'adminRepairs', 'adminShop', 'adminShopGroup'];
 // 依勤務類別判斷的寫入（勤務／道務／教育帳號只能動自己類別）
 var ADMIN_CATEGORY_ACTIONS = ['adminCancel', 'adminReschedule', 'adminRestore', 'adminCreateDuties', 'adminUpdateDuty',
   'adminDeleteDuty', 'adminSetAttendance', 'adminAddAttendee', 'adminDraftFromImages', 'adminUpdateStatsSheet', 'adminSetTeachers', 'adminSaveGoals', 'adminVenueDecide', 'adminPushSave', 'adminPushDelete', 'adminAutoPushSave', 'adminRollcallLink', 'adminImportAttendance', 'adminSetMemberExtra', 'adminSplitSignup'];
+
+// 團購的寫入：總管理者與植素（植素園工作坊）帳號（規格 0.6）
+var SHOP_ADMIN_ACTIONS = ['adminShopSaveProduct', 'adminShopSaveGroup', 'adminShopDeleteGroup', 'adminShopOrder', 'adminShopOrderSet'];
 
 // 成員、分組的編輯動作，與可以編輯的帳號（總管理者另外全部可以）
 var PEOPLE_EDIT_ACTIONS = ['adminSaveMember', 'adminDeleteMember', 'adminMemberCandidates', 'adminAddMembers', 'adminMergeNames', 'adminClearCandidates',
@@ -128,6 +131,10 @@ function adminAuthorize_(session, body) {
   if (role === '場管') {
     if (['adminPing', 'adminLogout', 'adminMe', 'adminVenue', 'adminVenueDecide', 'adminVenueWatch', 'adminFaq', 'adminRepairs', 'adminRepairUpdate'].indexOf(action) === -1) denied();
     return;
+  }
+  if (SHOP_ADMIN_ACTIONS.indexOf(action) !== -1) {
+    if (role === '植素') return;
+    denied();
   }
   // 唯讀不看操作紀錄、名單（有個資與聯絡細節）、勤務管理
   if (role === '唯讀' && ['adminLogs', 'adminDay', 'adminRoster', 'adminDutyList', 'adminDutyForEdit'].indexOf(action) !== -1) denied();

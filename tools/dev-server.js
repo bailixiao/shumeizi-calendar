@@ -1,4 +1,5 @@
 // 本機預覽用的靜態伺服器（不需安裝套件）。執行：node tools/dev-server.js，開啟 http://localhost:5173
+// 加上 --mock --demo：用書槑子的示範資料（截圖用，見 tools/demo-data.js）。
 // 加上 --mock：不連正式 API，改跑和正式相同的 Cloudflare Worker 程式（資料放記憶體，載入 tests/env.js 的初始資料、管理密碼 test-pass），
 // 適合在部署前測試新功能，不會動到真的試算表。例：node tools/dev-server.js --mock（預設 port 5175）
 const http = require('node:http');
@@ -7,6 +8,7 @@ const path = require('node:path');
 
 const root = path.join(__dirname, '..');
 const mock = process.argv.includes('--mock');
+const demo = process.argv.includes('--demo'); // 配 --mock：書槑子的示範資料（截圖用）
 const port = Number(process.env.PORT) || (mock ? 5175 : 5173);
 const types = {
   '.html': 'text/html; charset=utf-8',
@@ -25,13 +27,20 @@ async function startMock() {
   require('child_process').execFileSync(process.execPath, [path.join(__dirname, 'build-worker.js')], { stdio: 'inherit' });
   const { createApp } = await import('../worker/src/app.js');
   const { createMemoryStore } = await import('../worker/src/store.js');
-  const googleEnv = require('../tests/env').createEnv();
+  // --demo：不放教全區的初始勤務，改放書槑子的示範資料（tools/demo-data.js）
+  const googleEnv = require('../tests/env').createEnv(undefined, demo ? { shumeizi: true, noSeed: true } : undefined);
   const sheets = Object.fromEntries(Object.entries(googleEnv.sheets).map(([n, sh]) => [n, sh.data]));
   const store = createMemoryStore();
   const app = createApp(store);
   await app.handle(new Request('http://localhost/', { method: 'POST', body: JSON.stringify({ action: 'import', sheets, props: { ADMIN_PASSWORD: 'test-pass', ADMIN_CONTACT: '測試管理者' } }) }));
   app.gs.ensurePushKeys_(); // 本機測試也能開啟手機提醒
   store.persist();
+  if (demo) {
+    const call = async (body) => { const r = await app.handle(new Request('http://localhost/', { method: 'POST', body: JSON.stringify(body) })); store.persist(); return r.json(); };
+    const get = async (q) => (await app.handle(new Request('http://localhost/?' + new URLSearchParams(q)))).json();
+    const d = await require('./demo-data.js').seedDemo(call, get);
+    console.log('示範資料：靈魂健身房 ' + d.gym + '、課館與植素園 ' + d.sun);
+  }
   worker = { app, store };
 }
 

@@ -5,6 +5,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 
 // opts.shumeizi：用書槑子的設定（不選身分、第一次報名填認識管道）；沒給＝教全區原本的行為（原本的測試照舊）
+// opts.noSeed：不匯入初始勤務（Seed.gs 是教全區的資料；本機示範版 --demo 用）
 function createEnv(fixedNow, opts) {
   const sheets = {};
   function makeSheet(name) {
@@ -124,7 +125,7 @@ function createEnv(fixedNow, opts) {
     if (def.headers.length) s.data.push(def.headers.slice());
   });
   if (!(opts && opts.shumeizi)) Object.assign(api.fn('SITE'), { identity: true, sources: [], wording: [] });
-  api.seedInitialDuties();
+  if (!(opts && opts.noSeed)) api.seedInitialDuties();
 
   return {
     sheets,

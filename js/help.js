@@ -149,7 +149,18 @@
    * 在 box 裡畫出搜尋框、分類、題目列表。
    * opts: { items, openId, category, title, intro, linkBase（'#/help/' 或 ''），onOpen }
    */
+  // 功能開關（js/site.js 的 features）關掉時，相關的題目也藏起來（題目資料還在，打開功能就會出現）
+  const FEATURE_OF = {
+    'adm-goals': 'goals', 'adm-veg-age': 'vegetarian', 'adm-draft': 'ai', 'faq-repair': 'repair', 'adm-repair': 'repair'
+  };
+  const FEATURE_CATEGORY = { 借場地: 'venue', 場地審核: 'venue' };
+  function visible(f) {
+    const need = FEATURE_OF[f.id] || FEATURE_CATEGORY[f.category];
+    return !need || Fmt.feature(need);
+  }
+
   function mountList(box, opts) {
+    opts = Object.assign({}, opts, { items: opts.items.filter(visible) });
     const st = { q: '', cat: opts.category || '', open: opts.openId || '' };
     const guess = guessHomeFaq();
     const cats = [];
@@ -293,7 +304,7 @@
     if (editState.editing && isSuper) return editorRender(body, guard, data);
     body.innerHTML = `
       ${AdminPage.staleNote(stale)}
-      ${isSuper ? '<div class="help-admin-bar"><button type="button" class="btn" data-edit-mode>✏️ 編輯題目（家人們與管理者）</button><a class="btn" href="#/help">看家人們的常見問題</a></div>' : ''}
+      ${isSuper ? '<div class="help-admin-bar"><button type="button" class="btn" data-edit-mode>✏️ 編輯題目（大家與管理者）</button><a class="btn" href="#/help">看大家的常見問題</a></div>' : ''}
       <div data-help></div>`;
     mountList(body.querySelector('[data-help]'), { key: 'adm', items: data.items, audience: '管理者', linkBase: '' });
     const em = body.querySelector('[data-edit-mode]');

@@ -1,6 +1,7 @@
-// 常見問題的截圖：用電腦上的 Chrome（無畫面模式）打開本機測試版（tools/dev-server.js --mock），
+// 常見問題的截圖：用電腦上的 Chrome（無畫面模式）打開本機示範版（tools/dev-server.js --mock --demo，書槑子的示範資料），
 // 依下面的步驟操作後截圖，存到 img/help/*.png。截圖裡只有假名（測試甲、王小明⋯）。
-// 執行：先開測試版（port 5175），再 node tools/help-shots.js [只拍某幾張的名字⋯]
+// 執行：先開示範版（node tools/dev-server.js --mock --demo，port 5175），再 node tools/help-shots.js [只拍某幾張的名字⋯]
+// 借場地、場地審核的截圖（venue-*、adm-venue）書槑子關掉了借場地，不重拍（留著舊圖）。
 //       node tools/help-shots.js --sheet a.svg b.svg ⋯   把幾張圖排成一張存到暫存資料夾（檢查示意圖用）
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -16,6 +17,11 @@ const CHROME = [
 ].find((p) => fs.existsSync(p));
 const PORT = 9333;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// 示範資料的日期（和 tools/demo-data.js 同樣的算法）：下一個星期五（靈魂健身房）、下一個星期日（課館、植素園出攤＋志工）
+const DEMO = require('./demo-data.js');
+const TODAY = DEMO.taipeiToday();
+const SUN = DEMO.nextWeekday(TODAY, 0);
+const GYM = DEMO.nextWeekday(TODAY, 5);
 
 async function launch() {
   if (!CHROME) throw new Error('找不到 Chrome');
@@ -85,36 +91,26 @@ const PREP = `
   window.__box = (sel, pad = 8, extra = 0) => { const el = typeof sel === 'string' ? document.querySelector(sel) : sel; el.scrollIntoView({ block: 'start' }); const r = el.getBoundingClientRect(); return { x: Math.max(0, r.left - pad) + scrollX, y: Math.max(0, r.top - pad) + scrollY, width: Math.min(innerWidth, r.width + pad * 2), height: r.height + pad * 2 + extra }; };
 `;
 
-const SEED = `
-  if (window.__seeded) return;
-  const ev = (await __g({ action: 'getEvents', from: '2026-10-07', to: '2026-11-30' })).data.duties.filter((d) => d.mode !== '公告型');
-  const pick = ev.filter((d) => Object.keys(d.days).some((x) => x > '2026-10-07')).slice(0, 4);
-  for (const d of pick) {
-    const date = Object.keys(d.days).filter((x) => x > '2026-10-07')[0];
-    await __p({ action: 'signup', dutyId: d.id, positionId: d.positions[0].id, dates: [date], entries: [{ name: '測試甲', identity: '道親' }, { name: '王小明', identity: '壇辦' }] });
-  }
-  await __p({ action: 'requestVenue', dates: ['2026-10-17', '2026-10-24'], slots: ['晚上'], name: '測試甲', phone: '0900-000000', purpose: '讀書會', people: '15' });
-  const tok = (await __p({ action: 'adminLogin', password: 'test-pass' })).data.token;
-  await __p({ action: 'adminCreateDuties', token: tok, duties: [{ name: '研究班（示範）', category: '道務', nature: '課程', mode: '報名型', start: '2026-10-20', startTime: '19:30', location: '區中心', positions: [{ name: '參加', min: 0, max: null }] }] });
-  const vr = (await __p({ action: 'adminVenue', token: tok })).data.requests.filter((r) => r.date === '2026-10-24');
-  if (vr.length) await __p({ action: 'adminVenueDecide', token: tok, ids: vr.map((r) => r.id), decision: '已同意' });
-  window.__seeded = true;
-`;
+// 示範資料由 dev-server --demo 放好（tools/demo-data.js），這裡不用再加
+const SEED = `window.__seeded = true;`;
 
 const SHOTS = [
   { name: 'cal-day', hash: '#/', js: `document.querySelector('[data-view=month]').click(); await __wait(800);
-`, tap: '.fc-daygrid-day[data-date="2026-10-10"]',
+`, tap: '.fc-daygrid-day[data-date="' + SUN + '"]',
     clip: `const a = document.querySelector('#fc').getBoundingClientRect(); const b = document.querySelector('#day-panel').getBoundingClientRect(); return { x: 0, y: a.top + scrollY - 8, width: innerWidth, height: Math.min(1500, b.bottom - a.top + 16) };` },
   { name: 'filter', hash: '#/', js: `document.querySelector('[data-view=recent]').click(); await __wait(600);`,
     clip: `return __box('#cat-filter', 10);` },
   { name: 'recent', hash: '#/', js: `document.querySelector('[data-view=recent]').click(); document.querySelector('[data-cat="全部"]')?.click(); await __wait(600);`,
     clip: `const a = document.querySelector('#cat-filter'); a.scrollIntoView(); const r = a.getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 6, width: innerWidth, height: 900 };` },
-  { name: 'signup-form', hash: null, js: `const d = (await __g({ action: 'getEvents', from: '2026-10-13', to: '2026-10-13' })).data.duties.find((x) => x.name.includes('志工輪值'));
-      location.hash = '#/duty/' + encodeURIComponent(d.id) + '?date=2026-10-13'; await __wait(2500);
-      const inp = document.querySelector('#view-duty input[type=text], #view-duty input:not([type])'); inp.value = '測試乙'; inp.dispatchEvent(new Event('input', { bubbles: true }));
-      const add = [...document.querySelectorAll('#view-duty button')].find((b) => b.textContent.trim() === '加入'); add.click(); await __wait(400);
-      const idb = [...document.querySelectorAll('#view-duty button')].find((b) => b.textContent.trim() === '道親'); if (idb) idb.click(); await __wait(300);`,
-    clip: `const h = [...document.querySelectorAll('#view-duty h2')].find((x) => x.textContent.includes('我要報名')); const r = h.getBoundingClientRect(); h.scrollIntoView(); const r2 = h.getBoundingClientRect(); const end = [...document.querySelectorAll('#view-duty button')].find((b) => b.textContent.includes('確認報名')).getBoundingClientRect(); return { x: 0, y: r2.top + scrollY - 8, width: innerWidth, height: end.bottom - r2.top + 20 };` },
+  // 第一次來的朋友：名字下面問怎麼認識的、勾吃飯
+  { name: 'signup-form', hash: null, js: `const d = (await __g({ action: 'getEvents', from: '${GYM}', to: '${GYM}' })).data.duties.find((x) => x.name.includes('靈魂健身房'));
+      location.hash = '#/duty/' + encodeURIComponent(d.id) + '?date=${GYM}'; await __wait(2500);
+      const inp = document.querySelector('[data-name-input]'); inp.value = '測試丁'; inp.dispatchEvent(new Event('input', { bubbles: true }));
+      document.querySelector('[data-add]').click(); await __wait(2500);
+      const src = document.querySelector('input[data-source][value="朋友介紹"]'); if (src) { src.click(); await __wait(300); }
+      const ref = document.querySelector('[data-referrer]'); if (ref) { ref.value = '測試甲'; ref.dispatchEvent(new Event('input', { bubbles: true })); ref.blur(); }
+      const meal = document.querySelector('[data-meal]'); if (meal && !meal.checked) meal.click(); await __wait(300);`,
+    clip: `const h = [...document.querySelectorAll('#view-duty h2')].find((x) => x.textContent.includes('我要報名')); h.scrollIntoView(); const r2 = h.getBoundingClientRect(); const end = document.querySelector('[data-submit]').getBoundingClientRect(); return { x: 0, y: r2.top + scrollY - 8, width: innerWidth, height: end.bottom - r2.top + 20 };` },
   { name: 'mine-list', hash: '#/mine', js: `localStorage.setItem('shumeizi:mine-name', '測試甲'); location.hash = '#/'; await __wait(200); location.hash = '#/mine'; await __wait(2000);`,
     clip: `return { x: 0, y: 0, width: innerWidth, height: 1000 };` },
   { name: 'mine-multi', hash: '#/mine', js: `localStorage.setItem('shumeizi:mine-name', '測試甲'); location.hash = '#/'; await __wait(200); location.hash = '#/mine'; await __wait(2000);
@@ -134,7 +130,7 @@ const SHOTS = [
     clip: `return { x: 0, y: 0, width: innerWidth, height: 1300 };` },
   { name: 'adm-roster', admin: true, hash: '#/admin/day', js: `await __wait(2000); document.querySelector('[data-all]').click(); await __wait(200);`,
     clip: `return { x: 0, y: 0, width: innerWidth, height: 1200 };` },
-  { name: 'adm-push', admin: true, hash: '#/admin/push', js: `await __wait(2000); const sel = document.querySelector('select[name=duty]'); sel.selectedIndex = 5; sel.dispatchEvent(new Event('change')); await __wait(300); document.querySelector('[name=mode][value=later]').click(); await __wait(300); const q = document.querySelector('[data-quick]'); if (q) q.click(); await __wait(300);`,
+  { name: 'adm-push', admin: true, hash: '#/admin/push', js: `await __wait(2000); const sel = document.querySelector('select[name=duty]'); sel.selectedIndex = 1; sel.dispatchEvent(new Event('change')); await __wait(300); document.querySelector('[name=mode][value=later]').click(); await __wait(300); const q = document.querySelector('[data-quick]'); if (q) q.click(); await __wait(300);`,
     clip: `return __box('.push-form', 6);` },
   { name: 'adm-venue', admin: true, hash: '#/admin/venue', js: `await __wait(2000);`,
     clip: `const el = document.querySelector('.venue-reqs'); return __box(el.closest('[data-body]') || el, 4);` }
@@ -176,6 +172,7 @@ async function main() {
     let adminDone = false;
     for (const s of SHOTS) {
       if (only.length && only.indexOf(s.name) === -1) continue;
+      if (/venue/.test(s.name) && !only.length) continue; // 書槑子沒有借場地
       if (s.admin && !adminDone) {
         await run(c, PREP + `location.hash = '#/admin'; await __wait(1500); const pw = document.querySelector('input[type=password]'); if (pw) { pw.value = 'test-pass'; pw.form.requestSubmit(); await __wait(2500); }`);
         adminDone = true;

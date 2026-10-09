@@ -21,7 +21,7 @@ function mySignups_(body) {
   }).map(function (s) {
     var d = duties[s['勤務ID']];
     var p = positions[s['了愿項目ID']];
-    return {
+    var item = {
       signupId: s['報名ID'],
       dutyId: d['勤務ID'],
       dutyName: d['名稱'],
@@ -38,6 +38,15 @@ function mySignups_(body) {
       accompany: s['陪同'] === '是',
       canChange: canSelfChange_(s['日期'], today)
     };
+    // 有吃飯的活動：可以在這裡改吃不吃、餐點（Meal.gs）
+    if (d['有吃飯'] === '是') {
+      item.mealOn = true;
+      item.meal = s['吃飯'] === '是';
+      item.mealOptions = parseMealOptions_(d['餐點選項']);
+      item.mealChoice = parseMealChoice_(s['餐點']);
+      item.mealNote = s['餐點備註'] || '';
+    }
+    return item;
   });
   items.sort(function (a, b) {
     return a.date < b.date ? -1 : a.date > b.date ? 1 : String(a.startTime).localeCompare(String(b.startTime));

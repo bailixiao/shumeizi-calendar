@@ -58,7 +58,7 @@ function adminSetAttendance_(body) {
 
 /**
  * body = { dutyId, positionId, date, name, identity, accompany, note, meal, source, referrer, sourceNote }：管理者加人，直接記為出席。
- * 第一次來的人一樣要選認識管道（SITE.sources，可選「不確定」）；有吃飯的活動可以記 meal。
+ * 第一次來的人一樣要選認識管道（SITE.sources，可選「不確定」）；有吃飯的活動可以記 meal、mealChoice、mealNote。
  * 當天與過去＝補登（沒報名但有來）；未來＝管理者幫人報名（不受截止日、當天不能報的限制）。note：職司表的註記。
  */
 function adminAddAttendee_(body) {
@@ -80,12 +80,14 @@ function adminAddAttendee_(body) {
     if (blocking.length) throw new ApiError_('VALIDATION', '沒有補登，請看下面的說明', blocking);
     var warnings = problems.filter(function (e) { return blocking.indexOf(e) === -1; }).map(function (e) { return e.message; });
 
+    var mf = duty ? mealFields_(duty, body) : {};
+    if (mf.error) throw new ApiError_('VALIDATION', '沒有補登，請看下面的說明', [{ message: mf.error }]);
     var position = findById_(positions, '了愿項目ID', body.positionId);
     var now = nowString_();
     var row = {
       '報名ID': newId_('S'), '勤務ID': duty['勤務ID'], '日期': body.date, '了愿項目ID': body.positionId,
       '姓名': normalizeName_(entry.name), '身分': entry.identity || '', '佛堂': entry.temple || '', '陪同': entry.accompany ? '是' : '否',
-      '吃飯': duty['有吃飯'] === '是' && body.meal ? '是' : '',
+      '吃飯': mf['吃飯'] || '', '餐點': mf['餐點'] || '', '餐點備註': mf['餐點備註'] || '',
       '出席': '出席', '狀態': '有效', '建立時間': now, '更新時間': now
     };
     if (duty['版面'] === '職司表' && body.note) row['註記'] = cleanText_(body.note).slice(0, 100);

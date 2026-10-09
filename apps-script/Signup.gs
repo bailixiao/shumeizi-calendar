@@ -9,7 +9,7 @@ var MAX_DATES_PER_SIGNUP = 31;
 
 /**
  * body = { dutyId, positionId | positionIds: [..]（可兼任的勤務可多個）, dates: ['yyyy-MM-dd'], entries: [{ name, identity, accompany, note, leader, meal, source, referrer, sourceNote }] }
- * meal：活動有開「有吃飯」時，這個人會一起吃飯
+ * meal：活動有開「有吃飯」時，這個人會一起吃飯；mealChoice＝{ 組名: 選項 }（活動有餐點選項時每組必選）、mealNote＝餐點備註（Meal.gs）
  * source、referrer、sourceNote：第一次報名的人（成員名單上沒有）怎麼認識的（SITE.sources；朋友介紹要填介紹人），記在成員名單
  * leader：勤務有組長職稱時，這次報名的其中一位當組長（一天一位）
  * note：職司表的勤務才收（例：8:00-19:00、代理人），最多 100 字
@@ -57,9 +57,12 @@ function signup_(body) {
     entryPids.forEach(function (p) { p.forEach(function (id) { if (positionIds.indexOf(id) === -1) positionIds.push(id); }); });
     var now = nowString_();
     var signupRows = [];
+    // 吃飯：活動有餐點選項時每組要選一個
+    var meals = entries.map(function (e) { return duty ? mealFields_(duty, e) : {}; });
     var logRows = [];
     var created = [];
     var errors = [];
+    meals.forEach(function (m, i) { if (m.error) errors.push({ name: normalizeName_(entries[i].name), message: m.error }); });
     positionIds.forEach(function (pid) {
       var group = entries.filter(function (e, i) { return entryPids[i].indexOf(pid) !== -1; });
       // 前面幾個項目這次要新增的也算進去（名額、重複檢查才正確）
@@ -84,7 +87,8 @@ function signup_(body) {
         group.forEach(function (e) {
           var name = normalizeName_(e.name);
           var accompany = !!e.accompany;
-          var meal = duty['有吃飯'] === '是' && !!e.meal;
+          var mf = meals[entries.indexOf(e)];
+          var meal = mf['吃飯'] === '是';
           var id = newId_('S');
           var row = {
             '報名ID': id,
@@ -95,6 +99,8 @@ function signup_(body) {
             '身分': e.identity || '',
             '佛堂': e.temple || '',
             '吃飯': meal ? '是' : '',
+            '餐點': mf['餐點'] || '',
+            '餐點備註': mf['餐點備註'] || '',
             '陪同': accompany ? '是' : '否',
             '出席': '出席',
             '狀態': '有效',
@@ -110,7 +116,7 @@ function signup_(body) {
             '內容摘要': [name + (e.identity ? '（' + e.identity + (accompany ? '・陪同' : '') + '）' : '') + (meal ? '🍱' : ''), date, duty['名稱'], position['了愿項目名稱']].join('｜'),
             '還原用的前一版資料': ''
           });
-          created.push({ id: id, date: date, name: name, identity: e.identity || '', accompany: accompany, meal: meal, positionId: position['了愿項目ID'] });
+          created.push({ id: id, date: date, name: name, identity: e.identity || '', accompany: accompany, meal: meal, mealChoice: parseMealChoice_(mf['餐點']), mealNote: mf['餐點備註'] || '', positionId: position['了愿項目ID'] });
         });
       });
     });

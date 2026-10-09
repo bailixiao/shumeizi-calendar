@@ -52,6 +52,7 @@ function doPost(e) {
     switch (body.action) {
       case 'signup': return signup_(body);
       case 'cancel': return cancelSignup_(body);
+      case 'updateMeal': return updateMeal_(body);
       case 'reschedule': return rescheduleSignup_(body);
       case 'mySignups': return mySignups_(body);
       case 'requestVenue': return requestVenue_(body);

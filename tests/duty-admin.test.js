@@ -7,10 +7,10 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { createEnv } = require('./env');
 
-// DutyRules.gs 用到 Rules.gs 的函式，兩個檔案接在一起執行
+// DutyRules.gs 用到 Rules.gs、Meal.gs（餐點選項）的函式，幾個檔案接在一起執行
 const mod = { exports: {} };
 const dir = path.join(__dirname, '..', 'apps-script');
-const src = ['Rules.gs', 'DutyRules.gs'].map((f) => fs.readFileSync(path.join(dir, f), 'utf8')
+const src = ['Rules.gs', 'Meal.gs', 'DutyRules.gs'].map((f) => fs.readFileSync(path.join(dir, f), 'utf8')
   .replace(/if \(typeof module !== 'undefined'\) \{[\s\S]*?\n\}\n?/, '')).join('\n');
 new Function('module', src + `
 module.exports = { normalizeDutyInput_, checkDutyChange_, mergeBulkInput_, seriesKey_, renameLike_, cleanTime_ };`)(mod);

@@ -68,7 +68,18 @@ function adminDuty_(body) {
     s.identity = row['身分'] || '';
     s.createdAt = row['建立時間'] || '';
     s.attend = row['出席'] || '出席';
+    if (s.meal) {
+      s.mealChoice = parseMealChoice_(row['餐點']); // 吃飯選的（只給後台）
+      s.mealNote = row['餐點備註'] || '';
+    }
   });
+  // 吃飯統計：每天各選項幾份、有寫備註的人（Meal.gs）
+  var dutyRow = findById_(readTableCached_(SHEETS.DUTIES), '勤務ID', data.id);
+  if (dutyRow && dutyRow['有吃飯'] === '是') {
+    var rows = readTableCached_(SHEETS.SIGNUPS).filter(function (r) { return r['勤務ID'] === data.id; });
+    data.mealStats = {};
+    datesInRange_(data.start, data.end).forEach(function (date) { data.mealStats[date] = mealStats_(dutyRow, rows, date); });
+  }
   data.groupContact = adminGroupContact_(data.groupType, data.group);
   return data;
 }
@@ -232,6 +243,8 @@ function adminDay_(body) {
             people: rows.filter(function (s) { return s['了愿項目ID'] === p.id; }).map(function (s) {
               var o = { name: s['姓名'], accompany: s['陪同'] === '是' };
               if (d.meal) o.meal = s['吃飯'] === '是'; // 有吃飯的活動：會一起吃飯
+              if (o.meal && s['餐點']) o.mealChoice = mealLabel_(s['餐點']);
+              if (o.meal && s['餐點備註']) o.mealNote = s['餐點備註'];
               return o;
             })
           };
@@ -298,6 +311,7 @@ function adminRun_(body) {
     case 'adminRecent': return adminRecent_(body);
     case 'adminDuty': return adminDuty_(body);
     case 'adminCancel': return cancelSignup_(body, { admin: true });
+    case 'adminUpdateMeal': return updateMeal_(body, { admin: true });
     case 'adminReschedule': return rescheduleSignup_(body, { admin: true });
     case 'adminLogs': return adminLogs_(body);
     case 'adminRestore': return adminRestore_(body);

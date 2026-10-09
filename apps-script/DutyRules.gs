@@ -17,7 +17,7 @@ var DUTY_FIELD_MAP_ = {
   startTime: '開始時間', endTime: '結束時間', location: '地點',
   groupType: '分組類型', group: '負責組', attire: '服裝', description: '說明', deadline: '報名截止日', multi: '可兼任', totalNeed: '共需人數', leaderTitle: '組長職稱', category: '類別', dm: 'DM',
   layout: '版面', stages: '階段', teachers: '師資', merge: '合併顯示',
-  lecturers: '講師', leaders: '帶班', assistants: '助理帶班', meal: '有吃飯'
+  lecturers: '講師', leaders: '帶班', assistants: '助理帶班', meal: '有吃飯', mealOptions: '餐點選項'
 };
 
 // 道務的負責人員欄位（統計「負責人員」用）
@@ -95,6 +95,10 @@ function normalizeDutyInput_(input, ctx) {
   duty['可兼任'] = input.multi === true || input.multi === '是' || input.multi === 'true' ? '是' : '';
   // 有吃飯：報名時每個人可以勾「我會一起吃飯」（是／空白）
   duty['有吃飯'] = input.meal === true || input.meal === '是' || input.meal === 'true' ? '是' : '';
+  // 餐點選項：有吃飯時才留（一行一組「組名：選項、選項」）
+  var mealOpts = normalizeMealOptions_(duty['有吃飯'] ? input.mealOptions : '');
+  duty['餐點選項'] = mealOpts.text;
+  errors = errors.concat(mealOpts.errors);
   // 共需人數：可兼任時這一天總共需要幾位（不重複的人）；空白＝照各項目最少人數
   var need = String(input.totalNeed === undefined || input.totalNeed === null ? '' : input.totalNeed).trim();
   if (need && !/^\d{1,3}$/.test(need)) errors.push('共需人數請填數字');
@@ -254,7 +258,8 @@ function mergeBulkInput_(target, targetPositions, sourceOldName, sourceOldPositi
     multi: has('positions') ? src['可兼任'] : target['可兼任'], // 可兼任跟著了愿項目一起改
     totalNeed: has('positions') ? src['共需人數'] : target['共需人數'],
     leaderTitle: has('positions') ? src['組長職稱'] : target['組長職稱'],
-    meal: target['有吃飯'] || '' // 有沒有吃飯每筆各自設定，一起改時不動
+    meal: target['有吃飯'] || '', // 有沒有吃飯每筆各自設定，一起改時不動
+    mealOptions: target['餐點選項'] || ''
   };
 
   var current = targetPositions.map(function (p) {

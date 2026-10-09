@@ -211,9 +211,10 @@
     const card = (m) => `
           <li><button type="button" class="person-card${m.active ? '' : ' is-inactive'}" data-row="${m.row}">
             <span class="person-card-name">${esc(m.name)}${m.aliases && m.aliases.length ? `<small class="person-alias">（${esc(m.aliases.join('、'))}）</small>` : ''}${m.temple ? `<span class="tag tag-temple">${esc(m.temple)}</span>` : ''}${m.overseas ? `<span class="tag tag-temple">🌏 ${esc(m.overseas)}</span>` : ''}
-              ${m.identity ? `<span class="tag">${esc(m.identity)}</span>` : '<span class="tag tag-warn">未填身分</span>'}
+              ${window.SITE.identity === false ? '' : m.identity ? `<span class="tag">${esc(m.identity)}</span>` : '<span class="tag tag-warn">未填身分</span>'}
+              ${m.source ? `<span class="tag">🌱 ${esc(m.source)}${m.referrer ? '・' + esc(m.referrer) + ' 介紹' : ''}</span>` : ''}
               ${m.active ? '' : '<span class="tag">已停用</span>'}${m.pending ? '<span class="tag tag-warn">待確認</span>' : ''}${m.identity === '道親' && m.vegetarian ? '<span class="tag">🥬 清口</span>' : ''}${m.age !== '' && m.age !== undefined ? `<span class="tag">${m.age} 歲</span>` : ''}</span>
-            <span class="person-card-meta">${esc(GROUP_TYPES.filter((t) => m.groups[t]).map((t) => `${t.replace('組', '')}：${m.groups[t]}`).join('・') || '未分組')}${m.note ? '・' + esc(m.note) : ''}</span>
+            <span class="person-card-meta">${Fmt.feature('groups') ? esc(GROUP_TYPES.filter((t) => m.groups[t]).map((t) => `${t.replace('組', '')}：${m.groups[t]}`).join('・') || '未分組') + (m.note ? '・' + esc(m.note) : '') : esc(m.note || '')}</span>
           </button></li>`;
     function draw() {
       const q = memberState.q.trim();
@@ -227,6 +228,11 @@
       // 身分分類：按鈕附人數；選「全部」時分段列出
       const of = (id) => base.filter((m) => (m.identity || '') === id);
       const seg = body.querySelector('[data-identity-filter]');
+      if (window.SITE.identity === false) { // 書槑子：不分身分，直接列出
+        seg.hidden = true;
+        rows.innerHTML = base.length ? `<p class="muted">共 ${base.length} 人</p><ul class="people-list">${base.map(card).join('')}</ul>` : '<p class="panel-empty">沒有符合的成員</p>';
+        return;
+      }
       seg.innerHTML = [['all', '全部', base.length]].concat(IDENTITY_ORDER.map(([id, label]) => [id || 'none', label, of(id).length]))
         .map(([v, label, n]) => `<label class="seg-item"><input type="radio" name="idf" value="${v}"${memberState.identity === v ? ' checked' : ''}><span>${SHORT[label] || label} ${n}</span></label>`).join('');
       seg.querySelectorAll('input').forEach((r) => r.addEventListener('change', () => { memberState.identity = r.value; draw(); }));
@@ -329,6 +335,7 @@
   }
 
   function editMember(m, groups, guard, reload) {
+    const sources = window.SITE.sources || []; // 書槑子：認識管道
     const v = m || { name: '', identity: '', groups: {}, note: '', active: true };
     const seg = (name, options, value) => `<div class="seg">${options.map(([val, label]) =>
       `<label class="seg-item"><input type="radio" name="${name}" value="${val}"${val === value ? ' checked' : ''}><span>${label}</span></label>`).join('')}</div>`;
@@ -339,13 +346,16 @@
       <label class="form-row"><span>別名（小名、其他寫法，用「、」分開；報名打別名會記成這位）</span><input class="input" name="aliases" value="${esc((v.aliases || []).join('、'))}" placeholder="例：小明、阿明"></label>
       <label class="form-row"${Fmt.feature('temple') ? '' : ' hidden'}><span>${esc(window.SITE.temple)}（同名同姓時用來分；不知道可以空著）</span><select class="input" name="temple"><option value="">（不知道／空白）</option>${templeOptions.concat(v.temple && templeOptions.indexOf(v.temple) === -1 ? [v.temple] : []).map((t) => `<option${t === v.temple ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></label>
       ${(window.SITE.overseas || []).length ? `<div class="form-row"><span>國外（在國外的人選；台灣的選「台灣」）</span>${seg('overseas', [['', '台灣']].concat(window.SITE.overseas.map((o) => [o, o])), v.overseas || '')}</div>` : ''}
-      <div class="form-row"><span>身分</span>${seg('identity', [['道親', '道親'], ['壇辦', '壇辦'], ['未求道', '未求道'], ['點傳師', '點傳師'], ['', '未填']], v.identity || '')}</div>
+      <div class="form-row"${window.SITE.identity === false ? ' hidden' : ''}><span>身分</span>${seg('identity', [['道親', '道親'], ['壇辦', '壇辦'], ['未求道', '未求道'], ['點傳師', '點傳師'], ['', '未填']], v.identity || '')}</div>
       ${GROUP_TYPES.map((t) => `
         <label class="form-row"${Fmt.feature('groups') ? '' : ' hidden'}><span>${t}</span>
           <select class="input" name="g-${t}">
             <option value="">（無）</option>
             ${groups.filter((g) => g.type === t).map((g) => `<option${g.name === v.groups[t] ? ' selected' : ''}>${esc(g.name)}</option>`).join('')}
           </select></label>`).join('')}
+      ${sources.length ? `<label class="form-row"><span>🌱 怎麼認識的${v.firstDate ? `（第一次報名 ${esc(Fmt.rocDate(v.firstDate))}）` : ''}</span><select class="input" name="source"><option value="">（空白）</option>${sources.map((x) => `<option${x === v.source ? ' selected' : ''}>${esc(x)}</option>`).join('')}</select></label>
+      <label class="form-row" data-ref-row${v.source === '朋友介紹' ? '' : ' hidden'}><span>介紹人</span><input class="input" name="referrer" maxlength="20" value="${esc(v.referrer || '')}"></label>
+      <label class="form-row" data-note-row${v.source === '其他' ? '' : ' hidden'}><span>在哪裡知道的</span><input class="input" name="sourceNote" maxlength="50" value="${esc(v.sourceNote || '')}"></label>` : ''}
       <label class="form-row"><span>年齡（選填，今年幾歲；之後每年自動加一歲）</span><input class="input" name="age" inputmode="numeric" maxlength="3" value="${esc(v.age === undefined ? '' : v.age)}" placeholder="例：45"></label>
       <label class="check" data-veg-row${(v.identity || '') === '道親' && Fmt.feature('vegetarian') ? '' : ' hidden'}><input type="checkbox" name="vegetarian"${v.vegetarian ? ' checked' : ''}> 🥬 已清口</label>
       <label class="form-row"><span>備註</span><input class="input" name="note" value="${esc(v.note)}"></label>
@@ -355,7 +365,7 @@
       GROUP_TYPES.forEach((t) => { g[t] = f.elements['g-' + t].value; });
       await Api.admin('adminSaveMember', {
         row: m ? m.row : undefined, original: m ? m.name : undefined,
-        member: { name: f.elements.name.value, identity: f.querySelector('input[name=identity]:checked').value, groups: g, note: f.elements.note.value, active: f.elements.active.checked,
+        member: { ...(f.elements.source ? { source: f.elements.source.value, referrer: f.elements.referrer.value, sourceNote: f.elements.sourceNote.value } : {}), name: f.elements.name.value, identity: f.querySelector('input[name=identity]:checked').value, groups: g, note: f.elements.note.value, active: f.elements.active.checked,
           age: f.elements.age.value.trim(), temple: f.elements.temple.value, aliases: f.elements.aliases.value, overseas: f.querySelector('input[name=overseas]:checked') ? f.querySelector('input[name=overseas]:checked').value : undefined, vegetarian: f.querySelector('input[name=identity]:checked').value === '道親' && f.elements.vegetarian.checked }
       });
       notice(AdminPage.notice('success', m ? '已存檔' : '已新增成員', f.elements.name.value.trim()));
@@ -364,6 +374,11 @@
       : (m ? '<p class="hint">要刪除成員，請先取消勾選「啟用中」存檔（停用），再回來刪除。</p>' : '')));
 
     modal.el.querySelectorAll('input[name=identity]').forEach((r) => r.addEventListener('change', () => { modal.el.querySelector('[data-veg-row]').hidden = r.value !== '道親' || !r.checked || !Fmt.feature('vegetarian'); }));
+    const srcSel = modal.el.querySelector('select[name=source]');
+    if (srcSel) srcSel.addEventListener('change', () => {
+      modal.el.querySelector('[data-ref-row]').hidden = srcSel.value !== '朋友介紹';
+      modal.el.querySelector('[data-note-row]').hidden = srcSel.value !== '其他';
+    });
     const mg = modal.el.querySelector('[data-merge-member]');
     if (mg) mg.addEventListener('click', () => { modal.close(); mergeMembers(m, guard, reload); });
     const del = modal.el.querySelector('[data-delete-member]');

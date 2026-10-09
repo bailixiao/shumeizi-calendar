@@ -123,7 +123,7 @@ function createEnv(fixedNow, opts) {
     const s = makeSheet(def.name);
     if (def.headers.length) s.data.push(def.headers.slice());
   });
-  if (!(opts && opts.shumeizi)) Object.assign(api.fn('SITE'), { identity: true, sources: [] });
+  if (!(opts && opts.shumeizi)) Object.assign(api.fn('SITE'), { identity: true, sources: [], wording: [] });
   api.seedInitialDuties();
 
   return {

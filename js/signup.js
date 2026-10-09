@@ -1,4 +1,6 @@
-// 報名表單：選了愿項目（額滿反灰）→ 選日期（多天勤務）→ 填名字（自動提示、可多人、選道親／壇辦／未求道；壇辦可選了愿／陪同）→ 確認報名。
+// 報名表單：選項目（額滿反灰）→ 選日期（多天活動）→ 填名字（自動提示、可多人）→ 確認報名。
+// SITE.identity＝false（書槑子）：不選身分、沒有陪同；成員名單上沒有的名字（第一次來）要選認識管道（SITE.sources）。
+// 活動有開「有吃飯」時，每個名字可以勾「我會一起吃飯」。教全區原本：選道親／壇辦／未求道；壇辦可選了愿／陪同。
 // 名額與重複的最終判斷在伺服器（LockService 鎖定），這裡只做提示。
 (function () {
   'use strict';
@@ -7,6 +9,9 @@
   const SEARCH_LIMIT = 10; // 與後端 MEMBER_SEARCH_LIMIT 相同；結果少於此數代表已完整
   const IDENTITIES = ['道親', '壇辦', '未求道'];
   const KNOWN_IDENTITIES = IDENTITIES.concat(['點傳師']); // 成員名單上可能登記的（點傳師只由名單帶入）
+  const NO_IDENTITY = window.SITE.identity === false; // 書槑子：不選身分
+  const SOURCES = window.SITE.sources || []; // 第一次來的人：怎麼認識的
+  const SOURCE_ICON = { 朋友介紹: '👫', '官方 LINE': '💬', 官網: '🌐', Instagram: '📷', Facebook: '📘', 其他: '✨', 不確定: '🤔' };
 
   function normalize(name) {
     return String(name || '').replace(/^[\s　]+|[\s　]+$/g, '');
@@ -20,7 +25,7 @@
       // 選到的了愿項目；可兼任的勤務可以複選，其他勤務最多一個
       positionIds: new Set(duty.positions.length === 1 ? [duty.positions[0].id] : []),
       dates: new Set([openDates.indexOf(defaultDate) !== -1 ? defaultDate : openDates[0]]),
-      entries: [], // { name, identity: '道親'|'壇辦'|'未求道'|'', accompany }
+      entries: [], // { name, identity: '道親'|'壇辦'|'未求道'|'', accompany, known（成員名單上有：true／第一次來：false／查詢中：undefined）, source, referrer, sourceNote, meal }
       leader: '', // 勤務有組長職稱時：這次報名誰當組長（名字；空白＝這次沒有）
       showMissing: false, // 送出時有人沒選身分，標示出來
       submitting: false
@@ -57,10 +62,12 @@
           <div class="suggestions" data-suggestions aria-live="polite"></div>
           <ul class="name-list" data-names></ul>
           ${duty.leaderTitle ? '<div class="leader-pick" data-leader-pick></div>' : ''}
-          <p class="hint">幫長輩或家人報名時，可以連續加入多個名字${perPerson ? '，每個名字下面各自勾項目' : duty.positions.length > 1 ? '；有人要報不同的項目，按他名字下的<span class="nw">「這個人改報別的」</span>' : ''}。每個名字都要選<span class="nw">「道親」</span><span class="nw">「壇辦」</span>或<span class="nw">「未求道」</span>（成員名單上已登記的會自動帶入，不能改）。壇辦可選<span class="nw">「陪同」</span>，陪同不佔名額。</p>
+          <p class="hint">${NO_IDENTITY
+            ? `想揪朋友一起來？可以連續加入好幾個名字 🙌${perPerson ? '，每個名字下面各自勾項目' : duty.positions.length > 1 ? '；有人要報不同的項目，按他名字下的<span class="nw">「這個人改報別的」</span>' : ''}。${SOURCES.length ? '第一次來的朋友，請幫他選一下<span class="nw">「怎麼認識我們」</span>。' : ''}`
+            : `幫長輩或家人報名時，可以連續加入多個名字${perPerson ? '，每個名字下面各自勾項目' : duty.positions.length > 1 ? '；有人要報不同的項目，按他名字下的<span class="nw">「這個人改報別的」</span>' : ''}。每個名字都要選<span class="nw">「道親」</span><span class="nw">「壇辦」</span>或<span class="nw">「未求道」</span>（成員名單上已登記的會自動帶入，不能改）。壇辦可選<span class="nw">「陪同」</span>，陪同不佔名額。`}</p>
         </fieldset>
         <div class="form-error" data-error role="alert" hidden></div>
-        <button type="submit" class="btn btn-primary btn-block" data-submit>確認報名</button>
+        <button type="submit" class="btn btn-primary btn-block" data-submit>${NO_IDENTITY ? '我要去！' : '確認報名'}</button>
       </form>`;
 
     const $ = (sel) => el.querySelector(sel);
@@ -156,16 +163,17 @@
 
     function renderNames() {
       $('[data-names]').innerHTML = state.entries.map((e, i) => {
-        const missing = state.showMissing && !e.identity;
+        const missing = state.showMissing && !NO_IDENTITY && !e.identity;
+        const srcMissing = state.showMissing && sourceProblem(e);
         const posMissing = state.showMissing && e.custom && !e.positionIds.size;
         return `
-        <li class="name-item${missing || posMissing ? ' is-missing' : ''}">
+        <li class="name-item${missing || posMissing || srcMissing ? ' is-missing' : ''}">
           <div class="name-top">
             <span class="name-text">${esc(e.name)}${e.temple ? `<small class="name-temple">${esc(e.temple)}</small>` : ''}${e.typed ? `<small class="name-typed">打「${esc(e.typed)}」，已對到成員名單</small>` : ''}</span>
             <button type="button" class="btn-remove" data-remove="${i}" aria-label="移除 ${esc(e.name)}">×</button>
           </div>
           <div class="name-options">
-            <div class="option-row">
+            ${NO_IDENTITY ? '' : `<div class="option-row">
               <span class="option-label">身分</span>
               ${e.locked ? `<span class="identity-fixed"><strong>${esc(e.identity)}</strong><span class="muted">（成員名單登記的，不能改）</span></span>` : `
               <div class="segmented segmented-3" role="radiogroup" aria-label="${esc(e.name)} 的身分">
@@ -174,7 +182,9 @@
                     <input type="radio" name="identity-${i}" value="${id}" data-identity="${i}"${e.identity === id ? ' checked' : ''}>${id}
                   </label>`).join('')}
               </div>`}
-            </div>
+            </div>`}
+            ${SOURCES.length && e.known === false ? sourceHtml(e, i) : ''}
+            ${duty.meal ? `<label class="option-row meal-row"><span class="option-label">吃飯</span><span class="check"><input type="checkbox" data-meal="${i}"${e.meal ? ' checked' : ''}> 🍱 我會一起吃飯</span></label>` : ''}
             ${duty.positions.length > 1 ? (e.custom ? `<div class="option-row">
               <span class="option-label">項目</span>
               <div>
@@ -191,7 +201,7 @@
                 <button type="button" class="link-btn" data-pos-custom="${i}">這個人改報別的</button>
               </div>
             </div>`) : ''}
-            ${e.identity === '壇辦' ? `<div class="option-row">
+            ${!NO_IDENTITY && e.identity === '壇辦' ? `<div class="option-row">
               <span class="option-label">方式</span>
               <div class="segmented" role="radiogroup" aria-label="${esc(e.name)} 的參加方式">
                 ${[['了愿', false], ['陪同', true]].map(([label, value]) => `
@@ -207,18 +217,43 @@
           </div>
           ${missing ? '<p class="name-missing">請選擇道親、壇辦或未求道</p>' : ''}
           ${posMissing ? '<p class="name-missing">請選這個人的項目</p>' : ''}
+          ${srcMissing ? `<p class="name-missing">${esc(sourceProblem(e))}</p>` : ''}
         </li>`;
       }).join('');
       renderLeader();
       const n = state.entries.length;
-      $('[data-submit]').textContent = state.submitting ? '報名中⋯' : n ? `確認報名（${n} 人）` : '確認報名';
+      const label = NO_IDENTITY ? '我要去！' : '確認報名';
+      $('[data-submit]').textContent = state.submitting ? '報名中⋯' : n ? `${label}（${n} 人）` : label;
+    }
+
+    /** 第一次來的朋友：怎麼認識的（朋友介紹要填介紹人，其他可以寫一句） */
+    function sourceHtml(e, i) {
+      return `<div class="option-row source-row">
+        <span class="option-label">🌱 第一次來</span>
+        <div>
+          <p class="source-q">怎麼認識${esc(window.SITE.org)}的？</p>
+          <div class="source-chips" role="radiogroup" aria-label="${esc(e.name)} 怎麼認識的">
+            ${SOURCES.map((s) => `<label class="pos-chip${e.source === s ? ' is-checked' : ''}"><input type="radio" name="src-${i}" value="${esc(s)}" data-source="${i}"${e.source === s ? ' checked' : ''}>${SOURCE_ICON[s] || ''} ${esc(s)}</label>`).join('')}
+          </div>
+          ${e.source === '朋友介紹' ? `<input class="input source-extra" data-referrer="${i}" maxlength="20" value="${esc(e.referrer || '')}" placeholder="介紹人是誰？（名字）" aria-label="${esc(e.name)} 的介紹人">` : ''}
+          ${e.source === '其他' ? `<input class="input source-extra" data-source-note="${i}" maxlength="50" value="${esc(e.sourceNote || '')}" placeholder="說一下在哪裡知道的（選填）" aria-label="${esc(e.name)} 在哪裡知道的">` : ''}
+        </div>
+      </div>`;
+    }
+
+    /** 第一次來的人還缺什麼（沒缺回傳空字串） */
+    function sourceProblem(e) {
+      if (!SOURCES.length || e.known !== false) return '';
+      if (!e.source) return '請選怎麼認識我們的（不知道可以選「不確定」）';
+      if (e.source === '朋友介紹' && !normalize(e.referrer)) return '請填介紹人是誰';
+      return '';
     }
 
     /**
      * 成員名單上已登記身分的人：身分固定（locked），報名者不能改（統計以成員名單為準）。
      * 從提示點選時直接帶入；手動輸入的名字到成員名單查一次，完全同名且有身分就帶入並固定。
      */
-    function addName(raw, identity, temple) {
+    function addName(raw, identity, temple, fromSuggest) {
       const name = normalize(raw);
       if (!name) return false;
       temple = temple || '';
@@ -231,12 +266,12 @@
       const known = identity !== undefined ? identity : knownIdentity.get(name + '|');
       const fixed = KNOWN_IDENTITIES.indexOf(known) !== -1 ? known : '';
       // 項目先用上面選的；之後可以在名字卡各自改（custom＝改過，上面再改就不跟著變）
-      const entry = { name, temple, identity: fixed, accompany: false, locked: !!fixed, positionIds: perPerson ? new Set() : new Set(state.positionIds), custom: perPerson };
+      const entry = { name, temple, identity: fixed, accompany: false, locked: !!fixed, positionIds: perPerson ? new Set() : new Set(state.positionIds), custom: perPerson, known: fromSuggest ? true : undefined };
       state.entries.push(entry);
       hideError();
       renderNames();
       flyIn(state.entries.length - 1);
-      if (!fixed && known === undefined) lookupIdentity(entry);
+      if (!fromSuggest && (NO_IDENTITY || (!fixed && known === undefined))) lookupIdentity(entry);
       return true;
     }
 
@@ -290,6 +325,8 @@
           }
         }
         const same = res.members.filter((x) => x.name === entry.name);
+        entry.known = same.length > 0; // 名單上沒有＝第一次來（要選怎麼認識的；伺服器會再確認一次）
+        if (NO_IDENTITY) { renderNames(); return; }
         if (same.length > 1 && !entry.temple) { showError(`名單上有 ${same.length} 位「${entry.name}」（${same.map((x) => x.temple || '未填佛堂').join('、')}），請移除後從名字提示點選是哪一位`); return; }
         const m = same[0];
         if (!m || KNOWN_IDENTITIES.indexOf(m.identity) === -1 || state.entries.indexOf(entry) === -1) { renderNames(); return; }
@@ -297,7 +334,10 @@
         entry.locked = true;
         if (entry.identity !== '壇辦') entry.accompany = false;
         renderNames();
-      } catch (e) { /* 查不到就讓報名者自己選，伺服器存檔時仍會以成員名單為準 */ }
+      } catch (e) {
+        // 查不到就讓報名者自己選，伺服器存檔時仍會以成員名單為準；書槑子先當第一次來（是成員的話伺服器不會用到管道）
+        if (NO_IDENTITY && entry.known === undefined) { entry.known = false; renderNames(); }
+      }
     }
 
     /** 一格打了好幾個名字（王小明.測試甲、王小明 測試甲）就拆開；空白只在每段都是兩個字以上的中文時才算分隔 */
@@ -438,7 +478,12 @@
       }
       if (!state.dates.size) problems.push('請選擇日期');
       if (!state.entries.length) problems.push('請填寫名字，並按「加入」');
-      if (state.entries.some((e) => !e.identity)) {
+      if (state.entries.some(sourceProblem)) {
+        problems.push('第一次來的朋友，請選怎麼認識我們的');
+        state.showMissing = true;
+        renderNames();
+      }
+      if (!NO_IDENTITY && state.entries.some((e) => !e.identity)) {
         problems.push('請為每個名字選擇「道親」「壇辦」或「未求道」');
         state.showMissing = true;
         renderNames();
@@ -462,7 +507,9 @@
         positionId: chosen[0].id,
         positionIds: chosen.map((p) => p.id),
         dates: Array.from(state.dates).sort(),
-        entries: state.entries.map((e) => ({ name: e.name, temple: e.temple || '', identity: e.identity, accompany: e.accompany, leader: !!duty.leaderTitle && !e.accompany && e.name === state.leader, note: duty.layout === '職司表' ? String(e.note || '').trim() : '', positionIds: duty.positions.filter((p) => e.positionIds.has(p.id)).map((p) => p.id) }))
+        entries: state.entries.map((e) => ({ name: e.name, temple: e.temple || '', identity: e.identity, accompany: e.accompany,
+          meal: !!duty.meal && !!e.meal, source: e.known === false ? e.source || '' : '', referrer: e.known === false && e.source === '朋友介紹' ? normalize(e.referrer) : '',
+          sourceNote: e.known === false && e.source === '其他' ? normalize(e.sourceNote) : '', leader: !!duty.leaderTitle && !e.accompany && e.name === state.leader, note: duty.layout === '職司表' ? String(e.note || '').trim() : '', positionIds: duty.positions.filter((p) => e.positionIds.has(p.id)).map((p) => p.id) }))
       };
       // 每個人報的項目不一樣時，成功訊息逐人列出
       const same = payload.entries.every((e) => e.positionIds.join() === payload.entries[0].positionIds.join());
@@ -496,6 +543,7 @@
           return;
         }
         if (err.code === 'VALIDATION' && err.details.length) {
+          err.details.forEach((d) => { const e = /怎麼認識/.test(d.message) && state.entries.find((x) => x.name === d.name); if (e) { e.known = false; state.showMissing = true; } });
           fail(`<strong>${esc(err.message)}</strong><br>${err.details.map(detailText).join('<br>')}`);
         } else {
           fail(esc(err.message || '報名失敗，請稍後再試'));
@@ -605,7 +653,7 @@
     $('[data-suggestions]').addEventListener('click', (ev) => {
       const btn = ev.target.closest('[data-suggest]');
       if (!btn) return;
-      addName(btn.dataset.suggest, knownIdentity.get(btn.dataset.suggest + '|' + (btn.dataset.temple || '')), btn.dataset.temple || '');
+      addName(btn.dataset.suggest, knownIdentity.get(btn.dataset.suggest + '|' + (btn.dataset.temple || '')), btn.dataset.temple || '', true);
       input.value = '';
       clearSuggestions();
       input.focus();
@@ -652,6 +700,17 @@
         renderDates();
         return;
       }
+      if (t.dataset.source !== undefined) {
+        state.entries[Number(t.dataset.source)].source = t.value;
+        renderNames();
+        const extra = el.querySelector(`[data-referrer="${t.dataset.source}"], [data-source-note="${t.dataset.source}"]`);
+        if (extra) extra.focus();
+        return;
+      }
+      if (t.dataset.meal !== undefined) {
+        state.entries[Number(t.dataset.meal)].meal = t.checked;
+        return;
+      }
       if (t.dataset.accompany !== undefined) {
         state.entries[Number(t.dataset.accompany)].accompany = t.value === 'true';
         renderNames();
@@ -669,6 +728,8 @@
     form.addEventListener('input', (ev) => {
       const t = ev.target;
       if (t.dataset.entryNote !== undefined) state.entries[Number(t.dataset.entryNote)].note = t.value;
+      if (t.dataset.referrer !== undefined) state.entries[Number(t.dataset.referrer)].referrer = t.value;
+      if (t.dataset.sourceNote !== undefined) state.entries[Number(t.dataset.sourceNote)].sourceNote = t.value;
     });
     form.addEventListener('submit', submit);
 

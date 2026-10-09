@@ -298,7 +298,7 @@
       const names = !d.signups ? '<span class="muted">載入名單中⋯</span>' : people.length
         ? `<ul class="people">${people.map((s) => `
             <li class="person-row">
-              <span class="person">${s.leader ? '<span class="grid-star" title="組長">★</span>' : ''}${esc(s.name)}${s.leader && d.leaderTitle ? `<span class="tag tag-leader">${esc(d.leaderTitle)}</span>` : ''}${s.temple && (d.signups || []).some((o) => o !== s && o.name === s.name) ? `<span class="tag">${esc(s.temple)}</span>` : ''}${s.accompany ? '<span class="tag">陪同</span>' : ''}</span>
+              <span class="person">${s.leader ? '<span class="grid-star" title="組長">★</span>' : ''}${esc(s.name)}${s.meal ? '<span class="meal-mark" title="會一起吃飯"> 🍱</span>' : ''}${s.leader && d.leaderTitle ? `<span class="tag tag-leader">${esc(d.leaderTitle)}</span>` : ''}${s.temple && (d.signups || []).some((o) => o !== s && o.name === s.name) ? `<span class="tag">${esc(s.temple)}</span>` : ''}${s.accompany ? '<span class="tag">陪同</span>' : ''}</span>
             </li>`).join('')}</ul>`
         : '<span class="muted">還沒有人報名</span>';
       return `
@@ -313,11 +313,13 @@
 
     const leaderNow = d.leaderTitle && d.signups ? d.signups.filter((s) => s.date === date && s.leader).map((s) => s.name) : [];
     const leaderLine = d.leaderTitle && d.signups ? `<p class="leader-line">★ ${esc(d.leaderTitle)}：${leaderNow.length ? `<strong>${esc([...new Set(leaderNow)].join('、'))}</strong>` : `<span class="muted">還沒有${date > d.today ? '，報名時可以勾選' : ''}</span>`}</p>` : '';
+    const mealLine = d.meal && day && day.meals !== undefined ? `<p class="meal-line">🍱 會一起吃飯：<strong>${day.meals}</strong> 位</p>` : '';
     const daily = `
       ${tabs}
       ${leaderLine}
+      ${mealLine}
       <ul class="position-list">${rows}</ul>
-      <p class="hint">「陪同」不佔名額。${canChange ? '要取消或改期，請到「查我的報名」輸入自己的名字。' : `當天（含）之後不能自己取消或改期，${Fmt.askAdmin()}。`}</p>
+      <p class="hint">${window.SITE.identity === false ? '' : '「陪同」不佔名額。'}${canChange ? '要取消或改期，請到「查我的報名」輸入自己的名字。' : `當天（含）之後不能自己取消或改期，${Fmt.askAdmin()}。`}</p>
       ${canChange && (d.signups || []).length ? '<a class="btn btn-block roster-mine-link" href="#/mine">🔍 查我的報名（取消／改期）</a>' : ''}`;
     el.innerHTML = d.layout === '職司表' ? `
       <h2>職司表</h2>
@@ -391,7 +393,7 @@
 
   function onSignedUp(result, res) {
     try { if (result.entries[0]) localStorage.setItem(LAST_NAME_KEY, result.entries[0].name); } catch (e) { /* 無痕模式 */ }
-    const who = (e) => `${e.name}（${e.identity}${e.accompany ? '・陪同' : ''}）`;
+    const who = (e) => window.SITE.identity === false ? e.name + (e.meal ? ' 🍱' : '') : `${e.name}（${e.identity}${e.accompany ? '・陪同' : ''}）`;
     const dates = result.dates.map(Fmt.shortDate).join('、');
     // 大家報同樣的項目：一行名字＋項目；各報各的：逐人列出
     const body = result.positionName
@@ -407,7 +409,7 @@
     if (!page.data || page.data.id !== result.dutyId) return; // 報名期間已離開這頁（例如按了瀏覽器返回）
     if (!page.data.signups) { load(token, flash); return; } // 名單還沒載入：直接重新讀取
     res.created.forEach((c) => page.data.signups.push({
-      id: c.id, date: c.date, positionId: c.positionId || result.positionId, name: c.name, accompany: c.accompany, leader: !!c.leader, temple: c.temple || ''
+      id: c.id, date: c.date, positionId: c.positionId || result.positionId, name: c.name, accompany: c.accompany, leader: !!c.leader, temple: c.temple || '', meal: !!c.meal
     }));
     Object.assign(page.data.days, res.days);
     DutyCache.set(page.data.id, page.data);

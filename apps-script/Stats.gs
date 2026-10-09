@@ -64,7 +64,15 @@ function statsEvents_() {
 }
 
 function adminStats_() {
-  return { today: todayString_(), events: statsEvents_(), eduSessions: eduSessions_(), sheetUpdatedAt: PropertiesService.getScriptProperties().getProperty('STATS_UPDATED_AT') || '' };
+  return { today: todayString_(), events: statsEvents_(), eduSessions: eduSessions_(), newcomers: newcomers_(), sheetUpdatedAt: PropertiesService.getScriptProperties().getProperty('STATS_UPDATED_AT') || '' };
+}
+
+/** 新朋友（書槑子，SITE.sources）：成員名單上有「第一次報名日」的人，和怎麼認識的。只給後台統計 */
+function newcomers_() {
+  if (!(SITE.sources || []).length) return [];
+  return readTableCached_(SHEETS.MEMBERS).filter(function (m) { return m['姓名'] && m['第一次報名日']; }).map(function (m) {
+    return { name: m['姓名'], source: m['認識管道'] || '', referrer: m['介紹人'] || '', note: m['管道說明'] || '', date: m['第一次報名日'] };
+  });
 }
 
 /**

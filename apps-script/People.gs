@@ -41,6 +41,7 @@ function adminSaveMember_(body) {
   if (identity && OPTIONS.identity.indexOf(identity) === -1) errors.push('身分只能是道親、壇辦、未求道或點傳師');
   if (input.age !== undefined && input.age !== '' && birthYearOf_(input.age) === null) errors.push('年齡請填 0～120 的數字');
   if (input.overseas && SITE.overseas.indexOf(input.overseas) === -1) errors.push('國外只能是' + SITE.overseas.join('、') + '或空白');
+  if (input.source && (SITE.sources || []).indexOf(input.source) === -1) errors.push('認識管道只能是' + (SITE.sources || []).join('、') + '或空白');
   var keys = groupKeys_();
   var groups = {};
   MEMBER_GROUP_COLUMNS.forEach(function (type) {
@@ -63,6 +64,12 @@ function adminSaveMember_(body) {
     if (input.age !== undefined) values['出生年'] = birthYearOf_(input.age);
     if (input.temple !== undefined) values['佛堂'] = temple;
     if (input.overseas !== undefined) values['國外'] = input.overseas || '';
+    // 認識管道（書槑子）：後台可以補或改；介紹人只在朋友介紹時留著
+    if (input.source !== undefined) {
+      values['認識管道'] = input.source || '';
+      values['介紹人'] = input.source === '朋友介紹' ? normalizeName_(input.referrer || '').slice(0, 20) : '';
+      values['管道說明'] = input.source === '其他' ? cleanText_(input.sourceNote || '').slice(0, 50) : '';
+    }
     if (input.aliases !== undefined) {
       var aliases = (Array.isArray(input.aliases) ? input.aliases : splitAliases_(input.aliases)).map(normalizeName_).filter(function (a, i, arr) { return a && a !== name && arr.indexOf(a) === i; });
       var clash = aliasClash_(rows, row, aliases);
@@ -178,7 +185,9 @@ function memberToJson_(m) {
   MEMBER_GROUP_COLUMNS.forEach(function (t) { groups[t] = m[t]; });
   var by = Number(m['出生年']) || 0;
   return { row: m._row, name: m['姓名'], identity: m['身分'], groups: groups, note: m['備註'], active: m['啟用中'] !== '否', pending: m['待確認'] === '是',
-    vegetarian: m['清口'] === '是', birthYear: by || '', age: by ? Number(todayString_().slice(0, 4)) - by : '', temple: m['佛堂'] || '', aliases: splitAliases_(m['別名']), overseas: m['國外'] || '', careNote: m['成全紀錄'] || '' };
+    vegetarian: m['清口'] === '是', birthYear: by || '', age: by ? Number(todayString_().slice(0, 4)) - by : '', temple: m['佛堂'] || '', aliases: splitAliases_(m['別名']), overseas: m['國外'] || '', careNote: m['成全紀錄'] || '',
+    // 第一次報名時填的（書槑子）：認識管道、介紹人、管道說明、第一次報名日
+    source: m['認識管道'] || '', referrer: m['介紹人'] || '', sourceNote: m['管道說明'] || '', firstDate: m['第一次報名日'] || '' };
 }
 
 /** 以列號找資料並核對原本的值（姓名或組名），不符代表資料已被移動或修改 */

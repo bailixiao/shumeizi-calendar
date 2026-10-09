@@ -99,11 +99,21 @@ function ApiError_(code, message, details) {
   this.details = details;
 }
 
-/** 「請聯絡管理者」後面接上管理者聯絡人（ADMIN_CONTACT，未設定就不變） */
+/**
+ * 回給畫面的訊息換成這個網站的用詞（SITE.wording，例：勤務→活動），再在「請聯絡管理者」後面接上管理者聯絡人。
+ * 只在送出前換字：程式裡比對訊息的地方（例：補登的「同一勤務同一天」只警告）不受影響。
+ */
 function withContact_(message) {
+  message = siteWording_(message);
   if (!message || String(message).indexOf('請聯絡管理者') === -1) return message;
   var name = adminContact_();
   return name ? String(message).split('請聯絡管理者').join('請聯絡管理者' + name) : message;
+}
+
+/** SITE.wording：[[原本的字, 換成的字], ...]，依順序換 */
+function siteWording_(text) {
+  if (!text || typeof SITE === 'undefined' || !Array.isArray(SITE.wording)) return text;
+  return SITE.wording.reduce(function (s, w) { return s.split(w[0]).join(w[1]); }, String(text));
 }
 
 function respond_(fn) {

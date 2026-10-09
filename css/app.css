@@ -2330,3 +2330,12 @@ button.veg-chip:hover { border-color: var(--ok); }
 }
 .app-title { color: var(--teal); }
 .splash-title { color: var(--teal); }
+
+/* 書槑子：第一次來的認識管道、吃飯 */
+.source-row { align-items: start; }
+.source-q { margin: 0 0 6px; font-weight: 700; color: var(--ok); }
+.source-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.source-extra { margin-top: 8px; }
+.meal-row .check { display: inline-flex; align-items: center; gap: 6px; }
+.meal-line { margin: 0 0 10px; padding: 8px 12px; border-radius: var(--radius); background: var(--accent-soft); }
+.meal-toggle { margin-top: 10px; }

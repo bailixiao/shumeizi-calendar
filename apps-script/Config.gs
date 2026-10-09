@@ -7,7 +7,7 @@ var TIME_ZONE = 'Asia/Taipei';
 
 /**
  * 網站設定（後端）：團體名稱、場地、用詞、選項。複製給別的團體時，主要改這裡和 js/site.js。
- * 共同欄位（name、org、venue、temple、categoryLabels、locations）兩邊要一致（tests/site-config.test.js 會檢查）。
+ * 共同欄位（name、org、venue、temple、categoryLabels、locations、identity、sources）兩邊要一致（tests/site-config.test.js 會檢查）。
  * 注意：Apps Script 依檔名順序載入，排在 Config.gs 前面的檔案（Accounts、Admin、Ai、Attendance、Backup、Changes、Code）
  * 不能在最外層直接用 SITE，只能在函式裡用。
  */
@@ -24,7 +24,10 @@ var SITE = {
   aiRegionShort: '書槑子',  // 照片上可能的簡寫
   identity: false, // 報名要不要選身分（道親／壇辦／未求道、陪同）；書槑子不用，改成第一次來的人填認識管道
   // 第一次報名的人要選怎麼認識的（空的＝不問）；「朋友介紹」要填介紹人
-  sources: ['朋友介紹', '官方 LINE', '官網', 'Instagram', 'Facebook', '其他', '不確定']
+  sources: ['朋友介紹', '官方 LINE', '官網', 'Instagram', 'Facebook', '其他', '不確定'],
+  // 回給畫面的錯誤訊息換成這個網站的用詞（依順序換；程式內部的字不變，見 Code.gs 的 siteWording_）
+  wording: [['了愿項目', '項目'], ['同一勤務同一天', '同一個活動同一天'], ['「勤務」的勤務', '「志工」的活動'], ['勤務', '活動'],
+    ['感恩您 🙏', '謝謝 😊'], ['感恩 🙏', '謝謝 😊']]
 };
 
 /** 各分頁的欄位（順序即 Sheet 欄位順序，見規格第 9 節） */

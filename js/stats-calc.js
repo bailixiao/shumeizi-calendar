@@ -190,6 +190,26 @@
     return [...map.values()].sort((a, b) => b.total - a.total);
   }
 
+  /**
+   * 新朋友（書槑子）：這段期間第一次報名的人，依認識管道、介紹人整理。
+   * list：[{ name, source, referrer, note, date }]（date＝第一次報名日）
+   * 回傳 { total, bySource: [{ source, count }]（多到少）, byReferrer: [{ name, count }]（多到少）, people: [...]（日期新到舊） }
+   */
+  function newcomers(list, p) {
+    const people = (list || []).filter((x) => x.date && contains(p, x.date)).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    const count = (key) => {
+      const map = new Map();
+      people.forEach((x) => { const k = key(x); if (k) map.set(k, (map.get(k) || 0) + 1); });
+      return [...map.entries()].sort((a, b) => b[1] - a[1]);
+    };
+    return {
+      total: people.length,
+      bySource: count((x) => x.source || '沒填').map(([source, n]) => ({ source, count: n })),
+      byReferrer: count((x) => (x.source === '朋友介紹' ? x.referrer : '')).map(([name, n]) => ({ name, count: n })),
+      people
+    };
+  }
+
   /** 未填身分的人（需要到試算表或名單補上） */
   function missingIdentity(events, p) {
     const set = new Set();
@@ -276,7 +296,7 @@
     return { now: summarize(events, p), prevP, prev: cut(prevP), lyP, ly: cut(lyP), partial };
   }
 
-  const api = { activity, ageStats, careList, compare, startOf, addDays, UNIT_NAME, periodOf, shift, lastYear, contains, label, prevName, lastYearName, summarize, trend, ranking, byCategory, missingIdentity, delta, pct, textReport, eventsIn };
+  const api = { activity, ageStats, careList, compare, startOf, addDays, UNIT_NAME, periodOf, shift, lastYear, contains, label, prevName, lastYearName, summarize, trend, ranking, byCategory, missingIdentity, newcomers, delta, pct, textReport, eventsIn };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else window.StatsCalc = api;
 })();

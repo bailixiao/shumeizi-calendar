@@ -9,8 +9,8 @@ test('網站設定：前端和後端的團體名稱、場地、用詞、類別�
   const window = {};
   new Function('window', fs.readFileSync(path.join(__dirname, '..', 'js', 'site.js'), 'utf8'))(window);
   const front = window.SITE;
-  const back = createEnv(Date.UTC(2026, 9, 7, 2)).fn('SITE');
-  ['name', 'org', 'venue', 'temple', 'categoryLabels', 'locations'].forEach((k) => {
+  const back = createEnv(Date.UTC(2026, 9, 7, 2), { shumeizi: true }).fn('SITE'); // 用網站真正的設定（測試環境預設改回教全區的行為）
+  ['name', 'org', 'venue', 'temple', 'categoryLabels', 'locations', 'identity', 'sources'].forEach((k) => {
     assert.deepEqual(front[k], back[k], 'SITE.' + k + ' 兩邊不一樣');
   });
   assert.ok(front.features && front.examples && front.eduTeacherClasses, '前端設定欄位齊全');

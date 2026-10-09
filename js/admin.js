@@ -417,7 +417,8 @@
           ${!d.signups ? '<p class="muted">載入名單中⋯</p>' : people.length ? `<ul class="people">${people.map((s) => `
             <li class="person-row${past && s.attend === '未到' ? ' is-absent' : ''}">
               <span class="person"><span class="person-name">${s.leader ? '<span class="grid-star" title="組長">★</span>' : ''}${esc(s.name)}</span>${s.leader && d.leaderTitle ? `<span class="tag tag-leader">${esc(d.leaderTitle)}</span>` : ''}${s.temple ? `<span class="tag">${esc(s.temple)}</span>` : ''}
-                ${s.identity ? `<span class="tag">${esc(s.identity)}</span>` : '<span class="tag tag-warn">未填身分</span>'}
+                ${window.SITE.identity === false ? '' : s.identity ? `<span class="tag">${esc(s.identity)}</span>` : '<span class="tag tag-warn">未填身分</span>'}
+                ${s.meal ? '<span class="tag">🍱 吃飯</span>' : ''}
                 ${s.accompany ? '<span class="tag">陪同</span>' : ''}
                 ${past && s.attend === '未到' ? '<span class="tag tag-warn">未到</span>' : ''}
                 ${s.note ? `<span class="tag">註：${esc(s.note)}</span>` : ''}
@@ -594,18 +595,26 @@
     const d = dutyPage.data;
     const past = date <= d.today;
     const word = past ? '補登' : '報名';
+    const noId = window.SITE.identity === false; // 書槑子：不選身分；第一次來的人選認識管道
+    const sources = window.SITE.sources || [];
     const m = Modal.open(`
       <form class="modal-form" novalidate>
         <h2 class="modal-title">${past ? '補登出席' : '幫人報名'}</h2>
         <p class="modal-note">${esc(d.name)}・${esc(Fmt.rocDate(date))}・${esc(p.name)}</p>
         <label class="form-row"><span>姓名</span><input class="input" name="name" autocomplete="off" required placeholder="打一兩個字，下面會出現成員名單"></label>
         <div class="suggestions" data-suggestions aria-live="polite"></div>
-        <div class="form-row"><span>身分</span><div class="seg">
+        <div class="form-row"${noId ? ' hidden' : ''}><span>身分</span><div class="seg">
           <label class="seg-item"><input type="radio" name="identity" value="道親"><span>道親</span></label>
           <label class="seg-item"><input type="radio" name="identity" value="壇辦"><span>壇辦</span></label>
           <label class="seg-item"><input type="radio" name="identity" value="未求道"><span>未求道</span></label>
         </div></div>
         <label class="check" data-acc-row hidden><input type="checkbox" name="accompany"> 陪同（不算人數）</label>
+        ${sources.length ? `<div data-src-box hidden>
+          <label class="form-row"><span>🌱 第一次來：怎麼認識的？</span><select class="input" name="source"><option value="">（請選）</option>${sources.map((x) => `<option>${esc(x)}</option>`).join('')}</select></label>
+          <label class="form-row" data-ref-row hidden><span>介紹人</span><input class="input" name="referrer" maxlength="20"></label>
+          <label class="form-row" data-note-row hidden><span>在哪裡知道的（選填）</span><input class="input" name="sourceNote" maxlength="50"></label>
+        </div>` : ''}
+        ${d.meal ? '<label class="check"><input type="checkbox" name="meal"> 🍱 會一起吃飯</label>' : ''}
         ${d.layout === '職司表' ? '<label class="form-row"><span>註記（可空白）</span><input class="input" name="note" maxlength="100" placeholder="例：8:00-19:00、代理人"></label>' : ''}
         <div class="form-error" data-error hidden></div>
         <div class="modal-actions">
@@ -633,6 +642,9 @@
       if (exact && exact.identity) setIdentity(exact.identity); // 名單上已登記的身分自動帶入
       if (exact && sameName.length === 1) f.dataset.temple = exact.temple || '';
       const list = q ? members.filter((x) => (x.name.indexOf(q) !== -1 && (x.name !== q || sameName.length > 1)) || (x.aliases || []).some((a) => a.indexOf(q) !== -1)).slice(0, 8) : [];
+      // 名單上沒有（也不是別名）＝第一次來：要選怎麼認識的
+      const box = f.querySelector('[data-src-box]');
+      if (box) box.hidden = !q || members.some((x) => x.name === q || (x.aliases || []).indexOf(q) !== -1);
       sug.innerHTML = list.map((x) => `<button type="button" class="suggestion" data-suggest="${esc(x.name)}" data-temple="${esc(x.temple || '')}">${esc(x.name)}${(x.aliases || []).length ? `<small>${esc(x.aliases.join('、'))}</small>` : ''}${x.temple ? `<small>${esc(x.temple)}</small>` : ''}${x.identity ? `<small>${esc(x.identity)}</small>` : ''}</button>`).join('');
     }
     f.elements.name.addEventListener('input', () => { f.dataset.temple = ''; onName(); });
@@ -644,6 +656,10 @@
       onName();
     });
     f.addEventListener('change', () => {
+      if (f.elements.source) {
+        f.querySelector('[data-ref-row]').hidden = f.elements.source.value !== '朋友介紹';
+        f.querySelector('[data-note-row]').hidden = f.elements.source.value !== '其他';
+      }
       const tan = f.querySelector('input[name=identity]:checked');
       f.querySelector('[data-acc-row]').hidden = !(tan && tan.value === '壇辦');
       if (!(tan && tan.value === '壇辦')) f.elements.accompany.checked = false;
@@ -654,15 +670,21 @@
       const box = f.querySelector('[data-error]');
       const identity = f.querySelector('input[name=identity]:checked');
       const name = f.elements.name.value.trim();
-      if (!name || !identity) {
-        box.textContent = !name ? '請填姓名' : '請選道親、壇辦或未求道';
+      const srcBox = f.querySelector('[data-src-box]');
+      const newcomer = srcBox && !srcBox.hidden;
+      const srcProblem = !newcomer ? '' : !f.elements.source.value ? '第一次來的人，請選怎麼認識的（不知道選「不確定」）'
+        : f.elements.source.value === '朋友介紹' && !f.elements.referrer.value.trim() ? '請填介紹人' : '';
+      if (!name || (!noId && !identity) || srcProblem) {
+        box.textContent = !name ? '請填姓名' : srcProblem || '請選道親、壇辦或未求道';
         box.hidden = false;
         return;
       }
       m.el.setAttribute('data-locked', '');
       Busy.show(word + '中⋯');
       try {
-        const res = await Api.admin('adminAddAttendee', { dutyId: d.id, positionId: p.id, date, name, temple: f.dataset.temple || '', identity: identity.value, accompany: f.elements.accompany.checked, note: f.elements.note ? f.elements.note.value.trim() : '' });
+        const res = await Api.admin('adminAddAttendee', { dutyId: d.id, positionId: p.id, date, name, temple: f.dataset.temple || '', identity: identity ? identity.value : '', accompany: f.elements.accompany.checked, note: f.elements.note ? f.elements.note.value.trim() : '',
+          meal: !!(f.elements.meal && f.elements.meal.checked),
+          source: newcomer ? f.elements.source.value : '', referrer: newcomer ? f.elements.referrer.value.trim() : '', sourceNote: newcomer ? f.elements.sourceNote.value.trim() : '' });
         Busy.hide();
         m.close();
         dutyPage.flash = notice('success', '已' + word, `${name}・${Fmt.shortDate(date)}・${p.name}${res.warnings.length ? '（注意：' + res.warnings.join('；') + '）' : ''}`);

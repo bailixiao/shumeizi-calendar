@@ -98,3 +98,41 @@ test('後台幫人報名、補登：新朋友一樣要選管道（可以不確�
   assert.equal(r.ok, true, JSON.stringify(r.error));
   assert.equal(member('王小明')['認識管道'], '不確定');
 });
+
+test('統計：新朋友依認識管道、介紹人整理（只算這段期間第一次報名的）', () => {
+  const C = require('../js/stats-calc.js');
+  const list = [
+    { name: '王小明', source: '朋友介紹', referrer: '測試甲', date: '2026-10-03' },
+    { name: '測試乙', source: 'Instagram', referrer: '', date: '2026-10-09' },
+    { name: '測試丙', source: '朋友介紹', referrer: '測試甲', date: '2026-10-20' },
+    { name: '測試丁', source: '官網', referrer: '', date: '2026-09-30' }
+  ];
+  const n = C.newcomers(list, C.periodOf('month', '2026-10-01'));
+  assert.equal(n.total, 3);
+  assert.deepEqual(n.bySource, [{ source: '朋友介紹', count: 2 }, { source: 'Instagram', count: 1 }]);
+  assert.deepEqual(n.byReferrer, [{ name: '測試甲', count: 2 }]);
+  assert.deepEqual(n.people.map((x) => x.name), ['測試丙', '測試乙', '王小明']);
+});
+
+test('後台：統計帶新朋友；成員可以補、改認識管道', () => {
+  const { call, signup, member } = setup();
+  signup([{ name: '王小明', source: '朋友介紹', referrer: '測試甲' }]);
+  const st = call('adminStats', {}).data;
+  assert.deepEqual(st.newcomers, [{ name: '王小明', source: '朋友介紹', referrer: '測試甲', note: '', date: '2026-10-01' }]);
+  const m = call('adminMembers', {}).data.members.find((x) => x.name === '王小明');
+  assert.equal(m.source, '朋友介紹');
+  const r = call('adminSaveMember', { row: m.row, original: m.name, member: { name: '王小明', identity: '', groups: {}, note: '', active: true, source: '其他', referrer: '測試甲', sourceNote: '市集' } });
+  assert.equal(r.ok, true, JSON.stringify(r.error));
+  assert.equal(member('王小明')['認識管道'], '其他');
+  assert.equal(member('王小明')['介紹人'], '', '不是朋友介紹就清掉介紹人');
+  assert.equal(member('王小明')['管道說明'], '市集');
+  assert.equal(call('adminSaveMember', { row: m.row, original: m.name, member: { name: '王小明', source: '路上' } }).error.code, 'VALIDATION');
+});
+
+test('錯誤訊息換成書槑子的用詞（勤務→活動、了愿項目→項目）', () => {
+  const { env, vol } = setup();
+  const r = env.post({ action: 'signup', dutyId: vol.id, positionId: 'x', dates: ['2026-10-13'], entries: [{ name: '測試甲', source: '官網' }] });
+  assert.equal(r.error.details[0].message, '請選擇項目');
+  const past = env.post({ action: 'signup', dutyId: vol.id, positionId: vol.positions[0].id, dates: ['2026-10-01'], entries: [{ name: '測試甲', source: '官網' }] });
+  assert.doesNotMatch(JSON.stringify(past.error), /勤務/);
+});

@@ -545,6 +545,7 @@
             <div class="form-row"><span>類別</span>${Api.adminWho().role === '總管理者' ? segmented('category', CATEGORIES.map((c) => [c, Fmt.catLabel(c)]), s.category || '勤務') : `<strong>${esc(Fmt.catLabel(myCategory()))}</strong>`}</div>
             <div class="form-row"><span>種類</span>${segmented('nature', natures.map((n) => [n, Fmt.natureLabel(s.category, n)]), s.nature)}</div>
             ${simple || Fmt.feature('groups') || s.mode === '公告型' ? `<div class="form-row"><span>模式</span>${segmented('mode', ['報名型', '公告型'], s.mode)}</div>` : ''}
+            ${s.mode === '公告型' ? '' : `<label class="check meal-toggle"><input type="checkbox" name="meal"${s.meal === true || s.meal === '是' ? ' checked' : ''}> 🍱 這次有吃飯（報名時每個人可以勾「我會一起吃飯」，後台算要準備幾份）</label>`}
             ${isNotice ? '<p class="hint">公告型：只顯示輪值組，不需報名、沒有項目。</p>' : ''}
           </fieldset>
 
@@ -857,6 +858,7 @@
       if (radio('dateType')) st.dateType = radio('dateType');
       if (radio('groupMode')) st.lunar.groupMode = radio('groupMode');
       if (f.elements.multi) s.multi = f.elements.multi.checked;
+      if (f.elements.meal) s.meal = f.elements.meal.checked;
       if (f.elements.totalNeed) s.totalNeed = f.elements.totalNeed.value.trim();
       if (f.elements.leaderTitle) s.leaderTitle = f.elements.leaderTitle.value.trim();
       if (f.elements.layout) s.layout = f.elements.layout.checked ? '職司表' : '';
@@ -971,6 +973,7 @@
         layout: s.mode === '公告型' || isSimple(s.category) ? '' : (s.layout || ''),
         stages: s.mode === '公告型' || isSimple(s.category) || s.layout !== '職司表' ? '' : (s.stages || ''),
         multi: s.mode === '公告型' ? false : !!(s.multi === true || s.multi === '是'),
+        meal: s.mode !== '公告型' && (s.meal === true || s.meal === '是'),
         totalNeed: s.mode !== '公告型' && (s.multi === true || s.multi === '是') ? String(s.totalNeed || '') : '',
         leaderTitle: s.mode !== '公告型' && (s.category || '勤務') === '勤務' ? String(s.leaderTitle || '') : '',
         positions: s.mode === '公告型' ? [] : isSimple(s.category)

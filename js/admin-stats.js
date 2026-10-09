@@ -6,6 +6,7 @@
 
   const esc = Fmt.esc;
   const C = window.StatsCalc;
+  const NOID = window.SITE.identity === false; // 書槑子：不分道親、壇辦（不顯示佔比），改看新朋友
   const TREND_COUNT = { month: 12, quarter: 8, year: 5 };
   const state = { unit: 'month', period: null, rankKind: 'all', rankAll: false, category: '勤務', eduCourse: {}, eduRankAll: false, eduGridAll: false, eduItemsOpen: false, eduPick: {}, careDays: 60 };
 
@@ -95,17 +96,17 @@
 
         <div class="stat-cards">
           <div class="stat-card">
-            <span class="stat-label">出勤人次</span>
+            <span class="stat-label">${NOID ? '參加人次' : '出勤人次'}</span>
             <span class="stat-num">${s.total}</span>
             <span class="stat-hint">每場每人算 1 次<br>（來 3 場＝3 人次）</span>
             ${cmpList([deltaHtml('比' + prevName, C.delta(s.total, cmpVal(prev, 'total'))), lyName ? deltaHtml('比' + lyName, C.delta(s.total, cmpVal(ly, 'total'))) : ''])}
           </div>
-          <div class="stat-card">
+          ${NOID ? '' : `<div class="stat-card">
             <span class="stat-label">道親佔比</span>
             <span class="stat-num">${C.pct(s.ratio)}</span>
             <span class="stat-sub">道親 ${s.dao}・壇辦 ${s.tan}${s.unknown ? `・未填 ${s.unknown}` : ''}</span>
             ${cmpList([deltaHtml('比' + prevName, C.delta(s.ratio, cmpVal(prev, 'ratio'), true)), lyName ? deltaHtml('比' + lyName, C.delta(s.ratio, cmpVal(ly, 'ratio'), true)) : ''])}
-          </div>
+          </div>`}
           <div class="stat-card">
             <span class="stat-label">${AdminPage.term()}場次</span>
             <span class="stat-num">${s.events}</span>
@@ -120,10 +121,10 @@
         </div>
         ${partial ? `<p class="stats-note">本${C.UNIT_NAME[p.unit]}還沒結束：算到今天 ${Number(data.today.slice(5, 7))}/${Number(data.today.slice(8, 10))}，比較的期間也只算到相同日期。</p>` : ""}
         ${s.shortEvents || s.accompany || s.absent ? `<p class="stats-note">${[s.shortEvents ? `缺人的場次 ${s.shortEvents} 場` : '', s.accompany ? `陪同 ${s.accompany} 人次（不算人數）` : '', s.absent ? `報名但未到 ${s.absent} 人次` : ''].filter(Boolean).join('・')}</p>` : ''}
-        ${missing.length ? `<div class="notice notice-error no-print"><p><strong>${missing.length} 位沒有填身分</strong>（道親佔比可能不準）：${missing.map(esc).join('、')}</p><p>請到活動名單或試算表「報名」分頁補上身分。</p></div>` : ''}
+        ${missing.length && !NOID ? `<div class="notice notice-error no-print"><p><strong>${missing.length} 位沒有填身分</strong>（道親佔比可能不準）：${missing.map(esc).join('、')}</p><p>請到活動名單或試算表「報名」分頁補上身分。</p></div>` : ''}
 
         <section class="stats-section">
-          <h3 class="admin-sub">最近 ${trend.length} ${p.unit === 'month' ? '個月' : p.unit === 'quarter' ? '季' : '年'}<span class="h2-sub">深色＝道親、淺色＝壇辦</span></h3>
+          <h3 class="admin-sub">最近 ${trend.length} ${p.unit === 'month' ? '個月' : p.unit === 'quarter' ? '季' : '年'}${NOID ? '' : '<span class="h2-sub">深色＝道親、淺色＝壇辦</span>'}</h3>
           <div class="trend">
             ${trend.map((t) => {
               const h = Math.round((t.total / maxTotal) * 100);
@@ -133,7 +134,7 @@
                 <span class="trend-val">${t.total || ''}</span>
                 <span class="trend-bar" style="height:${h}%"><span class="trend-dao" style="height:${h ? Math.round((daoH / h) * 100) : 0}%"></span></span>
                 <span class="trend-label">${esc(C.label(t.period, true))}</span>
-                <span class="trend-pct">${C.pct(t.ratio)}</span>
+                ${NOID ? '' : `<span class="trend-pct">${C.pct(t.ratio)}</span>`}
               </button>`;
             }).join('')}
           </div>
@@ -142,17 +143,17 @@
         <section class="stats-section">
           <h3 class="admin-sub">比較</h3>
           <table class="stats-table">
-            <thead><tr><th></th><th>場次</th><th>人次</th><th>道親</th><th>壇辦</th><th>佔比</th></tr></thead>
+            <thead><tr><th></th><th>場次</th><th>人次</th>${NOID ? '<th>人數</th>' : '<th>道親</th><th>壇辦</th><th>佔比</th>'}</tr></thead>
             <tbody>
               ${[[C.label(p), s, true], [`${prevName}（${C.label(prevP, 'plain')}）`, prev], lyP ? [`${lyName}（${C.label(lyP, 'plain')}）`, ly] : null].filter(Boolean).map(([l, o, me]) => `
-                <tr${me ? ' class="is-me"' : ''}><th>${esc(l)}</th>${o.hasData ? `<td>${o.events}</td><td>${o.total}</td><td>${o.dao}</td><td>${o.tan}</td><td>${C.pct(o.ratio)}</td>` : '<td colspan="5" class="muted">沒有資料</td>'}</tr>`).join('')}
+                <tr${me ? ' class="is-me"' : ''}><th>${esc(l)}</th>${o.hasData ? `<td>${o.events}</td><td>${o.total}</td>${NOID ? `<td>${o.people}</td>` : `<td>${o.dao}</td><td>${o.tan}</td><td>${C.pct(o.ratio)}</td>`}` : `<td colspan="${NOID ? 3 : 5}" class="muted">沒有資料</td>`}</tr>`).join('')}
             </tbody>
           </table>
         </section>
 
         ${cats.length ? `
         <section class="stats-section">
-          <h3 class="admin-sub">依勤務分類</h3>
+          <h3 class="admin-sub">依${AdminPage.term()}分類</h3>
           <ul class="cat-list">${cats.map((c) => `
             <li><span class="cat-name">${esc(c.name)}<span class="muted">（${c.events} 場）</span></span>
               <span class="cat-bar"><span style="width:${Math.round((c.total / maxCat) * 100)}%"></span></span>
@@ -161,8 +162,8 @@
 
         ${rank.length ? `
         <section class="stats-section">
-          <h3 class="admin-sub">出勤次數排行<span class="h2-sub">感謝名單</span></h3>
-          <div class="seg rank-kind no-print">${[['all', '全部'], ['dao', '道親'], ['tan', '壇辦']].map(([v, l]) =>
+          <h3 class="admin-sub">${NOID ? '參加' : '出勤'}次數排行<span class="h2-sub">感謝名單</span></h3>
+          <div class="seg rank-kind no-print"${NOID ? ' hidden' : ''}>${[['all', '全部'], ['dao', '道親'], ['tan', '壇辦']].map(([v, l]) =>
             `<label class="seg-item"><input type="radio" name="rank" value="${v}"${v === state.rankKind ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div>
           <ol class="rank-list">${(state.rankAll ? rank : rank.slice(0, 10)).map((r) => `
             <li><span class="rank-name">${esc(r.name)}${r.identity ? ` <span class="tag">${esc(r.identity)}</span>` : ''}</span><span class="rank-count">${r.count} 次</span></li>`).join('')}</ol>
@@ -170,19 +171,21 @@
         </section>` : ''}
 
         ${careHtml(ev, data.today)}
+        ${newcomersHtml(data, p)}
 
         <section class="stats-section">
-          <h3 class="admin-sub">勤務明細<span class="h2-sub">${details.length} 場</span></h3>
+          <h3 class="admin-sub">${AdminPage.term()}明細<span class="h2-sub">${details.length} 場</span></h3>
           ${details.length ? `<ul class="detail-list">${details.map((e) => {
             const total = e.tan.length + e.dao.length + e.unknown.length;
             return `<li class="detail-item">
               <div class="stat-detail-head"><span>${esc(Fmt.shortDate(e.date))} ${esc(e.name)}</span><strong>${total} 人</strong></div>
+              ${NOID ? `<p>${e.tan.concat(e.dao, e.unknown).map(esc).join('、')}</p>` : `
               ${e.tan.length ? `<p>壇辦 ${e.tan.length}：${e.tan.map(esc).join('、')}</p>` : ''}
               ${e.dao.length ? `<p>道親 ${e.dao.length}：${e.dao.map(esc).join('、')}</p>` : ''}
-              ${e.unknown.length ? `<p class="warn">未填身分：${e.unknown.map(esc).join('、')}</p>` : ''}
+              ${e.unknown.length ? `<p class="warn">未填身分：${e.unknown.map(esc).join('、')}</p>` : ''}`}
               ${e.accompany.length ? `<p class="muted">陪同：${e.accompany.map(esc).join('、')}</p>` : ''}
             </li>`;
-          }).join('')}</ul>` : '<p class="panel-empty">這段期間沒有出勤紀錄</p>'}
+          }).join('')}</ul>` : `<p class="panel-empty">這段期間沒有${NOID ? '參加' : '出勤'}紀錄</p>`}
         </section>
 
         <div class="stats-actions no-print">
@@ -190,7 +193,7 @@
           <button type="button" class="btn" data-xlsx>⬇ 匯出 Excel</button>
           <button type="button" class="btn" data-print>列印</button>
           <button type="button" class="btn" data-sheet>更新試算表「統計」分頁</button>
-          <a class="btn" href="#/admin/history">匯入歷史資料（舊 Excel）</a>
+          ${NOID ? '' : '<a class="btn" href="#/admin/history">匯入歷史資料（舊 Excel）</a>'}
         </div>
         <p class="hint no-print" data-sheet-note>${data.sheetUpdatedAt ? `試算表統計最後更新：${esc(data.sheetUpdatedAt)}` : '試算表「統計」分頁還沒產生過'}。只算出席、非陪同的人；人次＝每場每人算一次；只算今天以前。</p>
       </div>`;
@@ -364,6 +367,7 @@
             : `<p class="muted">${L.noStaff}</p>`}
         </section>
         ${careHtml((data.events || []).filter((e) => (e.category || '勤務') === cat), data.today)}
+        ${newcomersHtml(data, p)}
         <div class="stats-actions no-print"><button type="button" class="btn btn-primary" data-xlsx>⬇ 匯出 Excel（${L.item}總覽＋每個${L.item}的出缺勤表）</button></div>
         ${cat === '道務' && Fmt.feature('vegetarian') ? '<section class="stats-section" data-veg></section><section class="stats-section" data-ages></section>' : ''}${cat === '道務' && Fmt.feature('goals') ? '<section class="stats-section" data-goals></section>' : ''}
       </div>`;
@@ -407,6 +411,25 @@
 
   // ---------- 關懷名單：以前常來、最近很久沒來的人 ----------
 
+  /** 🌱 新朋友（書槑子）：這段期間第一次報名的人，各管道幾位、誰介紹最多 */
+  function newcomersHtml(data, p) {
+    if (!(window.SITE.sources || []).length || !data.newcomers) return '';
+    const n = C.newcomers(data.newcomers, p);
+    const max = Math.max(1, ...n.bySource.map((x) => x.count));
+    return `<section class="stats-section">
+      <h3 class="admin-sub">🌱 新朋友<span class="h2-sub">${esc(C.label(p))}第一次報名 ${n.total} 位</span></h3>
+      ${n.total ? `
+        <ul class="cat-list">${n.bySource.map((x) => `
+          <li><span class="cat-name">${esc(x.source)}</span>
+            <span class="cat-bar"><span style="width:${Math.round((x.count / max) * 100)}%"></span></span>
+            <span class="cat-val">${x.count} 位</span></li>`).join('')}</ul>
+        ${n.byReferrer.length ? `<p class="stats-note">👫 介紹人：${n.byReferrer.map((x) => `${esc(x.name)} ${x.count} 位`).join('、')}</p>` : ''}
+        <details class="newcomer-list"><summary>看名單</summary><ul class="detail-list">${n.people.map((x) => `
+          <li>${esc(Fmt.shortDate(x.date))}　${esc(x.name)}<span class="muted">・${esc(x.source || '沒填')}${x.referrer ? '（' + esc(x.referrer) + ' 介紹）' : ''}${x.note ? '：' + esc(x.note) : ''}</span></li>`).join('')}</ul></details>`
+        : '<p class="muted">這段期間還沒有新朋友</p>'}
+    </section>`;
+  }
+
   function careHtml(events, today) {
     const list = C.careList(events, today, state.careDays, 3);
     return `
@@ -417,7 +440,7 @@
             <li><span class="care-name">${esc(v.name)}${v.identity ? ` <span class="tag">${esc(v.identity)}</span>` : ''}</span>
               <span class="care-meta">最後一次：${esc(Fmt.shortDate(v.last))} ${esc(v.lastName)}（${v.daysAgo} 天前）・過去一年 ${v.count} 次</span></li>`).join('')}</ul>
           <div class="admin-actions no-print"><button type="button" class="btn" data-care-copy>複製關懷名單</button></div>` : '<p class="muted">沒有需要關懷的人 😊</p>'}
-          <p class="hint">可以打電話或在 LINE 問候一下，邀請他們回來 🙏（只算出席、非陪同的紀錄）</p>
+          <p class="hint">${NOID ? '傳個 LINE 問候一下，約他們回來玩 😊（只算有出席的紀錄）' : '可以打電話或在 LINE 問候一下，邀請他們回來 🙏（只算出席、非陪同的紀錄）'}</p>
         </section>`;
   }
 

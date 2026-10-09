@@ -263,7 +263,7 @@
       try {
         const endpoint = await PushPage.ensureSub();
         paint((await Api.admin('adminSystemWatch', { endpoint, on: value })).on);
-        try { if (value) localStorage.removeItem('duty-calendar:system-watch-off'); else localStorage.setItem('duty-calendar:system-watch-off', '1'); } catch (e) { /* 無痕模式 */ }
+        try { if (value) localStorage.removeItem('shumeizi:system-watch-off'); else localStorage.setItem('shumeizi:system-watch-off', '1'); } catch (e) { /* 無痕模式 */ }
       } catch (e) {
         if (guard(e)) return;
         box.insertAdjacentHTML('beforeend', `<p class="form-error">${esc(e.message || '設定失敗')}</p>`);

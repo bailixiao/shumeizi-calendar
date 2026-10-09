@@ -7,13 +7,13 @@
   'use strict';
 
   const esc = Fmt.esc;
-  const ASK_KEY = 'duty-calendar:push-ask-later';
+  const ASK_KEY = 'shumeizi:push-ask-later';
   const ASK_AGAIN_MS = 14 * 24 * 3600 * 1000;
   // 只為了借場地結果、管理者通知而建立的訂閱，不算「開啟每日提醒」（'0'）；按了開啟提醒是 '1'
-  const DAILY_KEY = 'duty-calendar:push-daily';
+  const DAILY_KEY = 'shumeizi:push-daily';
   const setDaily = (v) => { try { localStorage.setItem(DAILY_KEY, v); } catch (e) { /* 無痕模式 */ } };
   // 手機提醒的「我是誰」（伺服器的「推播」分頁也有記，這裡記一份給畫面顯示）
-  const ME_KEY = 'duty-calendar:push-name';
+  const ME_KEY = 'shumeizi:push-name';
   const myName = () => { try { return localStorage.getItem(ME_KEY) || ''; } catch (e) { return ''; } };
   const setMyName = (v) => { try { if (v) localStorage.setItem(ME_KEY, v); else localStorage.removeItem(ME_KEY); } catch (e) { /* 無痕模式 */ } };
   const dailyOff = () => { try { return localStorage.getItem(DAILY_KEY) === '0'; } catch (e) { return false; } };

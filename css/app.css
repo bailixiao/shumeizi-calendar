@@ -1,25 +1,29 @@
-/* 教全區行事曆：整潔安靜，米白底、深墨色字、赭紅色重點色；標題明體、內文黑體；按鈕至少 44px。 */
+/* 書槑子青年坊行事曆：呼應官網（橄欖綠標題、橘色點綴、深紅、米色底、深藍綠標誌、波浪線），明亮活潑；標題、內文都用黑體；按鈕至少 44px。 */
 
 :root {
-  --paper: #f6f1e7;
-  --paper-2: #ede6d7;
-  --card: #fffcf6;
-  --ink: #2a2724;
-  --ink-2: #57514a;
-  --muted: #847d72;
-  --line: #ddd4c3;
-  --accent: #9e3d22;
-  --accent-soft: #f4e2da;
-  --ok: #4d6b4f;
-  --ok-soft: #e4ebe1;
-  --full: #8a8479;
-  --full-soft: #e9e5dd;
-  --notice: #3f5b7d;
-  --notice-soft: #e2e8f0;
+  --paper: #fbf8f0;
+  --paper-2: #f3ecdc;
+  --card: #ffffff;
+  --ink: #22302f;
+  --ink-2: #4c5856;
+  --muted: #77807d;
+  --line: #e7dfcb;
+  --accent: #bf5b2c;
+  --accent-soft: #fbe7da;
+  --ok: #67771c;
+  --ok-soft: #eef2d4;
+  --full: #8b8a80;
+  --full-soft: #ece9df;
+  --notice: #1f5664;
+  --notice-soft: #dcebee;
+  --olive: #a8b741;
+  --orange: #e2814e;
+  --berry: #a13a3b;
+  --teal: #1f5664;
 
-  --serif: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  --serif: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif; /* 書槑子不用明體，標題也用黑體 */
   --sans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
-  --radius: 10px;
+  --radius: 14px;
   --tap: 44px;
 }
 
@@ -141,7 +145,7 @@ a { color: var(--accent); }
 .view-switch button:last-child { border-right: 0; }
 
 .view-switch button.is-active {
-  background: var(--ink);
+  background: var(--teal);
   color: var(--paper);
   font-weight: 500;
 }
@@ -280,7 +284,7 @@ a { color: var(--accent); }
 }
 
 .fc .fc-day-today .cell-num {
-  background: var(--ink);
+  background: var(--teal);
   color: var(--paper);
 }
 
@@ -575,7 +579,7 @@ a { color: var(--accent); }
   cursor: pointer;
 }
 
-.date-tab.is-active { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.date-tab.is-active { border-color: var(--teal); box-shadow: inset 0 0 0 1px var(--ink); }
 .date-tab.is-past { opacity: .55; }
 .date-tab-day { font-weight: 500; font-size: .95rem; }
 .date-tab-state { font-size: .75rem; color: var(--ok); }
@@ -664,7 +668,7 @@ a { color: var(--accent); }
   width: 1.6em;
   height: 1.6em;
   border-radius: 50%;
-  background: var(--ink);
+  background: var(--teal);
   color: var(--paper);
   font-size: .85rem;
 }
@@ -787,7 +791,7 @@ a { color: var(--accent); }
 .segment:last-child { border-right: 0; }
 .segment input { position: absolute; opacity: 0; pointer-events: none; }
 .segment:focus-within { outline: 3px solid var(--accent); outline-offset: -3px; }
-.segment.is-checked { background: var(--ink); color: var(--paper); font-weight: 700; }
+.segment.is-checked { background: var(--teal); color: var(--paper); font-weight: 700; }
 
 .name-missing { margin: 6px 0 0; font-size: .9rem; color: var(--accent); }
 
@@ -1165,7 +1169,7 @@ select.input { appearance: auto; }
   white-space: nowrap;
 }
 .seg-item:last-child span { border-right: 0; }
-.seg-item input:checked + span { background: var(--ink); color: var(--paper); font-weight: 700; }
+.seg-item input:checked + span { background: var(--teal); color: var(--paper); font-weight: 700; }
 .seg-item input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: -3px; }
 
 .checks { display: flex; flex-wrap: wrap; gap: 6px 18px; }
@@ -1498,7 +1502,7 @@ select.input { appearance: auto; }
 .pos-chip.is-disabled { opacity: .45; cursor: not-allowed; }
 .pos-chip small { margin-left: 4px; font-size: .8em; }
 .pos-chip input { position: absolute; opacity: 0; pointer-events: none; }
-.pos-chip.is-checked { background: var(--ink); border-color: var(--ink); color: var(--paper); font-weight: 700; }
+.pos-chip.is-checked { background: var(--teal); border-color: var(--teal); color: var(--paper); font-weight: 700; }
 .pos-chip:focus-within { outline: 3px solid var(--accent); outline-offset: 1px; }
 .pos-same { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-height: 40px; }
 .link-btn { padding: 4px 0; border: 0; background: none; color: var(--accent); font: inherit; font-size: .92rem; text-decoration: underline; cursor: pointer; }
@@ -1634,12 +1638,11 @@ body:not(.role-super) #view-admin .people-list [data-row] { cursor: default; }
 /* 類別：篩選列與小標籤（勤務不標，道務、教育用顏色區分） */
 .cat-filter { display: flex; gap: 6px; margin: 0 0 10px; flex-wrap: wrap; }
 .cat-filter button { flex: 1 1 auto; padding: 0 10px; white-space: nowrap; min-height: 40px; border: 1px solid var(--line); background: var(--card); border-radius: 20px; font-size: 1rem; color: var(--ink); cursor: pointer; }
-.cat-filter button.is-active { background: var(--ink); color: var(--paper); border-color: var(--ink); font-weight: 700; }
+.cat-filter button.is-active { background: var(--teal); color: var(--paper); border-color: var(--teal); font-weight: 700; }
 .cat-tag { display: inline-block; font-size: .78em; font-weight: 700; padding: 1px 8px; border-radius: 10px; margin-right: 6px; vertical-align: 2px; color: #fff; }
-.cat-勤務 { background: #9e3d22; }
-.cat-道務 { background: #6b4fa0; }
-.cat-教育 { background: #1f6f8b; }
-.cat-勤務 { background: #8a6d3b; }
+.cat-勤務 { background: var(--teal); }      /* 志工 */
+.cat-道務 { background: #c4612f; }          /* 靈魂健身房（橘） */
+.cat-教育 { background: var(--berry); }     /* 槑青韜課館（深紅） */
 /* 帳號管理 */
 .account-list { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .account-main { width: 100%; text-align: left; display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); cursor: pointer; font: inherit; color: inherit; }
@@ -2082,7 +2085,7 @@ input.input[type="date"] { min-width: 0; max-width: 100%; width: 100%; box-sizin
 .help-q { font-size: 1.15rem; min-height: 54px; border-width: 2px; }
 .help-cats { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
 .help-cats button { min-height: 44px; padding: 0 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); font: inherit; font-size: 1rem; cursor: pointer; color: inherit; }
-.help-cats button.is-active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.help-cats button.is-active { background: var(--teal); color: var(--paper); border-color: var(--teal); }
 .help-cat-title { font-size: 1.15rem; margin: 18px 0 8px; color: var(--ink-2); }
 .help-item { border: 1px solid var(--line); border-radius: 14px; background: var(--card); margin-bottom: 10px; overflow: hidden; }
 .help-item.is-open { border-color: var(--accent); box-shadow: 0 2px 10px rgba(0,0,0,.06); }
@@ -2308,3 +2311,21 @@ button.veg-chip:hover { border-color: var(--ok); }
 .person-alias { margin-left: 4px; font-size: .85rem; color: var(--ink-2); font-weight: 400; }
 .merge-choice { display: grid; gap: 6px; margin: 6px 0 10px; }
 .merge-opt small { margin-left: 6px; color: var(--ink-2); }
+
+/* ---------- 書槑子外觀（呼應官網） ---------- */
+/* 頁首：白底、標題深藍綠，下緣是官網那種波浪線（橄欖綠） */
+.app-header {
+  position: relative;
+  background: var(--card);
+  border-bottom: 0;
+  padding-bottom: 20px;
+}
+.app-header::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 10px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='10' viewBox='0 0 40 10'%3E%3Cpath d='M0 5 Q10 0 20 5 T40 5' fill='none' stroke='%23a8b741' stroke-width='2.5'/%3E%3C/svg%3E") repeat-x left center / 40px 10px;
+}
+.app-title { color: var(--teal); }
+.splash-title { color: var(--teal); }

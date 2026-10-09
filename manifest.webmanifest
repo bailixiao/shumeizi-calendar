@@ -1,13 +1,13 @@
 {
-  "name": "教全區行事曆",
-  "short_name": "教全區行事曆",
-  "description": "教全區勤務報名與行事曆",
+  "name": "書槑子青年坊行事曆",
+  "short_name": "書槑子行事曆",
+  "description": "書槑子青年坊的活動行事曆與報名",
   "lang": "zh-Hant-TW",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f6f1e7",
-  "theme_color": "#f6f1e7",
+  "background_color": "#fbf8f0",
+  "theme_color": "#fbf8f0",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },

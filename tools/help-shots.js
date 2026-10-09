@@ -115,12 +115,12 @@ const SHOTS = [
       const add = [...document.querySelectorAll('#view-duty button')].find((b) => b.textContent.trim() === '加入'); add.click(); await __wait(400);
       const idb = [...document.querySelectorAll('#view-duty button')].find((b) => b.textContent.trim() === '道親'); if (idb) idb.click(); await __wait(300);`,
     clip: `const h = [...document.querySelectorAll('#view-duty h2')].find((x) => x.textContent.includes('我要報名')); const r = h.getBoundingClientRect(); h.scrollIntoView(); const r2 = h.getBoundingClientRect(); const end = [...document.querySelectorAll('#view-duty button')].find((b) => b.textContent.includes('確認報名')).getBoundingClientRect(); return { x: 0, y: r2.top + scrollY - 8, width: innerWidth, height: end.bottom - r2.top + 20 };` },
-  { name: 'mine-list', hash: '#/mine', js: `localStorage.setItem('duty-calendar:mine-name', '測試甲'); location.hash = '#/'; await __wait(200); location.hash = '#/mine'; await __wait(2000);`,
+  { name: 'mine-list', hash: '#/mine', js: `localStorage.setItem('shumeizi:mine-name', '測試甲'); location.hash = '#/'; await __wait(200); location.hash = '#/mine'; await __wait(2000);`,
     clip: `return { x: 0, y: 0, width: innerWidth, height: 1000 };` },
-  { name: 'mine-multi', hash: '#/mine', js: `localStorage.setItem('duty-calendar:mine-name', '測試甲'); location.hash = '#/'; await __wait(200); location.hash = '#/mine'; await __wait(2000);
+  { name: 'mine-multi', hash: '#/mine', js: `localStorage.setItem('shumeizi:mine-name', '測試甲'); location.hash = '#/'; await __wait(200); location.hash = '#/mine'; await __wait(2000);
       const c = document.querySelectorAll('[data-pick]'); c[0].checked = true; c[1].checked = true; await __wait(100);`,
     clip: `const t = document.querySelector('.mine-title'); t.scrollIntoView(); const r = t.getBoundingClientRect(); const b = document.querySelector('[data-cancel-picked]').getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 8, width: innerWidth, height: Math.min(1200, b.bottom - r.top + 16) };` },
-  { name: 'resched', hash: '#/mine', js: `localStorage.setItem('duty-calendar:mine-name', '測試甲'); location.hash = '#/'; await __wait(200); location.hash = '#/mine'; await __wait(2000);
+  { name: 'resched', hash: '#/mine', js: `localStorage.setItem('shumeizi:mine-name', '測試甲'); location.hash = '#/'; await __wait(200); location.hash = '#/mine'; await __wait(2000);
       const b = [...document.querySelectorAll('[data-reschedule]')].pop(); b.click(); await __wait(2000);`,
     clip: `return __box('.modal-box', 4);` },
   { name: 'push-panel', hash: '#/', js: `PushPage.openPanel(); await __wait(1200);`, clip: `return __box('.modal-box', 4);` },
@@ -169,7 +169,7 @@ async function main() {
     await c.send('Emulation.setUserAgentOverride', { userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Mobile Safari/537.36' });
     await c.send('Page.navigate', { url: BASE });
     await sleep(4500); // 開場動畫
-    await run(c, PREP + `localStorage.setItem('duty-calendar:push-ask-later', String(Date.now())); localStorage.setItem('duty-calendar:cat', '全部');`);
+    await run(c, PREP + `localStorage.setItem('shumeizi:push-ask-later', String(Date.now())); localStorage.setItem('shumeizi:cat', '全部');`);
     await run(c, PREP + SEED);
     await c.send('Page.reload');
     await sleep(4500);

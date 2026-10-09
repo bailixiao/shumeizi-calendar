@@ -6,7 +6,7 @@
   const esc = Fmt.esc;
   let st = null; // { dutyId, date, code, data }
 
-  const codeKey = (dutyId, date) => 'duty-calendar:rollcall:' + dutyId + ':' + date;
+  const codeKey = (dutyId, date) => 'shumeizi:rollcall:' + dutyId + ':' + date;
 
   function show(dutyId, date) {
     const root = document.getElementById('view-rollcall');

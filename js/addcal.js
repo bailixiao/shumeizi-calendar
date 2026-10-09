@@ -76,9 +76,9 @@
       trigger = `-PT${(24 - 20 + hh) * 60 + mm}M`; // 從開始時間往回推到前一天 20:00
     }
     const lines = [
-      'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//duty-calendar//ZH-TW', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+      'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//shumeizi-calendar//ZH-TW', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
       'BEGIN:VEVENT',
-      `UID:${info.dutyId}-${info.date}@duty-calendar`,
+      `UID:${info.dutyId}-${info.date}@shumeizi-calendar`,
       `DTSTAMP:${now}`,
       t.allDay ? `DTSTART;VALUE=DATE:${t.start}` : `DTSTART:${t.start}`,
       t.allDay ? `DTEND;VALUE=DATE:${t.end}` : `DTEND:${t.end}`,

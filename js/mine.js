@@ -6,7 +6,7 @@
   'use strict';
 
   const esc = Fmt.esc;
-  const NAME_KEY = 'duty-calendar:mine-name';
+  const NAME_KEY = 'shumeizi:mine-name';
   let root = null;
   let token = 0;
   let current = null; // { name, today, items }

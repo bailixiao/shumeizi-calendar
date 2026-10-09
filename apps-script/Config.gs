@@ -12,16 +12,16 @@ var TIME_ZONE = 'Asia/Taipei';
  * 不能在最外層直接用 SITE，只能在函式裡用。
  */
 var SITE = {
-  name: '教全區行事曆',
-  org: '教全區',
-  venue: '區中心',
+  name: '書槑子青年坊行事曆',
+  org: '書槑子青年坊',
+  venue: '場地',
   temple: '佛堂',
-  categoryLabels: { 勤務: '總務・勤務', 道務: '道務', 教育: '教育' },
-  locations: ['宏宗', '區中心', '彌勒山', '厚德樓', '樹林頭活動地'],
-  overseas: ['陸', '韓國'], // 成員的「國外」選項（空白＝台灣）：統計算在同名的佛堂卡片，不算年齡統計
-  siteUrl: 'https://bailixiao.github.io/duty-calendar/', // 網站網址（推播服務聯絡用）
-  aiRegion: '教全區',   // 照片草稿：只整理這個區的部分
-  aiRegionShort: '教全' // 照片上可能的簡寫
+  categoryLabels: { 勤務: '志工', 道務: '靈魂健身房', 教育: '槑青韜課館' },
+  locations: ['竹北', '宏宗聖堂道學院', '安東彌勒山', '安東彌勒山（厚德樓）'],
+  overseas: [], // 成員的「國外」選項（書槑子不用）
+  siteUrl: 'https://bailixiao.github.io/shumeizi-calendar/', // 網站網址（推播服務聯絡用）
+  aiRegion: '書槑子青年坊', // 照片草稿：只整理這個團體的部分（書槑子暫時不用）
+  aiRegionShort: '書槑子'   // 照片上可能的簡寫
 };
 
 /** 各分頁的欄位（順序即 Sheet 欄位順序，見規格第 9 節） */

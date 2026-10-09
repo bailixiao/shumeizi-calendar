@@ -56,7 +56,7 @@
   }
 
   // 卡片或表格：記住這台裝置選的；沒選過的話手機用卡片、電腦用表格
-  const MODE_KEY = 'duty-calendar:goal-mode';
+  const MODE_KEY = 'shumeizi:goal-mode';
   function mode() {
     try { const v = localStorage.getItem(MODE_KEY); if (v === 'cards' || v === 'table') return v; } catch (e) { /* 無痕模式 */ }
     return window.matchMedia && window.matchMedia('(max-width: 719px)').matches ? 'cards' : 'table';

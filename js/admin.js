@@ -246,7 +246,7 @@
       eye.setAttribute('aria-label', showing ? '顯示密碼' : '隱藏密碼');
       input.focus();
     });
-    const LAST_KEY = 'duty-calendar:admin-account';
+    const LAST_KEY = 'shumeizi:admin-account';
     let last = '總管理者';
     try { last = localStorage.getItem(LAST_KEY) || '總管理者'; } catch (e) { /* 無痕模式 */ }
     const fill = (names) => {

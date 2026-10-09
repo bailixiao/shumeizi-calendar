@@ -5,8 +5,8 @@
   'use strict';
 
   const esc = Fmt.esc;
-  const NAME_KEY = 'duty-calendar:venue-name';
-  const PROFILE_KEY = 'duty-calendar:venue-profiles'; // { 姓名: { phone, purpose, people, note } }
+  const NAME_KEY = 'shumeizi:venue-name';
+  const PROFILE_KEY = 'shumeizi:venue-profiles'; // { 姓名: { phone, purpose, people, note } }
   const SLOT_NAMES = ['早上', '下午', '晚上'];
   let root = null;
   let token = 0;

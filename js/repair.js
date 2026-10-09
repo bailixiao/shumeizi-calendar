@@ -36,12 +36,12 @@
   }
 
   function profile() {
-    try { return JSON.parse(localStorage.getItem('duty-calendar:venue-profiles') || '{}'); } catch (e) { return {}; }
+    try { return JSON.parse(localStorage.getItem('shumeizi:venue-profiles') || '{}'); } catch (e) { return {}; }
   }
 
   function openForm(box) {
     const p = profile();
-    const lastName = (() => { try { return localStorage.getItem('duty-calendar:venue-name') || ''; } catch (e) { return ''; } })();
+    const lastName = (() => { try { return localStorage.getItem('shumeizi:venue-name') || ''; } catch (e) { return ''; } })();
     const me = lastName && p[lastName] ? { name: lastName, phone: p[lastName].phone || '' } : { name: lastName, phone: '' };
     const photos = []; // { id, url }
     const m = Modal.open(`

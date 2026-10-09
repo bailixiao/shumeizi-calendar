@@ -47,7 +47,7 @@ test('場地借用：區中心當天有活動會標出來；審核只有總管�
   const env = createEnv(OCT_1);
   const superTok = env.post({ action: 'adminLogin', password: 'test-pass' }).data.token;
   const call = (action, body) => env.post(Object.assign({ action, token: superTok }, body));
-  call('adminCreateDuties', { duties: [{ name: '讀書會', category: '教育', nature: '課程', start: '2026-10-21', startTime: '15:30', endTime: '17:00', location: '教全區中心', positions: [{ name: '參加', min: '0' }] }] });
+  call('adminCreateDuties', { duties: [{ name: '讀書會', category: '教育', nature: '課程', start: '2026-10-21', startTime: '15:30', endTime: '17:00', location: '一樓' + env.fn('SITE').venue, positions: [{ name: '參加', min: '0' }] }] });
   const v = env.get({ action: 'getVenue', from: '2026-10-21', to: '2026-10-21' }).data.days['2026-10-21'];
   assert.deepEqual(v.map((x) => x.activities), [[], ['讀書會'], []]);
   const save = (account, role) => call('adminSaveAccount', { account: { account, role, password: 'abc12345' } });

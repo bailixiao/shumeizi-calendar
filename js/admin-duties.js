@@ -110,7 +110,7 @@
   }
   // 草稿：AI 從照片整理的，或貼上的一段 JSON（一筆勤務、勤務陣列，或 { duties: [...] }，可帶 assign: { 項目: [姓名] }）。
   // 每一筆都用 DraftEditor 的卡片直接修改，再一起新增。整理好的草稿暫存在這個分頁（sessionStorage），關掉視窗再開還在。
-  const DRAFT_KEY = 'duty-calendar:draft';
+  const DRAFT_KEY = 'shumeizi:draft';
 
   function savedDraft() {
     try { return JSON.parse(sessionStorage.getItem(DRAFT_KEY) || 'null'); } catch (e) { return null; }

@@ -189,7 +189,7 @@
     bindNotes(root, d);
     root.querySelector('[data-signup]').addEventListener('click', () => {
       // 到勤務頁後直接捲到報名表單
-      sessionStorage.setItem('duty-calendar:to-signup', d.id);
+      sessionStorage.setItem('shumeizi:to-signup', d.id);
     });
   }
 

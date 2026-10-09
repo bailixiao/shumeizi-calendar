@@ -8,7 +8,7 @@
  *   驗證用管理密碼（兩邊同一組，存在指令碼屬性，不寫進程式碼）。
  */
 
-var WORKER_URL = 'https://duty-calendar-api.duty-calendar-worker.workers.dev/';
+var WORKER_URL = 'https://shumeizi-api.duty-calendar-worker.workers.dev/';
 var SYNC_SKIP_PROPS = ['BACKUP_FOLDER_ID', 'BACKUP_LAST', 'MIGRATED'];
 
 function syncSheetDefs_() {

@@ -216,11 +216,11 @@
    * 這支手機要不要收「有新的場地申請」通知（總管理者、場管）。
    * 手機已經允許通知（例如開過手機提醒）就自動開啟，不用按；自己按過「關閉」的手機記住不再自動開。
    */
-  const OFF_KEY = 'duty-calendar:venue-watch-off';
+  const OFF_KEY = 'shumeizi:venue-watch-off';
   const offByUser = () => { try { return localStorage.getItem(OFF_KEY) === '1'; } catch (e) { return false; } };
   const setOffByUser = (v) => { try { if (v) localStorage.setItem(OFF_KEY, '1'); else localStorage.removeItem(OFF_KEY); } catch (e) { /* 無痕模式 */ } };
   let watchOn = null; // 記住上次查到的狀態，重畫時不閃
-  const sysOffByUser = () => { try { return localStorage.getItem('duty-calendar:system-watch-off') === '1'; } catch (e) { return false; } };
+  const sysOffByUser = () => { try { return localStorage.getItem('shumeizi:system-watch-off') === '1'; } catch (e) { return false; } };
   let autoTried = false;
 
   /** 登入後台時呼叫：允許過通知、沒自己關掉的審核手機，自動開啟（每次開網頁做一次） */

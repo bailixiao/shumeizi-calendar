@@ -1,5 +1,5 @@
 # Cloudflare Worker 設定（部署前先執行 node tools/build-worker.js 產生 src/gs.generated.js）
-name = "duty-calendar-api"
+name = "shumeizi-api"
 main = "src/index.js"
 compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_compat"]

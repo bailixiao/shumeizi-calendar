@@ -46,7 +46,7 @@
     ['🔔 開啟手機提醒', 24, 29]
   ];
 
-  const KEY = 'duty-calendar:tutorial-device';
+  const KEY = 'shumeizi:tutorial-device';
   function device() {
     try { const v = localStorage.getItem(KEY); if (v === 'ios' || v === 'android') return v; } catch (e) { /* 無痕模式 */ }
     return /android/i.test(navigator.userAgent) ? 'android' : 'ios';

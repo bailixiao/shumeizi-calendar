@@ -4,7 +4,7 @@
   'use strict';
 
   const esc = Fmt.esc;
-  const LAST_NAME_KEY = 'duty-calendar:last-name'; // 上次報名用的名字（從報名連結進來時帶入）
+  const LAST_NAME_KEY = 'shumeizi:last-name'; // 上次報名用的名字（從報名連結進來時帶入）
   let root = null;
   let token = 0;
   const page = { id: null, data: null, viewDate: null, revalidate: false };
@@ -134,8 +134,8 @@
       renderRoster();
       mountSignup();
       // 從職司表頁按「點我報名」過來：直接捲到報名表單
-      if (sessionStorage.getItem('duty-calendar:to-signup') === d.id) {
-        sessionStorage.removeItem('duty-calendar:to-signup');
+      if (sessionStorage.getItem('shumeizi:to-signup') === d.id) {
+        sessionStorage.removeItem('shumeizi:to-signup');
         const box = document.getElementById('duty-signup');
         if (box) setTimeout(() => box.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
       }

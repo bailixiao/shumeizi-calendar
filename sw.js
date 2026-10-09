@@ -6,7 +6,8 @@
 //   - 資料 API（script.google.com）一律不經過這裡，永遠向伺服器拿。
 'use strict';
 
-const CACHE = 'duty-calendar-v2';
+// 和教全區行事曆在同一個網域（bailixiao.github.io），快取名稱要不一樣，也只刪自己的舊快取。
+const CACHE = 'shumeizi-v1';
 const CDN_HOSTS = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', () => self.skipWaiting());
@@ -14,7 +15,7 @@ self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (ev) => {
   ev.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)));
+    await Promise.all(keys.filter((k) => k !== CACHE && k.indexOf('shumeizi-') === 0).map((k) => caches.delete(k)));
     await self.clients.claim();
   })());
 });

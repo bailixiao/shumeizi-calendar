@@ -137,7 +137,7 @@
 
   // ---------- 管理後台 ----------
   // 通行碼存在這個瀏覽器（6 小時後過期）；讀寫失敗不影響使用，只是要重新登入。
-  const TOKEN_KEY = 'duty-calendar:admin';
+  const TOKEN_KEY = 'shumeizi:admin';
 
   function loadSaved() {
     try {

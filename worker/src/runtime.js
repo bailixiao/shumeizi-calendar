@@ -90,7 +90,7 @@ export function createRuntime(store, opts = {}) {
         getSheets: () => Object.keys(store.sheets).map(getSheet),
         setSpreadsheetTimeZone() {},
         getId: () => 'cloudflare',
-        getName: () => 'duty-calendar'
+        getName: () => 'shumeizi-calendar'
       }),
       flush() {},
       newDataValidation: chain,

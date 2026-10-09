@@ -5,12 +5,12 @@
   'use strict';
 
   const FC_VIEWS = { year: 'multiMonthYear', month: 'dayGridMonth' };
-  const STORAGE_KEY = 'duty-calendar:view';
+  const STORAGE_KEY = 'shumeizi:view';
   const DOTS_MAX = { year: 3, month: 4 };
   const VENUE_ORDER = { 早上: '08:00', 下午: '13:00', 晚上: '18:00' }; // 場地借用排在當天的順序
   const RECENT_DAYS = 31; // 近期＝今天起一個月
   // 類別篩選（勤務／道務／教育）：有道務或教育的項目時才顯示篩選列；記住上次的選擇
-  const CAT_KEY = 'duty-calendar:cat';
+  const CAT_KEY = 'shumeizi:cat';
   let catFilter = (() => { try { return localStorage.getItem(CAT_KEY) || '全部'; } catch (e) { return '全部'; } })();
   const KIND_ORDER = { short: 0, full: 1, ok: 2, notice: 3, venue: 4 };
 
@@ -25,7 +25,7 @@
     pendingScroll: null, // 年檢視載入完成後要捲到的月份
     showPast: false // 年檢視是否顯示今年已過的月份（每次開啟預設收起）
   };
-  const EVENTS_STORAGE_PREFIX = 'duty-calendar:events:';
+  const EVENTS_STORAGE_PREFIX = 'shumeizi:events:';
   const windows = new Map(); // 年份 → { data, fresh, promise }
   const dayMap = new Map(); // 'yyyy-MM-dd' → [{ duty, day, state }]
   // 我的勤務：這支手機記過的名字（手機提醒的「我是誰」優先，其次查我的報名查過的）
@@ -341,7 +341,7 @@
   // ---------- 我的勤務（首頁「下一個勤務」、行事曆上的 ✓） ----------
 
   function savedMyName() {
-    try { return (localStorage.getItem('duty-calendar:push-name') || localStorage.getItem('duty-calendar:mine-name') || '').trim(); } catch (e) { return ''; }
+    try { return (localStorage.getItem('shumeizi:push-name') || localStorage.getItem('shumeizi:mine-name') || '').trim(); } catch (e) { return ''; }
   }
 
   async function loadMine() {

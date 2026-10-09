@@ -268,6 +268,7 @@ test('別名、合併成同一人：打別名報名記成真名；名字提示�
 
 test('匯入成員資料：依名字或別名補佛堂、出生年；找不到的回報或新增；同名分不出來的不改', () => {
   const env = createEnv(Date.UTC(2026, 9, 8, 2, 0, 0));
+  env.fn('SITE').overseas = ['陸', '韓國']; // 國外選項看設定（書槑子設定是空的），測試自己給
   const token = env.post({ action: 'adminLogin', password: 'test-pass' }).data.token;
   const call = (action, body) => env.post(Object.assign({ action, token }, body));
   call('adminSaveMember', { member: { name: '測試甲', identity: '壇辦', aliases: '小甲' } });

@@ -3,24 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f6f1e7">
-  <title>教全區行事曆</title>
+  <meta name="theme-color" content="#ffffff">
+  <title>書槑子青年坊行事曆</title>
   <!-- 加到手機主畫面時的圖示與名稱 -->
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <meta name="apple-mobile-web-app-title" content="教全區行事曆">
+  <meta name="apple-mobile-web-app-title" content="書槑子行事曆">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <!-- 先跟 Google 建好連線（資料 API 會從 script.google.com 轉到 googleusercontent），第一次讀資料比較快 -->
-  <link rel="preconnect" href="https://duty-calendar-api.duty-calendar-worker.workers.dev" crossorigin>
+  <link rel="preconnect" href="https://shumeizi-api.duty-calendar-worker.workers.dev" crossorigin>
   <link rel="preconnect" href="https://script.google.com" crossorigin>
   <link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/app.css?v=20261010g">
-  <script>try { var t = localStorage.getItem('duty-calendar:text-size'); if (t === 'l' || t === 'xl') document.documentElement.classList.add('text-' + t); } catch (e) {}</script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css?v=20261009a">
+  <script>try { var t = localStorage.getItem('shumeizi:text-size'); if (t === 'l' || t === 'xl') document.documentElement.classList.add('text-' + t); } catch (e) {}</script>
 </head>
 <body class="splash-on">
   <!-- 開場動畫（見 app.js）：logo 由小變大再放大淡出 → 打出網站名稱 → 名稱移到左上角；同時在背景讀取行事曆與近期勤務 -->
@@ -30,7 +30,7 @@
     <p class="splash-title" data-splash-title></p>
   </div>
   <header class="app-header">
-    <a class="app-title" href="#/"><span class="header-back" aria-hidden="true">‹</span><span data-site="name">教全區行事曆</span></a>
+    <a class="app-title" href="#/"><span class="header-back" aria-hidden="true">‹</span><span data-site="name">書槑子青年坊行事曆</span></a>
     <button type="button" class="text-size-btn" id="text-size" aria-label="字體大小">A＋</button>
   </header>
 
@@ -53,7 +53,7 @@
 
       <div class="top-links">
         <a class="btn mine-link" href="#/mine">查我的報名（取消／改期）</a>
-        <a class="btn mine-link venue-link" href="#/venue" data-feature="venue" data-site-tpl="🏠 借{venue}場地">🏠 借區中心場地</a>
+        <a class="btn mine-link venue-link" href="#/venue" data-feature="venue" data-site-tpl="🏠 借{venue}場地">🏠 借場地</a>
         <div class="top-links-row">
           <button type="button" class="btn push-link" id="push-open">🔔 手機提醒</button>
           <a class="btn push-link help-link" href="#/help">❓ 常見問題</a>
@@ -81,7 +81,7 @@
         <li><i class="dot dot-full"></i>額滿</li>
         <li><i class="dot dot-ok"></i>人數足（至少 2 人）</li>
         <li><i class="dot dot-notice"></i>公告（不需報名）</li>
-        <li data-feature="venue"><i class="dot dot-venue"></i><span data-site-tpl="{venue}場地已借出">區中心場地已借出</span></li>
+        <li data-feature="venue"><i class="dot dot-venue"></i><span data-site-tpl="{venue}場地已借出">場地已借出</span></li>
       </ul>
 
       <section id="day-panel" class="day-panel" aria-live="polite"></section>

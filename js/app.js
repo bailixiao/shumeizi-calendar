@@ -104,7 +104,7 @@
   }
 
   // ---------- 開場動畫 ----------
-  // 1. logo 由小變大再放大淡出 → 2. 一個字一個字浮現「教全區行事曆」→ 3. 名稱滑到左上角（變成頁首標題）
+  // 1. logo 由小變大再放大淡出 → 2. 一個字一個字浮現網站名稱（SITE.name）→ 3. 名稱滑到左上角（變成頁首標題）
   // → 4. 行事曆展開。各段重疊接續、中間不停頓，全程約 3.5 秒；期間在背景讀取資料，沒讀完也照常展開，資料到了再補。
   const SITE_NAME = window.SITE.name;
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -187,7 +187,7 @@
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
   // ---------- 字體大小（頁首 A＋）：標準 → 大 → 特大 → 標準，記在這支手機 ----------
-  const TEXT_KEY = 'duty-calendar:text-size';
+  const TEXT_KEY = 'shumeizi:text-size';
   const TEXT_STEPS = [['', 'A＋'], ['l', 'A＋＋'], ['xl', 'A 原本']];
   function initTextSize() {
     const btn = document.getElementById('text-size');

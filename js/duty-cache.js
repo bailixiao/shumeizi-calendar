@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  const STORAGE_KEY = 'duty-calendar:details';
+  const STORAGE_KEY = 'shumeizi:details';
   const FRESH_MS = 30000; // 30 秒內拿到的視為最新，點進去不用再問伺服器
   const MAX_KEEP = 80;
 

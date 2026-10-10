@@ -2425,6 +2425,14 @@ span.shop-thumb { cursor: default; }
 .shop-myship { display: flex; align-items: center; justify-content: center; margin: 8px 0 6px; font-size: 1.1rem; text-decoration: none; }
 .shop-cover-row { margin: 0 0 12px; }
 .shop-link-text { word-break: break-all; font-size: .9rem; color: var(--muted); }
+/* 團購頁的「查我的團購」：大按鈕，左邊圖示、中間兩行字、右邊箭頭 */
+.shop-mine-btn { display: flex; align-items: center; gap: 12px; margin: 14px 0 10px; padding: 10px 16px; text-align: left; text-decoration: none; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-left: 5px solid var(--ok); box-shadow: 0 1px 2px rgba(34, 48, 47, .06); }
+.shop-mine-btn:hover { text-decoration: none; background: var(--ok-soft); }
+.shop-mine-icon { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--ok-soft); font-size: 1.15rem; }
+.shop-mine-text { flex: 1; display: grid; line-height: 1.35; }
+.shop-mine-text strong { font-size: 1.08rem; color: var(--ok); }
+.shop-mine-text small { font-size: .9rem; color: var(--muted); font-weight: 400; }
+.shop-mine-go { flex: none; font-size: 1.5rem; color: var(--ok); }
 .shop-step { margin: 18px 0; }
 .shop-step h2 { display: flex; align-items: center; gap: 8px; font-size: 1.15rem; margin: 0 0 10px; }
 .shop-step h2 small { font-weight: 400; color: var(--muted); font-size: .85rem; }

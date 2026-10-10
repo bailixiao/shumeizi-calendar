@@ -192,7 +192,7 @@
           <button type="submit" class="btn btn-primary" data-submit${closed ? ' disabled' : ''}>${form.existing ? '更新訂單' : '送出訂單'}</button>
         </div>
       </form>
-      <a class="help-inline" href="#/mine">🔍 查我的團購（改單、取消、補末五碼）</a>
+      <a class="btn btn-block shop-mine-btn" href="#/mine"><span class="shop-mine-icon" aria-hidden="true">🔍</span><span class="shop-mine-text"><strong>查我的團購</strong><small>改單、取消、補轉帳末五碼</small></span><span class="shop-mine-go" aria-hidden="true">›</span></a>
       ${back()}`;
     bind(g, now);
   }

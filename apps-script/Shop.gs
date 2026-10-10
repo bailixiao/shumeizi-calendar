@@ -48,7 +48,7 @@ function shopProductOut_(p) {
     id: p['商品ID'], name: p['名稱'], price: Number(p['價格']) || 0, unit: p['單位'] || '', description: p['說明'] || '',
     photo: p['照片'] || '', active: p['啟用'] !== '否', order: Number(p['排序']) || 0,
     cost: p['成本'] === '' || p['成本'] === undefined || p['成本'] === null ? null : Number(p['成本']), // 成本（只給後台）
-    photos: shopPhotos_(p), options: shopOptions_(p)
+    photos: shopPhotos_(p), options: shopOptions_(p), code: p['編號'] || ''
   };
 }
 
@@ -423,6 +423,8 @@ function adminShopSaveProduct_(body) {
   if (!name) errors.push('請填商品名稱');
   if (name.length > 40) errors.push('商品名稱太長（最多 40 字）');
   if (price === null) errors.push('價格請填 0 以上的整數（元）');
+  var code = cleanText_(p.code);
+  if (code.length > 20) errors.push('編號太長（最多 20 字）');
   var cost = p.cost === '' || p.cost === undefined || p.cost === null ? '' : shopInt_(p.cost);
   if (cost === null) errors.push('成本請填 0 以上的整數（元），或空白');
   if (cleanText_(p.unit).length > 6) errors.push('單位太長（例：包、罐、份）');
@@ -455,9 +457,12 @@ function adminShopSaveProduct_(body) {
   return withSignupLock_(function () {
     var rows = readTable_(SHEETS.SHOP_PRODUCTS);
     var now = nowString_();
+    // 編號：空白就自動給下一個；不能和別的商品重複
+    if (!code) code = p.id ? (findById_(rows, '商品ID', p.id) || {})['編號'] || nextProductCode_(rows) : nextProductCode_(rows);
+    if (rows.some(function (r) { return r['商品ID'] !== p.id && String(r['編號'] || '') === code; })) throw new ApiError_('VALIDATION', '商品沒有存檔', [{ message: '編號「' + code + '」已經有別的商品用了' }]);
     var values = { '名稱': name, '價格': String(price), '單位': cleanText_(p.unit), '說明': cleanText_(p.description), '照片': p.photo || '',
       '啟用': p.active === false ? '否' : '是', '排序': String(shopInt_(p.order) || 0), '成本': cost === '' ? '' : String(cost),
-      '更多照片': more.length ? JSON.stringify(more) : '', '規格': opts, '更新時間': now };
+      '更多照片': more.length ? JSON.stringify(more) : '', '規格': opts, '編號': code, '更新時間': now };
     var row;
     if (p.id) {
       row = findById_(rows, '商品ID', p.id);
@@ -592,6 +597,9 @@ function adminShopOrderSet_(body) {
     ch['更新時間'] = nowString_();
     var before = rowSnapshot_(SHEETS.SHOP_ORDERS, o);
     updateRow_(SHEETS.SHOP_ORDERS, o, ch);
+    // 庫存：打勾已取貨記售出、取消打勾刪掉；取消訂單也刪掉
+    if (body.picked !== undefined) stockForOrder_(o, !!body.picked && o['狀態'] !== '已取消');
+    if (body.cancel === true) stockForOrder_(o, false);
     writeDutyLog_('團購訂單', o['姓名'] + '｜' + what.join('、') + adminTag_(), before);
     SpreadsheetApp.flush();
     invalidateTable_(SHEETS.SHOP_ORDERS);

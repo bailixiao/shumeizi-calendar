@@ -291,3 +291,39 @@ test('購物車結帳（mode＝add）：已經有訂單就加進原本那張；�
   assert.equal(ok(env.post({ action: 'shopMyOrders', name: '測試甲', all: true })).orders.length, 1);
   assert.equal(ok(env.post({ action: 'shopMyOrders', name: '測試甲' })).orders.length, 0);
 });
+
+test('庫存：進貨更新價格、出貨、目前庫存；編號自動給、不能重複；訂單取貨自動售出', () => {
+  const { env, call, ok, tofu, jam, order } = setup();
+  const st = () => ok(call('adminShopStock', {}));
+  // 編號：前兩個商品自動 001、002
+  assert.deepEqual(st().products.map((p) => p.code), ['001', '002']);
+  assert.match(JSON.stringify(call('adminShopSaveProduct', { product: { name: '饅頭', price: 80, code: '001' } }).error), /編號「001」已經有/);
+  assert.equal(ok(call('adminShopSaveProduct', { product: { name: '饅頭', price: 80 } })).product.code, '003');
+  // 進貨：方式要選、數量要填
+  assert.match(JSON.stringify(call('adminShopStockMove', { type: 'in', rows: [{ id: tofu.id, qty: '0', method: '偷來' }] }).error), /數量.*進貨方式/s);
+  const r = ok(call('adminShopStockMove', { type: 'in', rows: [{ id: tofu.id, qty: 10, cost: 30, price: 65, method: '買進', note: '第一批' }, { id: jam.id, qty: 3, method: '了願' }] }));
+  assert.equal(r.count, 2);
+  let s = st();
+  assert.equal(s.products.find((p) => p.id === tofu.id).stock, 10);
+  assert.equal(s.products.find((p) => p.id === tofu.id).price, 65, '進貨的售價變成商品價格');
+  assert.equal(s.products.find((p) => p.id === tofu.id).cost, 30);
+  // 出貨超過庫存：照記，提醒
+  const out = ok(call('adminShopStockMove', { type: 'out', rows: [{ id: jam.id, qty: 5, method: '損壞' }] }));
+  assert.match(out.warnings.join(), /庫存會變成 -2/);
+  // 訂單取貨 → 自動售出；取消打勾 → 還回去
+  const o = ok(order({ name: '測試甲', source: '官網', items: [{ id: tofu.id, qty: 2 }] })).order;
+  ok(call('adminShopOrderSet', { orderId: o.id, picked: true }));
+  s = st();
+  assert.equal(s.products.find((p) => p.id === tofu.id).stock, 8);
+  const auto = s.records.find((x) => x.orderId === o.id);
+  assert.equal(auto.method, '售出');
+  assert.equal(call('adminShopStockDelete', { id: auto.id }).error.code, 'FORBIDDEN');
+  ok(call('adminShopOrderSet', { orderId: o.id, picked: false }));
+  assert.equal(st().products.find((p) => p.id === tofu.id).stock, 10);
+  // 手動紀錄可以刪
+  const manual = st().records.find((x) => x.method === '損壞');
+  ok(call('adminShopStockDelete', { id: manual.id }));
+  assert.equal(st().products.find((p) => p.id === jam.id).stock, 3);
+  // 大家看不到庫存紀錄
+  assert.equal(env.post({ action: 'adminShopStock' }).ok, false);
+});

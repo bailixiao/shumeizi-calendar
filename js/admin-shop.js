@@ -8,7 +8,7 @@
   'use strict';
 
   const esc = Fmt.esc;
-  const state = { tab: 'groups', pickup: '', q: '' }; // 列表的分頁、取貨名單選的場次、搜尋
+  const state = { tab: 'stock', pickup: '', q: '' }; // 列表的分頁（stock／groups／records）、取貨名單選的場次、搜尋
 
   function canEdit() {
     const r = Api.adminWho().role;
@@ -20,6 +20,8 @@
   const pickupText = (p) => p ? `${Fmt.shortDate(p.date)}${p.startTime ? ' ' + p.startTime : ''}　${p.location || p.name}` : '（場次已拿掉）';
 
   function show(body, guard, sub) {
+    const sm = String(sub || '').match(/^shop\/stock\/(in|out)/);
+    if (sm) return showStockForm(body, guard, sm[1]);
     const m = String(sub || '').match(/^shop\/(new|edit\/([^?]+)|g\/([^?]+))(?:\?from=(.+))?/);
     if (m && m[1] === 'new') return showForm(body, guard, '', m[4] ? decodeURIComponent(m[4]) : '');
     if (m && m[2]) return showForm(body, guard, decodeURIComponent(m[2]), '');
@@ -30,38 +32,147 @@
   // ---------- 列表：團購＋商品庫 ----------
 
   function showList(body, guard) {
-    AdminPage.swr('shop', () => Api.admin('adminShop', {}, true), (data, stale) => renderList(body, guard, data, stale), body);
+    // 團購列表＋庫存（商品、目前庫存、進出紀錄）
+    AdminPage.swr('shop', () => Promise.all([Api.admin('adminShop', {}, true), Api.admin('adminShopStock', {}, true)]).then(([a, s]) => Object.assign(a, { stock: s })), (data, stale) => renderList(body, guard, data, stale), body);
   }
 
   function renderList(body, guard, data, stale) {
     const edit = canEdit();
+    const st = data.stock;
     const groupsHtml = data.groups.length ? `<ul class="shop-group-list">${data.groups.map((g) => `
       <li><a class="shop-group-card" href="#/admin/shop/g/${encodeURIComponent(g.id)}">
         <span class="shop-group-name">${esc(g.name)}</span>
         <span class="badge ${g.status === '結束' ? 'badge-full' : g.closed ? 'badge-notice' : 'badge-ok'}">${g.status === '結束' ? '已結束' : g.closed ? '已截止' : '開放中'}</span>
         <span class="shop-group-meta">${g.link ? `截止 ${esc(g.deadline)}・🛒 在賣貨便下單` : `截止 ${esc(g.deadline)}・${g.orders} 張訂單・${money(g.total)}${g.pickups.length ? '<br>取貨：' + g.pickups.map((p) => esc(Fmt.shortDate(p.date))).join('、') : ''}`}</span>
-      </a></li>`).join('')}</ul>` : '<p class="panel-empty">還沒有團購。先到「📦 商品庫」建好商品，再按「＋ 開團」。</p>';
-    const productsHtml = data.products.length ? `<ul class="shop-product-list">${data.products.map((p) => `
-      <li class="shop-product-row${p.active ? '' : ' is-inactive'}">
+      </a></li>`).join('')}</ul>` : '<p class="panel-empty">還沒有團購。先「🆕 新增商品」，再按「＋ 開團」。</p>';
+    // 📦 庫存：編號、照片、成本、售價、目前庫存（點了修改商品）
+    const stockHtml = st.products.length ? `<ul class="stock-list">${st.products.map((p) => `
+      <li class="stock-row${p.active ? '' : ' is-inactive'}">
         ${thumb(p.photo, p.name)}
-        <button type="button" class="shop-product-name" data-product="${esc(p.id)}"${edit ? '' : ' disabled'}><strong>${esc(p.name)}</strong><small>${money(p.price)}${p.unit ? '／' + esc(p.unit) : ''}${p.cost !== null && p.cost !== undefined ? `・成本 ${money(p.cost)}` : ''}${p.options ? `・${esc(p.options.label)} ${p.options.options.length} 種` : ''}${p.photos && p.photos.length > 1 ? `・${p.photos.length} 張照片` : ''}${p.active ? '' : '・已停用'}${edit ? '・點我修改' : ''}</small></button>
-      </li>`).join('')}</ul>` : '<p class="panel-empty">商品庫是空的，按「＋ 新增商品」。</p>';
+        <button type="button" class="stock-main" data-product="${esc(p.id)}"${edit ? '' : ' disabled'}>
+          <span class="stock-code">${esc(p.code || '—')}</span>
+          <strong>${esc(p.name)}</strong>
+          <small>成本 ${p.cost !== null && p.cost !== undefined ? money(p.cost) : '—'}・售價 ${money(p.price)}${p.options ? `・${esc(p.options.label)} ${p.options.options.length} 種` : ''}${p.active ? '' : '・已停用'}</small>
+        </button>
+        <span class="stock-qty${p.stock <= 0 ? ' is-low' : ''}"><b>${p.stock}</b><small>${esc(p.unit || '份')}</small></span>
+      </li>`).join('')}</ul>` : '<p class="panel-empty">還沒有商品，按上面「🆕 新增商品」。</p>';
+    // 📜 進出紀錄
+    const recHtml = st.records.length ? `<ul class="stock-recs">${st.records.map((r) => `
+      <li class="stock-rec">
+        <span class="stock-rec-type ${r.type === '進' ? 'is-in' : 'is-out'}">${r.type === '進' ? '進' : '出'}</span>
+        <div class="stock-rec-main">
+          <p><strong>${esc(r.code ? r.code + ' ' : '')}${esc(r.name)}</strong><span class="stock-rec-qty ${r.type === '進' ? 'is-in' : 'is-out'}">${r.type === '進' ? '+' : '−'}${r.qty}</span></p>
+          <p class="muted">${esc(r.time.slice(0, 16))}・${esc(r.method)}${r.cost !== null ? '・成本 ' + money(r.cost) : ''}${r.price !== null ? '・售價 ' + money(r.price) : ''}${r.by ? '・' + esc(r.by) : ''}</p>
+          ${r.note ? `<p class="stock-rec-note">${esc(r.note)}</p>` : ''}
+        </div>
+        ${edit && !r.orderId ? `<button type="button" class="link-btn" data-rec-del="${esc(r.id)}">刪除</button>` : ''}
+      </li>`).join('')}</ul>` : '<p class="panel-empty">還沒有進出紀錄。</p>';
     body.innerHTML = `
       ${AdminPage.staleNote(stale)}
-      <div class="seg shop-tabs">${[['groups', '🛒 團購'], ['products', '📦 商品庫']].map(([v, l]) => `<label class="seg-item"><input type="radio" name="shoptab" value="${v}"${state.tab === v ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div>
+      ${flash}
+      ${edit ? `<div class="stock-actions">
+        <a class="btn stock-btn is-in" href="#/admin/shop/stock/in">➕ 商品增加</a>
+        <a class="btn stock-btn is-out" href="#/admin/shop/stock/out">➖ 商品減少</a>
+        <button type="button" class="btn stock-btn" data-new-product>🆕 新增商品</button>
+      </div>` : ''}
+      <div class="seg shop-tabs">${[['stock', '📦 庫存'], ['groups', '🛒 團購'], ['records', '📜 進出紀錄']].map(([v, l]) => `<label class="seg-item"><input type="radio" name="shoptab" value="${v}"${state.tab === v ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div>
       ${state.tab === 'groups' ? `
         ${edit ? '<div class="admin-actions"><a class="btn btn-primary" href="#/admin/shop/new">＋ 開團</a></div>' : ''}
-        ${groupsHtml}` : `
-        ${edit ? '<div class="admin-actions"><button type="button" class="btn btn-primary" data-new-product>＋ 新增商品</button></div>' : ''}
-        ${productsHtml}
-        <p class="hint">停用的商品不能再加進新的團購，已經開的團購不受影響。</p>`}`;
+        ${groupsHtml}` : state.tab === 'records' ? `
+        ${recHtml}
+        <p class="hint">訂單打勾「已取貨」會自動記一筆「售出」，取消打勾會還回去；手動的記錯可以刪除。</p>` : `
+        ${stockHtml}
+        <p class="hint">目前庫存＝進貨－出貨。點商品可以修改（名稱、照片、規格、編號）；停用的商品不能再加進新的團購。</p>`}`;
+    flash = '';
     bindZoom(body);
     body.querySelectorAll('input[name=shoptab]').forEach((r) => r.addEventListener('change', () => { state.tab = r.value; renderList(body, guard, data, false); }));
     const np = body.querySelector('[data-new-product]');
     if (np) np.addEventListener('click', () => editProduct(null, guard, () => showList(body, guard)));
     body.querySelectorAll('[data-product]').forEach((b) => b.addEventListener('click', () => {
-      editProduct(data.products.find((p) => p.id === b.dataset.product), guard, () => showList(body, guard));
+      editProduct(st.products.find((p) => p.id === b.dataset.product), guard, () => showList(body, guard));
     }));
+    body.querySelectorAll('[data-rec-del]').forEach((b) => b.addEventListener('click', async () => {
+      const r = st.records.find((x) => x.id === b.dataset.recDel);
+      if (!(await Confirm.open({ title: '刪除這筆紀錄？', rows: [['商品', r.name], [r.type === '進' ? '進貨' : '出貨', r.method + ' ' + r.qty]], note: '記錯了才刪；庫存會跟著變。', confirmText: '刪除', danger: true }))) return;
+      Busy.show('刪除中⋯');
+      try { await Api.admin('adminShopStockDelete', { id: r.id }); Busy.hide(); AdminPage.clearMemo(); showList(body, guard); } catch (e) { Busy.hide(); if (!guard(e)) alert(e.message || '刪除失敗'); }
+    }));
+  }
+
+  // ---------- ➕ 商品增加／➖ 商品減少 ----------
+
+  async function showStockForm(body, guard, type) {
+    if (!canEdit()) { body.innerHTML = '<p class="panel-empty">這個帳號只能看。</p>'; return; }
+    body.innerHTML = '<p class="panel-empty">載入中⋯</p>';
+    let st;
+    try { st = await Api.admin('adminShopStock', {}, true); } catch (e) { guard(e, body); return; }
+    const isIn = type === 'in';
+    const methods = isIn ? st.inMethods : st.outMethods;
+    const products = st.products.filter((p) => p.active || !isIn);
+    const blank = () => ({ id: '', qty: '', cost: '', price: '', method: methods[0], note: '' });
+    const rows = [blank()];
+    const draw = (err) => {
+      body.innerHTML = `
+        <p><a href="#/admin/shop">‹ 團購</a></p>
+        <h2>${isIn ? '➕ 商品增加（進貨）' : '➖ 商品減少（出貨）'}</h2>
+        <p class="hint">${isIn ? '一次可以填好幾樣。填的成本價、售價會變成商品現在的價格。' : '一次可以填好幾樣。大家在團購下單、取貨打勾的，會自動記「售出」，不用再填。'}</p>
+        <form class="admin-form stock-form" novalidate>
+          ${rows.map((r, i) => { const p = products.find((x) => x.id === r.id); return `
+          <fieldset class="form-block stock-line">
+            <legend>第 ${i + 1} 列${rows.length > 1 ? `<button type="button" class="link-btn stock-line-del" data-del="${i}">刪除這列</button>` : ''}</legend>
+            <div class="stock-line-top">
+              <span class="stock-line-img">${p ? thumb(p.photo, p.name) : '<span class="shop-thumb shop-noimg" aria-hidden="true">🌿</span>'}</span>
+              <label class="form-row stock-line-pick"><span>編號／商品</span><select class="input" data-k="id" data-i="${i}"><option value="">（選商品）</option>${products.map((x) => `<option value="${esc(x.id)}"${x.id === r.id ? ' selected' : ''}>${esc(x.code || '—')}　${esc(x.name)}（庫存 ${x.stock}）</option>`).join('')}</select></label>
+            </div>
+            <div class="stock-line-grid">
+              <label class="form-row"><span>成本價</span><input class="input" data-k="cost" data-i="${i}" inputmode="numeric" maxlength="6" value="${esc(r.cost)}" placeholder="元"></label>
+              <label class="form-row"><span>售價</span><input class="input" data-k="price" data-i="${i}" inputmode="numeric" maxlength="6" value="${esc(r.price)}" placeholder="元"></label>
+              <label class="form-row"><span>數量</span><input class="input" data-k="qty" data-i="${i}" inputmode="numeric" maxlength="5" value="${esc(r.qty)}" placeholder="${p ? esc(p.unit || '份') : ''}"></label>
+              <label class="form-row"><span>${isIn ? '進貨方式' : '出貨方式'}</span><select class="input" data-k="method" data-i="${i}">${methods.map((m) => `<option${m === r.method ? ' selected' : ''}>${esc(m)}</option>`).join('')}</select></label>
+            </div>
+            <label class="form-row"><span>備註（選填）</span><input class="input" data-k="note" data-i="${i}" maxlength="100" value="${esc(r.note)}" placeholder="${isIn ? '例：向○○農場買' : '例：運送時壓壞'}"></label>
+          </fieldset>`; }).join('')}
+          <button type="button" class="btn btn-block" data-add-row>＋ 加一列</button>
+          ${err ? `<div class="form-error">${err}</div>` : ''}
+          <div class="admin-actions">
+            <button type="submit" class="btn btn-primary">存檔（${rows.filter((r) => r.id).length} 樣）</button>
+            <a class="btn" href="#/admin/shop">返回</a>
+          </div>
+        </form>`;
+      bindZoom(body);
+      const f = body.querySelector('form');
+      f.querySelectorAll('[data-k]').forEach((x) => x.addEventListener(x.tagName === 'SELECT' ? 'change' : 'input', () => {
+        const r = rows[Number(x.dataset.i)];
+        r[x.dataset.k] = x.value;
+        if (x.dataset.k === 'id') {
+          // 選了商品：帶入商品現在的成本、售價
+          const p = products.find((y) => y.id === x.value);
+          r.cost = p && p.cost !== null && p.cost !== undefined ? String(p.cost) : '';
+          r.price = p ? String(p.price) : '';
+          draw();
+        }
+      }));
+      f.querySelectorAll('[data-del]').forEach((x) => x.addEventListener('click', () => { rows.splice(Number(x.dataset.del), 1); draw(); }));
+      f.querySelector('[data-add-row]').addEventListener('click', () => { rows.push(blank()); draw(); const sel = body.querySelectorAll('[data-k="id"]'); sel[sel.length - 1].focus(); });
+      f.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        Busy.show('存檔中⋯');
+        try {
+          const res = await Api.admin('adminShopStockMove', { type, rows: rows.filter((r) => r.id) });
+          Busy.hide();
+          AdminPage.clearMemo();
+          state.tab = 'stock';
+          flash = res.warnings.length ? AdminPage.notice('error', '已存檔，請注意', res.warnings.join('；'))
+            : AdminPage.notice('success', isIn ? '進貨記好了' : '出貨記好了', `共 ${res.count} 樣`);
+          location.hash = '#/admin/shop';
+        } catch (e) {
+          Busy.hide();
+          if (e.code === 'UNAUTHORIZED') { guard(e); return; }
+          draw(`<strong>${esc(e.message)}</strong>${(e.details || []).map((d) => '<br>' + esc(d.message)).join('')}`);
+        }
+      });
+    };
+    draw();
   }
 
   /** 商品縮圖（點了放大）；沒照片顯示 🌿 */
@@ -103,7 +214,10 @@
     const m = Modal.open(`
       <form class="modal-form admin-form" novalidate>
         <h2 class="modal-title">${p ? '修改商品' : '新增商品'}</h2>
-        <label class="form-row"><span>名稱</span><input class="input" name="name" maxlength="40" value="${esc(v.name)}" placeholder="例：手工豆腐"></label>
+        <div class="shop-two">
+          <label class="form-row"><span>編號（空白＝自動）</span><input class="input" name="code" maxlength="20" value="${esc(v.code || '')}" placeholder="例：001"></label>
+          <label class="form-row"><span>名稱</span><input class="input" name="name" maxlength="40" value="${esc(v.name)}" placeholder="例：手工豆腐"></label>
+        </div>
         <div class="shop-two">
           <label class="form-row"><span>價格（元）</span><input class="input" name="price" inputmode="numeric" maxlength="6" value="${esc(v.price)}" placeholder="例：60"></label>
           <label class="form-row"><span>單位</span><input class="input" name="unit" maxlength="6" value="${esc(v.unit)}" placeholder="例：盒、罐、包"></label>
@@ -186,7 +300,7 @@
       Busy.show('存檔中⋯');
       try {
         await Api.admin('adminShopSaveProduct', { product: {
-          id: p ? p.id : '', name: f.elements.name.value, price: f.elements.price.value.trim(), cost: f.elements.cost.value.trim(), unit: f.elements.unit.value,
+          id: p ? p.id : '', code: f.elements.code.value.trim(), name: f.elements.name.value, price: f.elements.price.value.trim(), cost: f.elements.cost.value.trim(), unit: f.elements.unit.value,
           description: f.elements.description.value, photo: photos[0] || '', photos: photos.slice(1), order: f.elements.order.value.trim(), active: f.elements.active ? f.elements.active.checked : true,
           options: { label: f.elements.optLabel.value.trim(), options: opt.rows.filter((r) => r.name.trim()).map((r) => ({ name: r.name.trim(), price: r.price.trim() })) }
         } });

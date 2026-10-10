@@ -39,7 +39,7 @@
       <li><a class="shop-group-card" href="#/admin/shop/g/${encodeURIComponent(g.id)}">
         <span class="shop-group-name">${esc(g.name)}</span>
         <span class="badge ${g.status === '結束' ? 'badge-full' : g.closed ? 'badge-notice' : 'badge-ok'}">${g.status === '結束' ? '已結束' : g.closed ? '已截止' : '開放中'}</span>
-        <span class="shop-group-meta">截止 ${esc(g.deadline)}・${g.orders} 張訂單・${money(g.total)}<br>取貨：${g.pickups.map((p) => esc(Fmt.shortDate(p.date))).join('、') || '—'}</span>
+        <span class="shop-group-meta">${g.link ? `截止 ${esc(g.deadline)}・🛒 在賣貨便下單` : `截止 ${esc(g.deadline)}・${g.orders} 張訂單・${money(g.total)}<br>取貨：${g.pickups.map((p) => esc(Fmt.shortDate(p.date))).join('、') || '—'}`}</span>
       </a></li>`).join('')}</ul>` : '<p class="panel-empty">還沒有團購。先到「📦 商品庫」建好商品，再按「＋ 開團」。</p>';
     const productsHtml = data.products.length ? `<ul class="shop-product-list">${data.products.map((p) => `
       <li class="shop-product-row${p.active ? '' : ' is-inactive'}">
@@ -181,8 +181,10 @@
     const v = {
       name: g ? (id ? g.name : g.name + '（新）') : '', description: g ? g.description : '', deadline: g && id ? g.deadline : '',
       pickups: g && id ? g.pickupIds : [], payInfo: g ? g.payInfo : '', status: g && id ? g.status : '開放',
-      items: g ? g.itemSettings : []
+      items: g ? g.itemSettings : [],
+      mode: g && g.link ? '賣貨便' : '行事曆', link: g ? g.link || '' : '', cover: g ? g.cover || '' : ''
     };
+    let cover = v.cover;
     const setting = (pid) => v.items.find((x) => x.id === pid);
     const products = base.products.filter((p) => p.active || setting(p.id));
     // 取貨場次：植素園工作坊的出攤排前面，再來是其他活動；已經選過但不在 180 天內的也列出來
@@ -192,21 +194,31 @@
       <p><a href="#/admin/shop">‹ 團購</a></p>
       <h2>${id ? '修改團購' : '開團'}</h2>
       <form class="admin-form shop-form" novalidate>
+        <fieldset class="form-block"><legend>下單方式</legend>
+          <div class="seg">${[['行事曆', '在行事曆下單（出攤取貨）'], ['賣貨便', '🛒 賣貨便']].map(([m, l]) => `<label class="seg-item"><input type="radio" name="mode" value="${m}"${v.mode === m ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div>
+          <div data-for-mode="賣貨便"${v.mode === '賣貨便' ? '' : ' hidden'}>
+            <label class="form-row"><span>賣貨便賣場連結</span><input class="input" name="link" type="url" inputmode="url" value="${esc(v.link)}" placeholder="https://myship.7-11.com.tw/⋯"></label>
+            <p class="hint">先在 7-ELEVEN 賣貨便建好賣場，按「分享賣場」複製連結貼在這裡。大家按「到賣貨便下單」就會打開賣場，下單、付款、取貨都在賣貨便，這裡不用選商品和取貨場次。</p>
+          </div>
+        </fieldset>
         <fieldset class="form-block"><legend>基本資料</legend>
           <label class="form-row"><span>名稱</span><input class="input" name="name" maxlength="40" value="${esc(v.name)}" placeholder="例：十月植素園團購"></label>
           <label class="form-row"><span>說明（選填，大家看得到）</span><textarea class="input textarea" name="description" rows="3" maxlength="500" placeholder="例：這次有新鮮的手工豆腐和果醬 🌿">${esc(v.description)}</textarea></label>
           <label class="form-row"><span>截止時間（過了就不能下單、改單）</span><input class="input" type="datetime-local" name="deadline" value="${esc(v.deadline.replace(' ', 'T'))}"></label>
-          <label class="form-row"><span>付款說明（轉帳帳號等；只在下單後、我的團購顯示給轉帳的人）</span><textarea class="input textarea" name="payInfo" rows="3" maxlength="300" placeholder="例：郵局 700 帳號 0000000-0000000，戶名 ○○○；轉好請填末五碼">${esc(v.payInfo)}</textarea></label>
+          <div class="form-row"><span>封面照片（選填，例如商品合照；團購頁、官網會顯示）</span>
+            <div class="shop-photo" data-cover-box></div>
+            <label class="btn btn-small">📷 選照片<input type="file" accept="image/*" hidden data-cover></label></div>
+          <label class="form-row" data-for-mode="行事曆"${v.mode === '行事曆' ? '' : ' hidden'}><span>付款說明（轉帳帳號等；只在下單後、我的團購顯示給轉帳的人）</span><textarea class="input textarea" name="payInfo" rows="3" maxlength="300" placeholder="例：郵局 700 帳號 0000000-0000000，戶名 ○○○；轉好請填末五碼">${esc(v.payInfo)}</textarea></label>
           ${id ? `<div class="form-row"><span>狀態</span><div class="seg">${['開放', '結束'].map((s) => `<label class="seg-item"><input type="radio" name="status" value="${s}"${v.status === s ? ' checked' : ''}><span>${s === '結束' ? '結束（大家看不到了）' : '開放'}</span></label>`).join('')}</div></div>` : ''}
         </fieldset>
-        <fieldset class="form-block"><legend>取貨場次（在哪幾場可以取貨）</legend>
+        <fieldset class="form-block" data-for-mode="行事曆"${v.mode === '行事曆' ? '' : ' hidden'}><legend>取貨場次（在哪幾場可以取貨）</legend>
           ${duties.length ? `<div class="shop-pick-list">${duties.map((d) => { const on = v.pickups.indexOf(d.id) !== -1; const other = d.category !== '植素'; return `
             <label class="shop-pick${other ? ' is-other' : ''}"${other && !on ? ' hidden' : ''}><input type="checkbox" name="pickup" value="${esc(d.id)}"${on ? ' checked' : ''}>
               <span class="shop-pick-text"><span class="cat-tag cat-${esc(d.category)}">${esc(Fmt.catLabel(d.category))}</span><b>${esc(Fmt.shortDate(d.date))}${d.startTime ? ' ' + esc(d.startTime) : ''}</b> ${esc(d.name)}${d.location ? `<small>📍 ${esc(d.location)}</small>` : ''}</span></label>`; }).join('')}</div>
             ${duties.some((d) => d.category !== '植素') ? `<button type="button" class="link-btn" data-show-other>也列出其他活動（${duties.filter((d) => d.category !== '植素').length}）</button>` : ''}`
             : '<p class="muted">今天起半年內沒有活動，先到「活動管理」新增植素園出攤。</p>'}
         </fieldset>
-        <fieldset class="form-block"><legend>這次賣的商品</legend>
+        <fieldset class="form-block" data-for-mode="行事曆"${v.mode === '行事曆' ? '' : ' hidden'}><legend>這次賣的商品</legend>
           ${products.length ? `<div class="shop-item-list">${products.map((p) => { const s = setting(p.id); return `
             <div class="shop-item-set${s ? ' is-on' : ''}" data-item="${esc(p.id)}">
               <label class="check"><input type="checkbox" data-item-on${s ? ' checked' : ''}> <strong>${esc(p.name)}</strong><small>${money(p.price)}${p.unit ? '／' + esc(p.unit) : ''}</small></label>
@@ -225,6 +237,35 @@
         </div>
       </form>`;
     const f = body.querySelector('form');
+    // 下單方式：賣貨便不用選取貨場次、商品、付款說明
+    f.querySelectorAll('input[name=mode]').forEach((r) => r.addEventListener('change', () => {
+      f.querySelectorAll('[data-for-mode]').forEach((x) => { x.hidden = x.dataset.forMode !== r.value; });
+    }));
+    const drawCover = () => {
+      f.querySelector('[data-cover-box]').innerHTML = cover ? `${thumb(cover, f.elements.name.value || '封面', 'shop-thumb-big')}<button type="button" class="link-btn" data-cover-del>拿掉照片</button>` : '<span class="muted">還沒有照片</span>';
+      bindZoom(f.querySelector('[data-cover-box]'));
+      const del = f.querySelector('[data-cover-del]');
+      if (del) del.addEventListener('click', () => { cover = ''; drawCover(); });
+    };
+    drawCover();
+    f.querySelector('[data-cover]').addEventListener('change', async (ev) => {
+      const file = ev.target.files[0];
+      ev.target.value = '';
+      if (!file) return;
+      const box = f.querySelector('[data-error]');
+      Busy.show('上傳中⋯');
+      try {
+        const data = await shrinkImage(file);
+        cover = (await Api.admin('adminUploadFile', { mime: 'image/jpeg', name: file.name, data })).id;
+        Busy.hide();
+        drawCover();
+      } catch (e) {
+        Busy.hide();
+        if (e.code === 'UNAUTHORIZED') { guard(e); return; }
+        box.textContent = e.message || '上傳失敗';
+        box.hidden = false;
+      }
+    });
     const so = f.querySelector('[data-show-other]');
     if (so) so.addEventListener('click', () => { f.querySelectorAll('.shop-pick.is-other').forEach((x) => { x.hidden = false; }); so.remove(); });
     f.querySelectorAll('[data-item-on]').forEach((c) => c.addEventListener('change', () => {
@@ -235,8 +276,9 @@
     f.addEventListener('submit', async (ev) => {
       ev.preventDefault();
       const box = f.querySelector('[data-error]');
+      const mode = f.querySelector('input[name=mode]:checked').value;
       const group = {
-        id, name: f.elements.name.value, description: f.elements.description.value, deadline: f.elements.deadline.value,
+        id, mode, link: mode === '賣貨便' ? f.elements.link.value.trim() : '', cover, name: f.elements.name.value, description: f.elements.description.value, deadline: f.elements.deadline.value,
         payInfo: f.elements.payInfo.value, status: f.querySelector('input[name=status]:checked') ? f.querySelector('input[name=status]:checked').value : '開放',
         pickups: [...f.querySelectorAll('input[name=pickup]:checked')].map((x) => x.value),
         items: [...f.querySelectorAll('[data-item]')].filter((x) => x.querySelector('[data-item-on]').checked).map((x) => ({
@@ -305,11 +347,18 @@
       ${edit ? `<div class="admin-actions">
         <a class="btn" href="#/admin/shop/edit/${encodeURIComponent(g.id)}">✏️ 修改團購</a>
         <a class="btn" href="#/admin/shop/new?from=${encodeURIComponent(g.id)}">另存成新團購</a>
-        <button type="button" class="btn" data-admin-order>＋ 幫人下單</button>
+        ${g.link ? '' : '<button type="button" class="btn" data-admin-order>＋ 幫人下單</button>'}
         ${g.status !== '結束' && !g.closed ? '<button type="button" class="btn" data-push-open>📣 推播開團通知</button>' : ''}
         ${s.orders ? '' : '<button type="button" class="btn btn-quiet-danger" data-delete>刪除這次團購</button>'}
       </div>` : ''}
-
+      ${g.cover ? `<div class="shop-cover-row">${thumb(g.cover, g.name, 'shop-thumb-big')}</div>` : ''}
+      ${g.link ? `
+      <section class="stats-section">
+        <h3 class="admin-sub">🛒 在賣貨便下單</h3>
+        <p class="muted">訂單、付款、取貨都在賣貨便看（賣貨便的賣家後台）；這裡不收訂單。</p>
+        <p class="shop-link-text">${esc(g.link)}</p>
+        <a class="btn" href="${esc(g.link)}" target="_blank" rel="noopener">打開賣場 ↗</a>
+      </section>` : `
       <div class="stat-cards shop-stats">
         <div class="stat-card"><span class="stat-label">訂單</span><span class="stat-num">${s.orders}</span><span class="stat-hint">已取貨 ${s.picked} 張</span></div>
         <div class="stat-card"><span class="stat-label">總金額</span><span class="stat-num">${Number(s.total).toLocaleString('zh-TW')}</span><span class="stat-hint">已付 ${money(s.paid)}<br>未付 ${money(s.unpaid)}</span></div>
@@ -344,7 +393,7 @@
           </li>`).join('')}</ul>` : '<p class="panel-empty">這一場還沒有訂單</p>'}
         ${state.pickup ? '<button type="button" class="btn btn-small" data-copy-pick>📋 複製這場的取貨名單</button>' : ''}
         ${orphan.length ? `<div class="notice notice-error"><p>有 ${orphan.length} 張訂單的取貨場次已經拿掉了：${orphan.map((o) => esc(o.name)).join('、')}，請幫他們「改單」換場次。</p></div>` : ''}
-      </section>`;
+      </section>`}`;
     flash = '';
     bindZoom(body);
     const reload = () => { AdminPage.clearMemo(); showGroup(body, guard, g.id); };
@@ -357,8 +406,9 @@
     };
     body.querySelectorAll('input[name=pk]').forEach((r) => r.addEventListener('change', () => { state.pickup = r.value; renderGroup(body, guard, d, false); }));
     const qi = body.querySelector('[data-q]');
-    qi.addEventListener('input', () => { state.q = qi.value; renderGroup(body, guard, d, false); const n = body.querySelector('[data-q]'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); });
-    body.querySelector('[data-copy-prep]').addEventListener('click', (ev) => copy(prepText(d), ev.target));
+    if (qi) qi.addEventListener('input', () => { state.q = qi.value; renderGroup(body, guard, d, false); const n = body.querySelector('[data-q]'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); });
+    const cprep = body.querySelector('[data-copy-prep]');
+    if (cprep) cprep.addEventListener('click', (ev) => copy(prepText(d), ev.target));
     const cp = body.querySelector('[data-copy-pick]');
     if (cp) cp.addEventListener('click', (ev) => copy(pickText(d, state.pickup), ev.target));
     body.querySelectorAll('[data-picked]').forEach((c) => c.addEventListener('change', () => set(c.dataset.picked, { picked: c.checked }, '存檔中')));
@@ -391,8 +441,10 @@
 
   /** 📣 推播開團通知：帶好標題與內容（可以改），現在送或排時間；點通知打開團購頁 */
   function pushForm(g, guard, after) {
-    const lines = [g.items.slice(0, 4).map((it) => it.name).join('、') + (g.items.length > 4 ? ` 等 ${g.items.length} 樣` : ''),
-      `⏰ ${g.deadline} 截止`, `📦 取貨：${g.pickups.map((p) => Fmt.shortDate(p.date)).join('、')}`, '點我看看、下單 😊'];
+    const lines = g.link
+      ? [g.description || '', `⏰ ${g.deadline} 截止`, '🛒 在賣貨便下單，7-11 取貨', '點我看看 😊'].filter(Boolean)
+      : [g.items.slice(0, 4).map((it) => it.name).join('、') + (g.items.length > 4 ? ` 等 ${g.items.length} 樣` : ''),
+        `⏰ ${g.deadline} 截止`, `📦 取貨：${g.pickups.map((p) => Fmt.shortDate(p.date)).join('、')}`, '點我看看、下單 😊'];
     const m = Modal.open(`
       <form class="modal-form admin-form" novalidate>
         <h2 class="modal-title">📣 推播開團通知</h2>

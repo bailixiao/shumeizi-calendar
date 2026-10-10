@@ -2418,6 +2418,11 @@ span.shop-thumb { cursor: default; }
 .shop-deadline { margin: 0 0 8px; color: var(--accent); font-weight: 700; }
 .shop-deadline.is-closed { color: var(--muted); }
 .shop-desc { margin: 0 0 12px; }
+.shop-cover { display: block; width: 100%; max-width: 520px; margin: 0 0 12px; padding: 0; border: 0; border-radius: var(--radius); overflow: hidden; background: none; cursor: zoom-in; }
+.shop-cover img { display: block; width: 100%; height: auto; }
+.shop-myship { display: flex; align-items: center; justify-content: center; margin: 8px 0 6px; font-size: 1.1rem; text-decoration: none; }
+.shop-cover-row { margin: 0 0 12px; }
+.shop-link-text { word-break: break-all; font-size: .9rem; color: var(--muted); }
 .shop-step { margin: 18px 0; }
 .shop-step h2 { display: flex; align-items: center; gap: 8px; font-size: 1.15rem; margin: 0 0 10px; }
 .shop-step h2 small { font-weight: 400; color: var(--muted); font-size: .85rem; }

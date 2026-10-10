@@ -64,6 +64,7 @@
     if (t !== token) return;
     const g = groupId ? data.groups.find((x) => x.id === groupId) : (data.groups.length === 1 ? data.groups[0] : null);
     if (!g) return renderList(data, groupId);
+    if (g.link) return renderLinkGroup(g, data.now); // 賣貨便：只放按鈕連過去
     if (form.groupId !== g.id) Object.assign(form, { groupId: g.id, qty: {}, pickupId: g.pickups.length === 1 ? g.pickups[0].id : '', pay: '現場', last5: '', existing: null });
     if (!form.name) form.name = savedName();
     renderGroup(g, data.now);
@@ -82,9 +83,24 @@
         <li><a class="shop-group-card" href="#/shop/${encodeURIComponent(g.id)}">
           <span class="shop-group-name">${esc(g.name)}</span>
           <span class="badge ${g.closed ? 'badge-full' : 'badge-ok'}">${g.closed ? '已截止' : '開放中'}</span>
-          <span class="shop-group-meta">${esc(g.deadline)} 截止・取貨 ${g.pickups.map((p) => esc(Fmt.shortDate(p.date))).join('、')}</span>
+          <span class="shop-group-meta">${esc(g.deadline)} 截止・${g.link ? '🛒 在賣貨便下單' : '取貨 ' + g.pickups.map((p) => esc(Fmt.shortDate(p.date))).join('、')}</span>
         </a></li>`).join('')}</ul>` : '<div class="notice"><p>目前沒有開放中的團購，下次開團會通知大家 😊</p></div>'}
       ${back()}`;
+  }
+
+  /** 賣貨便的團購：封面、說明、截止時間、「到賣貨便下單」（下單、付款、取貨都在賣貨便） */
+  function renderLinkGroup(g, now) {
+    const left = g.closed ? '' : countdown(g.deadline, now);
+    root.innerHTML = `
+      <h1 class="page-title">🛒 ${esc(g.name)}</h1>
+      <p class="shop-deadline${g.closed ? ' is-closed' : ''}">${g.closed ? `⏰ 已經截止了（${esc(g.deadline)}）` : `⏰ ${esc(g.deadline)} 截止${left ? `・<strong>${left}</strong>` : ''}`}</p>
+      ${g.cover ? `<button type="button" class="shop-cover" data-cover aria-label="放大看封面"><img src="${esc(Api.fileUrl(g.cover))}" alt="${esc(g.name)}"></button>` : ''}
+      ${g.description ? `<p class="shop-desc">${Fmt.linkText(g.description)}</p>` : ''}
+      ${g.closed ? '' : `<a class="btn btn-primary btn-block shop-myship" href="${esc(g.link)}" target="_blank" rel="noopener">🛒 到賣貨便下單</a>
+      <p class="hint">會打開 7-ELEVEN 賣貨便，下單、付款、選 7-11 取貨都在那邊完成。</p>`}
+      ${back()}`;
+    const c = root.querySelector('[data-cover]');
+    if (c) c.addEventListener('click', () => Modal.image(Api.fileUrl(g.cover), g.name));
   }
 
   /** 截止倒數：「還有 2 天 5 小時」 */

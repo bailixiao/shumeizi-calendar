@@ -1525,6 +1525,8 @@ select.input { appearance: auto; }
 .top-links .btn { min-height: 52px; }
 .top-links .push-link { min-height: 44px; font-size: 1rem; background: transparent; }
 .mine-link { margin: 0; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; text-decoration: none; font-weight: 700; }
+/* 有開團購才出現的「🛒 團購」：植素園的綠色，比較顯眼 */
+.mine-link.shop-link { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); }
 .page-title { font-family: var(--serif); font-size: 1.6rem; margin: 8px 0 4px; }
 .mine-form { margin: 12px 0 16px; }
 .mine-row { display: flex; gap: 8px; margin-top: 6px; }

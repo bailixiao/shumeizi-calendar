@@ -327,3 +327,17 @@ test('庫存：進貨更新價格、出貨、目前庫存；編號自動給、�
   // 大家看不到庫存紀錄
   assert.equal(env.post({ action: 'adminShopStock' }).ok, false);
 });
+
+test('刪除商品：要先停用；還在開放中的團購裡不能刪；刪了以前的訂單不受影響', () => {
+  const { env, call, ok, tofu, gid, order } = setup();
+  const o = ok(order({ name: '測試甲', source: '官網', items: [{ id: tofu.id, qty: 1 }] })).order;
+  assert.match(JSON.stringify(call('adminShopDeleteProduct', { id: tofu.id }).error), /先停用/);
+  ok(call('adminShopSaveProduct', { product: Object.assign({}, tofu, { active: false }) }));
+  assert.match(JSON.stringify(call('adminShopDeleteProduct', { id: tofu.id }).error), /還在賣/);
+  const g = ok(call('adminShopGroup', { id: gid })).group;
+  ok(call('adminShopSaveGroup', { group: { id: gid, name: g.name, deadline: g.deadline, pickups: g.pickupIds, items: g.itemSettings, payInfo: g.payInfo, status: '結束' } }));
+  ok(call('adminShopDeleteProduct', { id: tofu.id }));
+  assert.ok(!ok(call('adminShop', {})).products.some((p) => p.id === tofu.id));
+  const mine = ok(env.post({ action: 'shopMyOrders', name: '測試甲', all: true })).orders.find((x) => x.id === o.id);
+  assert.equal(mine.items[0].name, '手工豆腐', '以前的訂單照樣顯示');
+});

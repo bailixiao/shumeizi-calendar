@@ -556,6 +556,27 @@ function adminShopSaveGroup_(body) {
 }
 
 /** body = { id }：沒有有效訂單才能刪 */
+/**
+ * 刪除商品：body = { id }。只能刪「停用」的；還在開放中的團購裡就不能刪（先把團購結束或拿掉這樣商品）。
+ * 以前的訂單品項是下單當下記的名稱、價格，不受影響；庫存紀錄留著（商品名稱顯示「已刪除」）。
+ */
+function adminShopDeleteProduct_(body) {
+  return withSignupLock_(function () {
+    var p = findById_(readTable_(SHEETS.SHOP_PRODUCTS), '商品ID', body.id);
+    if (!p) throw new ApiError_('NOT_FOUND', '找不到這個商品，可能已經刪掉了');
+    if (p['啟用'] !== '否') throw new ApiError_('FORBIDDEN', '要先停用才能刪除');
+    var inUse = readTable_(SHEETS.SHOP_GROUPS).filter(function (g) {
+      return g['狀態'] !== '結束' && shopJson_(g['商品設定'], []).some(function (it) { return it.id === p['商品ID']; });
+    });
+    if (inUse.length) throw new ApiError_('FORBIDDEN', '「' + inUse[0]['名稱'] + '」還在賣這樣商品，請先把那次團購結束，或從團購拿掉這樣商品');
+    getSheet_(SHEETS.SHOP_PRODUCTS).deleteRow(p._row);
+    writeDutyLog_('團購商品', '刪除｜' + (p['編號'] ? p['編號'] + ' ' : '') + p['名稱'] + adminTag_());
+    SpreadsheetApp.flush();
+    invalidateTable_(SHEETS.SHOP_PRODUCTS);
+    return { deleted: true };
+  });
+}
+
 function adminShopDeleteGroup_(body) {
   return withSignupLock_(function () {
     var row = findById_(readTable_(SHEETS.SHOP_GROUPS), '團購ID', body.id);

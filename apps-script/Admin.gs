@@ -343,6 +343,7 @@ function adminRun_(body) {
     case 'adminShopStock': return adminShopStock_(body);
     case 'adminShopStockMove': return adminShopStockMove_(body);
     case 'adminShopStockDelete': return adminShopStockDelete_(body);
+    case 'adminShopDeleteProduct': return adminShopDeleteProduct_(body);
     case 'adminMergeMembers': return adminMergeMembers_(body);
     case 'adminImportMembers': return adminImportMembers_(body);
     case 'adminSameNameSignups': return adminSameNameSignups_();

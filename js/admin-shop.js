@@ -241,10 +241,29 @@
         <div class="modal-actions">
           <button type="submit" class="btn btn-block btn-primary">存檔</button>
           <button type="button" class="btn btn-block" data-close>返回</button>
+          ${p && !p.active ? '<button type="button" class="btn btn-block btn-quiet-danger" data-del-product>🗑️ 刪除這個商品</button>' : ''}
         </div>
+        ${p && p.active ? '<p class="hint">要刪除：先取消勾選「啟用」存檔，停用後這裡會出現刪除按鈕。</p>' : ''}
       </form>`);
     const f = m.el.querySelector('form');
     const box = f.querySelector('[data-error]');
+    const delBtn = f.querySelector('[data-del-product]');
+    if (delBtn) delBtn.addEventListener('click', async () => {
+      if (!(await Confirm.open({ title: '刪除這個商品？', rows: [['商品', (p.code ? p.code + ' ' : '') + p.name]], note: '刪除後不能復原。以前的訂單、進出紀錄會留著。', confirmText: '刪除', danger: true }))) return;
+      Busy.show('刪除中⋯');
+      try {
+        await Api.admin('adminShopDeleteProduct', { id: p.id });
+        Busy.hide();
+        m.close();
+        AdminPage.clearMemo();
+        after();
+      } catch (e) {
+        Busy.hide();
+        if (e.code === 'UNAUTHORIZED') { m.close(); guard(e); return; }
+        box.textContent = e.message || '刪除失敗';
+        box.hidden = false;
+      }
+    });
     const drawPhoto = () => {
       const pb = f.querySelector('[data-photo-box]');
       pb.innerHTML = photos.length ? photos.map((id, i) => `<div class="shop-photo-item">${thumb(id, f.elements.name.value || '商品', 'shop-thumb')}${i === 0 ? '<span class="shop-photo-cover">封面</span>' : `<button type="button" class="link-btn" data-photo-first="${i}">設成封面</button>`}<button type="button" class="shop-photo-del" data-photo-del="${i}" aria-label="拿掉這張">×</button></div>`).join('') : '<span class="muted">還沒有照片</span>';

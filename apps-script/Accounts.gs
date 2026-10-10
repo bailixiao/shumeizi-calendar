@@ -81,7 +81,7 @@ var ADMIN_CATEGORY_ACTIONS = ['adminCancel', 'adminReschedule', 'adminRestore', 
   'adminDeleteDuty', 'adminSetAttendance', 'adminAddAttendee', 'adminDraftFromImages', 'adminUpdateStatsSheet', 'adminSetTeachers', 'adminSaveGoals', 'adminVenueDecide', 'adminPushSave', 'adminPushDelete', 'adminAutoPushSave', 'adminRollcallLink', 'adminImportAttendance', 'adminSetMemberExtra', 'adminSplitSignup', 'adminUpdateMeal'];
 
 // 團購的寫入：總管理者與植素（植素園工作坊）帳號（規格 0.6）
-var SHOP_ADMIN_ACTIONS = ['adminShopSaveProduct', 'adminShopSaveGroup', 'adminShopDeleteGroup', 'adminShopOrder', 'adminShopOrderSet', 'adminShopStockMove', 'adminShopStockDelete'];
+var SHOP_ADMIN_ACTIONS = ['adminShopSaveProduct', 'adminShopSaveGroup', 'adminShopDeleteGroup', 'adminShopOrder', 'adminShopOrderSet', 'adminShopStockMove', 'adminShopStockDelete', 'adminShopDeleteProduct'];
 
 // 成員、分組的編輯動作，與可以編輯的帳號（總管理者另外全部可以）
 var PEOPLE_EDIT_ACTIONS = ['adminSaveMember', 'adminDeleteMember', 'adminMemberCandidates', 'adminAddMembers', 'adminMergeNames', 'adminClearCandidates',

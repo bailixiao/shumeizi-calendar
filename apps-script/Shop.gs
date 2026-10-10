@@ -75,7 +75,8 @@ function shopGroupView_(g, products, orders, opts) {
   var out = {
     id: g['團購ID'], name: g['名稱'], description: g['說明'] || '', deadline: g['截止時間'], status: g['狀態'] || '開放',
     closed: g['狀態'] === '結束' || (g['截止時間'] && now > g['截止時間']),
-    pickups: shopPickups_(g), items: items, hasPayInfo: !!g['付款說明']
+    pickups: shopPickups_(g), items: items, hasPayInfo: !!g['付款說明'],
+    link: g['賣場連結'] || '', cover: g['封面'] || '' // 賣場連結：賣貨便（有填＝到賣貨便下單）；封面：封面照片
   };
   if (opts && opts.admin) out.payInfo = g['付款說明'] || '';
   return out;
@@ -89,7 +90,8 @@ function getShop_() {
   var groups = readTableCached_(SHEETS.SHOP_GROUPS)
     .filter(function (g) { return g['團購ID'] && g['狀態'] !== '結束'; })
     .map(function (g) { return shopGroupView_(g, products, orders); })
-    .filter(function (v) { return !v.pickups.length || v.pickups[v.pickups.length - 1].date >= today; })
+    // 賣貨便：截止了就不列；行事曆下單：取貨還沒全部過去
+    .filter(function (v) { return v.link ? !v.closed : !v.pickups.length || v.pickups[v.pickups.length - 1].date >= today; })
     .sort(function (a, b) { return a.deadline < b.deadline ? -1 : 1; });
   return { now: shopNowMinute_(), groups: groups };
 }
@@ -105,6 +107,7 @@ function shopValidate_(ctx, input) {
   var errors = [];
   if (!g) return [{ message: '找不到這次團購' }];
   if (g.status === '結束') return [{ message: '這次團購已經結束了' }];
+  if (g.link) return [{ message: '這次團購請到賣貨便下單' }];
   if (!ctx.admin && g.deadline && ctx.now > g.deadline) return [{ message: '已經過了截止時間（' + g.deadline + '），要改請找小編' }];
   if (!g.pickups.some(function (p) { return p.id === input.pickupId; })) errors.push({ message: '請選取貨場次' });
   var items = Array.isArray(input.items) ? input.items : [];
@@ -164,6 +167,8 @@ function shopOrder_(body, opts) {
   var who = shopName_(body.name, body.temple);
   if (!who.name) throw new ApiError_('VALIDATION', '訂單沒有送出，請看下面的說明', [{ message: '請填名字' }]);
   if (NAME_SEPARATORS_.test(who.name)) throw new ApiError_('VALIDATION', '訂單沒有送出，請看下面的說明', [{ message: '一張訂單填一個名字就好' }]);
+  var linked = findById_(readTableCached_(SHEETS.SHOP_GROUPS), '團購ID', body.groupId);
+  if (linked && linked['賣場連結']) throw new ApiError_('VALIDATION', '訂單沒有送出，請看下面的說明', [{ message: '這次團購請到賣貨便下單' }]);
   var sources = newcomerSources_([{ name: who.name, source: body.source, referrer: body.referrer, sourceNote: body.sourceNote }]);
   return withSignupLock_(function () {
     var groups = readTable_(SHEETS.SHOP_GROUPS);
@@ -281,7 +286,8 @@ function adminShop_() {
     return {
       id: g['團購ID'], name: g['名稱'], deadline: g['截止時間'], status: g['狀態'] || '開放', createdAt: g['建立時間'],
       closed: g['狀態'] === '結束' || (g['截止時間'] && shopNowMinute_() > g['截止時間']),
-      orders: mine.length, total: mine.reduce(function (n, o) { return n + (Number(o['金額']) || 0); }, 0), pickups: shopPickups_(g)
+      orders: mine.length, total: mine.reduce(function (n, o) { return n + (Number(o['金額']) || 0); }, 0), pickups: shopPickups_(g),
+      link: g['賣場連結'] || '', cover: g['封面'] || ''
     };
   }).sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });
   var today = todayString_();
@@ -373,13 +379,20 @@ function adminShopSaveGroup_(body) {
   if (cleanText_(g.description).length > 500) errors.push('說明太長（最多 500 字）');
   if (String(g.payInfo || '').length > 300) errors.push('付款說明太長（最多 300 字）');
   if (g.status && SHOP_GROUP_STATUS.indexOf(g.status) === -1) errors.push('狀態只能是開放或結束');
+  // 賣貨便：貼賣場連結，不用選取貨場次、商品、付款說明（下單、付款、取貨都在賣貨便）
+  var link = String(g.link || '').trim();
+  var external = g.mode === '賣貨便' || !!link;
+  if (external && !/^https:\/\/[^\s<>"']+$/.test(link)) errors.push('請貼上賣貨便的賣場連結（https:// 開頭）');
+  if (link.length > 500) errors.push('賣場連結太長');
+  var cover = String(g.cover || '').trim();
+  if (cover && !/^[^\s<>"'&]{1,80}$/.test(cover)) errors.push('封面照片不對，請重新上傳');
   var duties = readTableCached_(SHEETS.DUTIES);
-  var pickups = (Array.isArray(g.pickups) ? g.pickups : []).map(String).filter(function (id, i, arr) { return id && arr.indexOf(id) === i; });
-  if (!pickups.length) errors.push('請至少選一個取貨場次');
+  var pickups = external ? [] : (Array.isArray(g.pickups) ? g.pickups : []).map(String).filter(function (id, i, arr) { return id && arr.indexOf(id) === i; });
+  if (!external && !pickups.length) errors.push('請至少選一個取貨場次');
   pickups.forEach(function (id) { if (!findById_(duties, '勤務ID', id)) errors.push('有一個取貨場次找不到（可能活動被刪掉了）'); });
   var products = readTable_(SHEETS.SHOP_PRODUCTS);
   var items = [];
-  (Array.isArray(g.items) ? g.items : []).forEach(function (it) {
+  (external ? [] : Array.isArray(g.items) ? g.items : []).forEach(function (it) {
     var p = it && findById_(products, '商品ID', it.id);
     if (!p) { errors.push('有一個商品找不到，請重新整理'); return; }
     var price = it.price === '' || it.price === undefined || it.price === null ? '' : shopInt_(it.price);
@@ -390,14 +403,15 @@ function adminShopSaveGroup_(body) {
     if (per === null || per === 0) errors.push('「' + p['名稱'] + '」的每人上限請填 1 以上的整數，或空白（不限）');
     items.push({ id: p['商品ID'], price: price === '' ? '' : price, limit: limit === '' ? '' : limit, perPerson: per === '' ? '' : per });
   });
-  if (!items.length) errors.push('請至少選一樣商品');
+  if (!external && !items.length) errors.push('請至少選一樣商品');
   if (errors.length) throw new ApiError_('VALIDATION', '團購沒有存檔', errors.map(function (m) { return { message: m }; }));
   return withSignupLock_(function () {
     var rows = readTable_(SHEETS.SHOP_GROUPS);
     var orders = readTable_(SHEETS.SHOP_ORDERS);
     var now = nowString_();
     var values = { '名稱': name, '說明': cleanText_(g.description), '截止時間': deadline, '取貨場次': pickups.join(','), '商品設定': JSON.stringify(items),
-      '付款說明': String(g.payInfo || '').trim(), '狀態': g.status || '開放', '更新時間': now };
+      '付款說明': external ? '' : String(g.payInfo || '').trim(), '狀態': g.status || '開放', '更新時間': now,
+      '賣場連結': external ? link : '', '封面': cover };
     var warnings = [];
     var row;
     if (g.id) {
@@ -422,7 +436,7 @@ function adminShopSaveGroup_(body) {
       appendRows_(SHEETS.SHOP_GROUPS, [row]);
     }
     var remindAt = shopScheduleDeadlinePush_(row); // 截止前一天晚上 8 點自動提醒
-    writeDutyLog_('團購', (g.id ? '修改' : '開團') + '｜' + name + '｜截止 ' + deadline + '｜' + items.length + ' 樣商品' + (values['狀態'] === '結束' ? '｜已結束' : '') + adminTag_());
+    writeDutyLog_('團購', (g.id ? '修改' : '開團') + '｜' + name + '｜截止 ' + deadline + '｜' + (external ? '賣貨便' : items.length + ' 樣商品') + (values['狀態'] === '結束' ? '｜已結束' : '') + adminTag_());
     SpreadsheetApp.flush();
     invalidateTable_(SHEETS.SHOP_GROUPS);
     return { id: row['團購ID'], warnings: warnings, remindAt: remindAt || '' };

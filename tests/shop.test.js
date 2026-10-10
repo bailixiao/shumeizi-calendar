@@ -202,3 +202,25 @@ test('通知：後台推播可以選團購（點了打開團購頁）；明天�
   assert.deepEqual([s.pickups[0].group, s.pickups[0].total, s.pickups[0].location, s.pickups[0].items[0].qty], ['十月植素園團購', 120, '宏宗聖堂道學院', 2]);
   assert.ok(ids.length);
 });
+
+test('賣貨便團購：貼賣場連結就好，不用選商品、取貨場次；行事曆不收訂單；截止後不列出來', () => {
+  const { env, call, ok } = setup();
+  const bad = call('adminShopSaveGroup', { group: { mode: '賣貨便', name: '賣貨便團購', deadline: '2026-10-20 22:00', link: 'javascript:alert(1)' } });
+  assert.equal(bad.error.code, 'VALIDATION');
+  assert.match(JSON.stringify(bad.error), /賣場連結/);
+  const id = ok(call('adminShopSaveGroup', { group: { mode: '賣貨便', name: '賣貨便團購', description: '7-11 取貨', deadline: '2026-10-20 22:00',
+    link: 'https://myship.7-11.com.tw/general/detail/GM0000000000000', cover: 'F-test1', pickups: ['x'], items: [{ id: 'nope' }], payInfo: '不該存' } })).id;
+  const g = ok(env.get({ action: 'getShop' })).groups.find((x) => x.id === id);
+  assert.equal(g.link, 'https://myship.7-11.com.tw/general/detail/GM0000000000000');
+  assert.equal(g.cover, 'F-test1');
+  assert.deepEqual([g.pickups.length, g.items.length, g.hasPayInfo], [0, 0, false]);
+  const r = env.post({ action: 'shopOrder', groupId: id, name: '測試甲', pickupId: 'x', pay: '現場', items: [] });
+  assert.equal(r.ok, false);
+  assert.match(JSON.stringify(r.error), /請到賣貨便下單/);
+  assert.equal(ok(call('adminShop', {})).groups.find((x) => x.id === id).link, g.link);
+  // 截止前一天的提醒照排
+  assert.ok(env.sheets['推播排程'].data.some((row) => row.includes('#/shop/' + id)));
+  // 截止後大家看不到
+  env.clock.now = Date.UTC(2026, 9, 20, 15, 0, 0); // 台北 10/20 23:00
+  assert.equal(ok(env.get({ action: 'getShop' })).groups.some((x) => x.id === id), false);
+});

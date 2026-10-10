@@ -182,7 +182,8 @@
       name: g ? (id ? g.name : g.name + '（新）') : '', description: g ? g.description : '', deadline: g && id ? g.deadline : '',
       pickups: g && id ? g.pickupIds : [], payInfo: g ? g.payInfo : '', status: g && id ? g.status : '開放',
       items: g ? g.itemSettings : [],
-      mode: g && g.link ? '賣貨便' : '行事曆', link: g ? g.link || '' : '', cover: g ? g.cover || '' : ''
+      // 新開團預設賣貨便（2026/10/10）；修改、另存舊的團購照原本的方式
+      mode: g && !g.link ? '行事曆' : '賣貨便', link: g ? g.link || '' : '', cover: g ? g.cover || '' : ''
     };
     let cover = v.cover;
     const setting = (pid) => v.items.find((x) => x.id === pid);
@@ -195,7 +196,7 @@
       <h2>${id ? '修改團購' : '開團'}</h2>
       <form class="admin-form shop-form" novalidate>
         <fieldset class="form-block"><legend>下單方式</legend>
-          <div class="seg">${[['行事曆', '在行事曆下單（出攤取貨）'], ['賣貨便', '🛒 賣貨便']].map(([m, l]) => `<label class="seg-item"><input type="radio" name="mode" value="${m}"${v.mode === m ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div>
+          <div class="seg">${[['賣貨便', '🛒 賣貨便'], ['行事曆', '在行事曆下單（出攤取貨）']].map(([m, l]) => `<label class="seg-item"><input type="radio" name="mode" value="${m}"${v.mode === m ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div>
           <div data-for-mode="賣貨便"${v.mode === '賣貨便' ? '' : ' hidden'}>
             <label class="form-row"><span>賣貨便賣場連結</span><input class="input" name="link" type="url" inputmode="url" value="${esc(v.link)}" placeholder="https://myship.7-11.com.tw/⋯"></label>
             <p class="hint">先在 7-ELEVEN 賣貨便建好賣場，按「分享賣場」複製連結貼在這裡。大家按「到賣貨便下單」就會打開賣場，下單、付款、取貨都在賣貨便，這裡不用選商品和取貨場次。</p>

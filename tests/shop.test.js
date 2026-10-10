@@ -115,7 +115,8 @@ test('後台：備貨清單（每場每項幾份）、總覽、取貨與付款�
   assert.equal(d.group.payInfo, '轉帳：測試銀行 000-000000');
   assert.deepEqual(d.prep.map((p) => [p.pickup.date, p.orders, p.total, p.items.map((i) => i.name + i.qty).join()]),
     [['2026-10-18', 1, 240, '手工豆腐2,果醬1'], ['2026-10-25', 1, 180, '手工豆腐3']]);
-  assert.deepEqual(d.summary, { orders: 2, total: 420, paid: 0, unpaid: 420, picked: 0 });
+  const { orders, total, paid, unpaid, picked } = d.summary;
+  assert.deepEqual({ orders, total, paid, unpaid, picked }, { orders: 2, total: 420, paid: 0, unpaid: 420, picked: 0 });
   ok(call('adminShopOrderSet', { orderId: a.id, picked: true, paid: true, note: '已取' }));
   const d2 = ok(call('adminShopGroup', { id: gid }));
   assert.deepEqual([d2.summary.paid, d2.summary.picked], [240, 1]);
@@ -236,4 +237,19 @@ test('沒有取貨場次的團購：直接下單，備貨清單算全部，我�
   assert.deepEqual(d.prep[0].items.map((x) => [x.name, x.qty]), [['手工豆腐', 2]]);
   const mine = ok(env.post({ action: 'shopMyOrders', name: '測試甲' })).orders;
   assert.ok(mine.some((o) => o.groupId === id && o.pickupId === ''));
+});
+
+test('成本：只有後台看得到；團購頁算總成本、毛利，沒填成本的商品列出來', () => {
+  const { env, call, ok, tofu, jam, gid, order } = setup();
+  ok(call('adminShopSaveProduct', { product: Object.assign({}, tofu, { cost: '35' }) }));
+  assert.equal(call('adminShopSaveProduct', { product: Object.assign({}, jam, { cost: 'abc' }) }).error.code, 'VALIDATION');
+  assert.equal(ok(call('adminShop', {})).products.find((p) => p.id === tofu.id).cost, 35);
+  assert.equal(order({ name: '測試甲', source: '官網', items: [{ id: tofu.id, qty: 2 }, { id: jam.id, qty: 1 }] }).ok, true);
+  const pub = JSON.stringify(ok(env.get({ action: 'getShop' })));
+  assert.ok(!pub.includes('"cost"'), '大家看不到成本');
+  const s = ok(call('adminShopGroup', { id: gid })).summary;
+  assert.equal(s.total, 60 * 2 + 120);
+  assert.equal(s.cost, 70);
+  assert.equal(s.profit, 240 - 70);
+  assert.deepEqual(s.costMissing, ['果醬']);
 });

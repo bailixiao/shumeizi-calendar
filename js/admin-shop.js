@@ -44,7 +44,7 @@
     const productsHtml = data.products.length ? `<ul class="shop-product-list">${data.products.map((p) => `
       <li class="shop-product-row${p.active ? '' : ' is-inactive'}">
         ${thumb(p.photo, p.name)}
-        <button type="button" class="shop-product-name" data-product="${esc(p.id)}"${edit ? '' : ' disabled'}><strong>${esc(p.name)}</strong><small>${money(p.price)}${p.unit ? '／' + esc(p.unit) : ''}${p.active ? '' : '・已停用'}${edit ? '・點我修改' : ''}</small></button>
+        <button type="button" class="shop-product-name" data-product="${esc(p.id)}"${edit ? '' : ' disabled'}><strong>${esc(p.name)}</strong><small>${money(p.price)}${p.unit ? '／' + esc(p.unit) : ''}${p.cost !== null && p.cost !== undefined ? `・成本 ${money(p.cost)}` : ''}${p.active ? '' : '・已停用'}${edit ? '・點我修改' : ''}</small></button>
       </li>`).join('')}</ul>` : '<p class="panel-empty">商品庫是空的，按「＋ 新增商品」。</p>';
     body.innerHTML = `
       ${AdminPage.staleNote(stale)}
@@ -95,7 +95,7 @@
   }
 
   function editProduct(p, guard, after) {
-    const v = p || { name: '', price: '', unit: '', description: '', photo: '', active: true, order: 0 };
+    const v = p || { name: '', price: '', cost: null, unit: '', description: '', photo: '', active: true, order: 0 };
     let photo = v.photo || '';
     const m = Modal.open(`
       <form class="modal-form admin-form" novalidate>
@@ -105,6 +105,8 @@
           <label class="form-row"><span>價格（元）</span><input class="input" name="price" inputmode="numeric" maxlength="6" value="${esc(v.price)}" placeholder="例：60"></label>
           <label class="form-row"><span>單位</span><input class="input" name="unit" maxlength="6" value="${esc(v.unit)}" placeholder="例：盒、罐、包"></label>
         </div>
+        <label class="form-row"><span>成本（元，選填；只有後台看得到）</span><input class="input" name="cost" inputmode="numeric" maxlength="6" value="${esc(v.cost === null || v.cost === undefined ? '' : v.cost)}" placeholder="例：35" data-cost></label>
+        <p class="hint" data-margin></p>
         <label class="form-row"><span>說明（選填）</span><textarea class="input textarea" name="description" rows="3" maxlength="300" placeholder="例：當天現做，冷藏 3 天">${esc(v.description)}</textarea></label>
         <div class="form-row"><span>照片（選填）</span>
           <div class="shop-photo" data-photo-box></div>
@@ -127,6 +129,17 @@
       if (del) del.addEventListener('click', () => { photo = ''; drawPhoto(); });
     };
     drawPhoto();
+    // 一份賺多少：價格、成本都填了才算
+    const drawMargin = () => {
+      const price = Number(f.elements.price.value.trim());
+      const cost = f.elements.cost.value.trim();
+      const el = f.querySelector('[data-margin]');
+      el.textContent = cost !== '' && /^\d+$/.test(cost) && price ? `一份賺 ${price - Number(cost)} 元（毛利率 ${Math.round((price - Number(cost)) / price * 100)}%）` : '';
+      el.hidden = !el.textContent;
+    };
+    f.elements.price.addEventListener('input', drawMargin);
+    f.elements.cost.addEventListener('input', drawMargin);
+    drawMargin();
     f.querySelector('[data-photo]').addEventListener('change', async (ev) => {
       const file = ev.target.files[0];
       ev.target.value = '';
@@ -150,7 +163,7 @@
       Busy.show('存檔中⋯');
       try {
         await Api.admin('adminShopSaveProduct', { product: {
-          id: p ? p.id : '', name: f.elements.name.value, price: f.elements.price.value.trim(), unit: f.elements.unit.value,
+          id: p ? p.id : '', name: f.elements.name.value, price: f.elements.price.value.trim(), cost: f.elements.cost.value.trim(), unit: f.elements.unit.value,
           description: f.elements.description.value, photo, order: f.elements.order.value.trim(), active: f.elements.active ? f.elements.active.checked : true
         } });
         Busy.hide();
@@ -363,6 +376,7 @@
       <div class="stat-cards shop-stats">
         <div class="stat-card"><span class="stat-label">訂單</span><span class="stat-num">${s.orders}</span><span class="stat-hint">已取貨 ${s.picked} 張</span></div>
         <div class="stat-card"><span class="stat-label">總金額</span><span class="stat-num">${Number(s.total).toLocaleString('zh-TW')}</span><span class="stat-hint">已付 ${money(s.paid)}<br>未付 ${money(s.unpaid)}</span></div>
+        <div class="stat-card shop-profit"><span class="stat-label">毛利</span><span class="stat-num">${Number(s.profit).toLocaleString('zh-TW')}</span><span class="stat-hint">成本 ${money(s.cost)}${s.total ? `・毛利率 ${Math.round(s.profit / s.total * 100)}%` : ''}${s.costMissing && s.costMissing.length ? `<br>⚠️ 沒填成本：${esc(s.costMissing.join('、'))}` : ''}</span></div>
       </div>
       <ul class="shop-sold">${g.items.map((it) => `<li>${thumb(it.photo, it.name, 'shop-thumb-sm')}<span>${esc(it.name)}</span><strong>${it.sold}${it.unit ? ' ' + esc(it.unit) : ''}</strong>${it.limit !== null ? `<small>${it.left ? `剩 ${it.left}` : '已售完'}／限量 ${it.limit}</small>` : ''}</li>`).join('')}</ul>
 

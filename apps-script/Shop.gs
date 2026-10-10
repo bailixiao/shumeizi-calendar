@@ -28,7 +28,8 @@ function shopInt_(v) {
 function shopProductOut_(p) {
   return {
     id: p['商品ID'], name: p['名稱'], price: Number(p['價格']) || 0, unit: p['單位'] || '', description: p['說明'] || '',
-    photo: p['照片'] || '', active: p['啟用'] !== '否', order: Number(p['排序']) || 0
+    photo: p['照片'] || '', active: p['啟用'] !== '否', order: Number(p['排序']) || 0,
+    cost: p['成本'] === '' || p['成本'] === undefined || p['成本'] === null ? null : Number(p['成本']) // 成本（只給後台）
   };
 }
 
@@ -78,7 +79,11 @@ function shopGroupView_(g, products, orders, opts) {
     pickups: shopPickups_(g), items: items, hasPayInfo: !!g['付款說明'],
     link: g['賣場連結'] || '', cover: g['封面'] || '' // 賣場連結：賣貨便（有填＝到賣貨便下單）；封面：封面照片
   };
-  if (opts && opts.admin) out.payInfo = g['付款說明'] || '';
+  if (opts && opts.admin) {
+    out.payInfo = g['付款說明'] || '';
+    // 成本（只給後台）：照商品庫現在的成本
+    out.items.forEach(function (it) { var p = findById_(products, '商品ID', it.id); it.cost = p && p['成本'] !== '' && p['成本'] !== undefined ? Number(p['成本']) : null; });
+  }
   return out;
 }
 
@@ -325,6 +330,15 @@ function adminShopGroup_(body) {
     };
   });
   var sum = function (list) { return list.reduce(function (n, o) { return n + (Number(o['金額']) || 0); }, 0); };
+  // 成本：有效訂單的每樣商品份數 × 商品庫的成本
+  var costSum = { cost: 0, missing: [] };
+  active.forEach(function (o) {
+    shopJson_(o['品項'], []).forEach(function (l) {
+      var it = view.items.filter(function (x) { return x.id === l.id; })[0];
+      if (it && it.cost !== null) costSum.cost += it.cost * (Number(l.qty) || 0);
+      else if (costSum.missing.indexOf(l.name) === -1) costSum.missing.push(l.name);
+    });
+  });
   return {
     group: view,
     orders: orders.map(function (o) { return shopOrderOut_(o, g, false); }),
@@ -333,7 +347,8 @@ function adminShopGroup_(body) {
       orders: active.length, total: sum(active),
       paid: sum(active.filter(function (o) { return o['已付款'] === '是'; })),
       unpaid: sum(active.filter(function (o) { return o['已付款'] !== '是'; })),
-      picked: active.filter(function (o) { return o['已取貨'] === '是'; }).length
+      picked: active.filter(function (o) { return o['已取貨'] === '是'; }).length,
+      cost: costSum.cost, profit: sum(active) - costSum.cost, costMissing: costSum.missing // 成本、毛利（沒填成本的商品不算，列在 costMissing）
     }
   };
 }
@@ -347,6 +362,8 @@ function adminShopSaveProduct_(body) {
   if (!name) errors.push('請填商品名稱');
   if (name.length > 40) errors.push('商品名稱太長（最多 40 字）');
   if (price === null) errors.push('價格請填 0 以上的整數（元）');
+  var cost = p.cost === '' || p.cost === undefined || p.cost === null ? '' : shopInt_(p.cost);
+  if (cost === null) errors.push('成本請填 0 以上的整數（元），或空白');
   if (cleanText_(p.unit).length > 6) errors.push('單位太長（例：包、罐、份）');
   if (cleanText_(p.description).length > 300) errors.push('說明太長（最多 300 字）');
   if (p.photo && !/^F-[\w-]+$/.test(String(p.photo))) errors.push('照片代號不對，請重新上傳');
@@ -355,7 +372,7 @@ function adminShopSaveProduct_(body) {
     var rows = readTable_(SHEETS.SHOP_PRODUCTS);
     var now = nowString_();
     var values = { '名稱': name, '價格': String(price), '單位': cleanText_(p.unit), '說明': cleanText_(p.description), '照片': p.photo || '',
-      '啟用': p.active === false ? '否' : '是', '排序': String(shopInt_(p.order) || 0), '更新時間': now };
+      '啟用': p.active === false ? '否' : '是', '排序': String(shopInt_(p.order) || 0), '成本': cost === '' ? '' : String(cost), '更新時間': now };
     var row;
     if (p.id) {
       row = findById_(rows, '商品ID', p.id);

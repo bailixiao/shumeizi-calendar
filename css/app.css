@@ -2464,6 +2464,8 @@ span.shop-thumb { cursor: default; }
 .shop-payinfo-small { font-size: .92rem; background: var(--paper-2); border-radius: 10px; padding: 8px 10px; }
 .shop-last5-form { display: flex; gap: 8px; margin-top: 8px; } .shop-last5-form .input { flex: 1; min-width: 0; }
 .shop-stats .stat-hint { white-space: nowrap; max-width: none; }
+.shop-stats .shop-profit { grid-column: 1 / -1; }
+.shop-stats .shop-profit .stat-hint { white-space: normal; }
 /* 官網按鈕（行事曆最下面） */
 .app-footer .homepage-link { text-decoration: none; display: flex; align-items: center; justify-content: center; margin: 4px 0 14px; font-size: 1rem; font-weight: 700; color: var(--teal); border-color: var(--olive); background: var(--card); }
 body.is-sub .homepage-link { display: none; }

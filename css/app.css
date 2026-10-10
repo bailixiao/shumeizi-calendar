@@ -2529,7 +2529,8 @@ body.is-sub .homepage-link { display: none; }
 .shop-opt .pos-chip small { margin-left: 6px; color: var(--muted); }
 .shop-buybar { position: sticky; bottom: calc(66px + env(safe-area-inset-bottom)); z-index: 5; display: flex; align-items: center; gap: 12px; padding: 10px 12px; margin: 16px 0 0; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 -4px 14px rgba(0, 0, 0, .08); }
 .shop-buybar .shop-stepper { justify-self: auto; }
-.shop-add { flex: 1; min-height: 48px; padding: 0 10px; font-size: 1rem; white-space: nowrap; }
+.shop-add { flex: 1; min-height: 52px; padding: 4px 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; font-size: 1.05rem; white-space: nowrap; }
+.shop-add small { font-size: .85rem; font-weight: 500; opacity: .92; }
 .shop-added { margin-top: 12px; }
 .shop-added .btn { margin-right: 6px; }
 

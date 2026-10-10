@@ -157,10 +157,10 @@ const SUB = {
   '24': '一定要按「允許」才收得到喔',
   '25': '點一下就打開活動 😊',
   '26': '在行事曆最上面；沒有開放中的團購時不會出現',
-  '27': '點照片可以放大看；有寫「剩 N 份」的是限量',
-  '28': '植素園出攤的日期和地點',
-  '29': '下面會算好總金額；轉帳的送出後會看到帳號',
-  '30': '截止前都可以到「查我的報名」改單或取消'
+  '27': '照片下面有價格、已經賣了幾份；有寫「剩 N」的是限量',
+  '28': '照片可以左右滑；有口味、大小的要先選一個',
+  '29': '下面「🛒 購物車」的數字是放了幾件；轉帳的送出後會看到帳號',
+  '30': '在下面「📋 我的訂單」可以改數量、取消、補轉帳末五碼'
 };
 const sub = (n, dev) => { const s = SUB[n]; return Array.isArray(s) ? s[dev === 'ios' ? 0 : 1] : (s || ''); };
 // target：CSS 選擇器字串，或「$(」開頭的一段程式（直接放進頁面裡算）
@@ -267,11 +267,16 @@ async function main() {
     await shoot(c, '26');
     await go(c, '#/shop');
     await sleep(1500);
-    await run(c, `document.querySelectorAll('[data-plus]')[0].click(); await W(200); document.querySelectorAll('[data-plus]')[0].click(); await W(200); document.querySelectorAll('[data-plus]')[2].click(); await W(300); ${frame('27', '', '.shop-cards')}`);
+    await run(c, `${frame('27', '', '.shop-grid')}`);
     await shoot(c, '27');
-    await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); document.querySelector('input[name=pickup]').click(); await W(300); ${frame('28', '', "$('.shop-pickups').closest('section')")}`);
+    // 商品頁：手工果醬（有口味），選桑葚、加入購物車
+    await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); document.querySelectorAll('.shop-tile')[1].click(); await W(1500);
+      document.querySelector('input[data-opt][value="桑葚"]').click(); await W(400); ${frame('28', '', '.shop-opt')}`);
     await shoot(c, '28');
-    await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); const n = $('[data-name]'); type(n, '測試庚'); n.dispatchEvent(new Event('change', { bubbles: true })); await W(2500);
+    await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); $('[data-add]').click(); await W(500);
+      document.querySelector('.shop-tab[href$="/cart"]').click(); await W(1500);
+      const pk = document.querySelector('input[name=pickup]'); if (pk) { pk.click(); await W(400); }
+      const n = $('[data-name]'); type(n, '測試庚'); n.dispatchEvent(new Event('change', { bubbles: true })); await W(2500);
       const s = document.querySelector('input[data-src][value="官方 LINE"]'); if (s) { s.click(); await W(300); }
       ${frame('29', '', '.shop-total-bar')}`);
     await shoot(c, '29');

@@ -249,7 +249,7 @@
           <span class="shop-step-n" aria-live="polite">${qty}</span>
           <button type="button" class="btn shop-step-btn" data-plus${qty >= max ? ' disabled' : ''} aria-label="多一個">＋</button>
         </div>
-        <button type="button" class="btn btn-primary shop-add" data-add${g.closed || soldOut || !max ? ' disabled' : ''}>${g.closed ? '已截止' : soldOut ? '已售完' : !max ? '已達上限' : `加入購物車・${money(price * qty)}`}</button>
+        <button type="button" class="btn btn-primary shop-add" data-add${g.closed || soldOut || !max ? ' disabled' : ''}>${g.closed ? '已截止' : soldOut ? '已售完' : !max ? '已達上限' : `加入購物車<small>${money(price * qty)}</small>`}</button>
       </div>
       </div>
       ${tabbar('store', g)}`;

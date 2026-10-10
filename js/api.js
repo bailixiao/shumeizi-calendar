@@ -224,7 +224,7 @@
     // 團購（見 shop.js）：名字放在 POST 內容（不放網址）
     getShop: () => get('getShop', {}),
     shopOrder: (p) => post(Object.assign({ action: 'shopOrder' }, p)),
-    shopMyOrders: (name) => post({ action: 'shopMyOrders', name }),
+    shopMyOrders: (name, all) => post({ action: 'shopMyOrders', name, all: !!all }), // all：我的訂單頁（最近 90 天全部）
     shopCancel: (orderId, name) => post({ action: 'shopCancel', orderId, name }),
     shopSetLast5: (orderId, name, last5) => post({ action: 'shopSetLast5', orderId, name, last5 }),
     // DM 檔案（照片、PDF）的網址

@@ -44,7 +44,7 @@
     const productsHtml = data.products.length ? `<ul class="shop-product-list">${data.products.map((p) => `
       <li class="shop-product-row${p.active ? '' : ' is-inactive'}">
         ${thumb(p.photo, p.name)}
-        <button type="button" class="shop-product-name" data-product="${esc(p.id)}"${edit ? '' : ' disabled'}><strong>${esc(p.name)}</strong><small>${money(p.price)}${p.unit ? '／' + esc(p.unit) : ''}${p.cost !== null && p.cost !== undefined ? `・成本 ${money(p.cost)}` : ''}${p.active ? '' : '・已停用'}${edit ? '・點我修改' : ''}</small></button>
+        <button type="button" class="shop-product-name" data-product="${esc(p.id)}"${edit ? '' : ' disabled'}><strong>${esc(p.name)}</strong><small>${money(p.price)}${p.unit ? '／' + esc(p.unit) : ''}${p.cost !== null && p.cost !== undefined ? `・成本 ${money(p.cost)}` : ''}${p.options ? `・${esc(p.options.label)} ${p.options.options.length} 種` : ''}${p.photos && p.photos.length > 1 ? `・${p.photos.length} 張照片` : ''}${p.active ? '' : '・已停用'}${edit ? '・點我修改' : ''}</small></button>
       </li>`).join('')}</ul>` : '<p class="panel-empty">商品庫是空的，按「＋ 新增商品」。</p>';
     body.innerHTML = `
       ${AdminPage.staleNote(stale)}
@@ -95,8 +95,11 @@
   }
 
   function editProduct(p, guard, after) {
-    const v = p || { name: '', price: '', cost: null, unit: '', description: '', photo: '', active: true, order: 0 };
-    let photo = v.photo || '';
+    const v = p || { name: '', price: '', cost: null, unit: '', description: '', photo: '', photos: [], options: null, active: true, order: 0 };
+    // 照片：第一張是封面（商品卡片），其他在商品頁左右滑；最多 6 張
+    let photos = (v.photos && v.photos.length ? v.photos : [v.photo]).filter(Boolean);
+    // 規格：{ label, options: [{ name, price }] }
+    const opt = { label: v.options ? v.options.label : '', rows: v.options ? v.options.options.map((o) => ({ name: o.name, price: o.price === null ? '' : String(o.price) })) : [] };
     const m = Modal.open(`
       <form class="modal-form admin-form" novalidate>
         <h2 class="modal-title">${p ? '修改商品' : '新增商品'}</h2>
@@ -108,10 +111,16 @@
         <label class="form-row"><span>成本（元，選填；只有後台看得到）</span><input class="input" name="cost" inputmode="numeric" maxlength="6" value="${esc(v.cost === null || v.cost === undefined ? '' : v.cost)}" placeholder="例：35" data-cost></label>
         <p class="hint" data-margin></p>
         <label class="form-row"><span>說明（選填）</span><textarea class="input textarea" name="description" rows="3" maxlength="300" placeholder="例：當天現做，冷藏 3 天">${esc(v.description)}</textarea></label>
-        <div class="form-row"><span>照片（選填）</span>
-          <div class="shop-photo" data-photo-box></div>
-          <label class="btn btn-small">📷 選照片<input type="file" accept="image/*" hidden data-photo></label>
+        <div class="form-row"><span>照片（選填，最多 6 張；第一張是封面）</span>
+          <div class="shop-photos-edit" data-photo-box></div>
+          <label class="btn btn-small" data-photo-add>📷 加照片<input type="file" accept="image/*" multiple hidden data-photo></label>
         </div>
+        <fieldset class="form-block shop-opt-block"><legend>規格（選填，例：口味、大小）</legend>
+          <label class="form-row"><span>規格名稱</span><input class="input" name="optLabel" maxlength="10" value="${esc(opt.label)}" placeholder="例：口味"></label>
+          <div data-opt-rows></div>
+          <button type="button" class="btn btn-small" data-opt-add>＋ 加一個選項</button>
+          <p class="hint">有填選項的話，大家下單要選一個。價格空白＝照上面的價格；限量、每人最多照商品算（各選項加總）。</p>
+        </fieldset>
         <label class="form-row"><span>排序（小的在前）</span><input class="input" name="order" inputmode="numeric" maxlength="4" value="${esc(v.order || 0)}"></label>
         ${p ? `<label class="check"><input type="checkbox" name="active"${v.active ? ' checked' : ''}> 啟用（取消勾選＝停用）</label>` : ''}
         <div class="form-error" data-error hidden></div>
@@ -123,12 +132,24 @@
     const f = m.el.querySelector('form');
     const box = f.querySelector('[data-error]');
     const drawPhoto = () => {
-      f.querySelector('[data-photo-box]').innerHTML = photo ? `${thumb(photo, f.elements.name.value || '商品', 'shop-thumb-big')}<button type="button" class="link-btn" data-photo-del>拿掉照片</button>` : '<span class="muted">還沒有照片</span>';
-      bindZoom(f.querySelector('[data-photo-box]'));
-      const del = f.querySelector('[data-photo-del]');
-      if (del) del.addEventListener('click', () => { photo = ''; drawPhoto(); });
+      const pb = f.querySelector('[data-photo-box]');
+      pb.innerHTML = photos.length ? photos.map((id, i) => `<div class="shop-photo-item">${thumb(id, f.elements.name.value || '商品', 'shop-thumb')}${i === 0 ? '<span class="shop-photo-cover">封面</span>' : `<button type="button" class="link-btn" data-photo-first="${i}">設成封面</button>`}<button type="button" class="shop-photo-del" data-photo-del="${i}" aria-label="拿掉這張">×</button></div>`).join('') : '<span class="muted">還沒有照片</span>';
+      bindZoom(pb);
+      pb.querySelectorAll('[data-photo-del]').forEach((b) => b.addEventListener('click', () => { photos.splice(Number(b.dataset.photoDel), 1); drawPhoto(); }));
+      pb.querySelectorAll('[data-photo-first]').forEach((b) => b.addEventListener('click', () => { const i = Number(b.dataset.photoFirst); photos.unshift(photos.splice(i, 1)[0]); drawPhoto(); }));
+      f.querySelector('[data-photo-add]').hidden = photos.length >= 6;
     };
     drawPhoto();
+    // 規格選項：名稱＋價格（空白＝商品價格）
+    const drawOpts = () => {
+      const box2 = f.querySelector('[data-opt-rows]');
+      box2.innerHTML = opt.rows.map((r, i) => `<div class="shop-opt-row"><input class="input" data-opt-name="${i}" maxlength="20" value="${esc(r.name)}" placeholder="例：荔枝"><input class="input" data-opt-price="${i}" inputmode="numeric" maxlength="6" value="${esc(r.price)}" placeholder="價格（選填）"><button type="button" class="shop-photo-del" data-opt-del="${i}" aria-label="刪除這個選項">×</button></div>`).join('');
+      box2.querySelectorAll('[data-opt-name]').forEach((x) => x.addEventListener('input', () => { opt.rows[Number(x.dataset.optName)].name = x.value; }));
+      box2.querySelectorAll('[data-opt-price]').forEach((x) => x.addEventListener('input', () => { opt.rows[Number(x.dataset.optPrice)].price = x.value; }));
+      box2.querySelectorAll('[data-opt-del]').forEach((b) => b.addEventListener('click', () => { opt.rows.splice(Number(b.dataset.optDel), 1); drawOpts(); }));
+    };
+    drawOpts();
+    f.querySelector('[data-opt-add]').addEventListener('click', () => { opt.rows.push({ name: '', price: '' }); drawOpts(); const last = f.querySelectorAll('[data-opt-name]'); last[last.length - 1].focus(); });
     // 一份賺多少：價格、成本都填了才算
     const drawMargin = () => {
       const price = Number(f.elements.price.value.trim());
@@ -141,13 +162,15 @@
     f.elements.cost.addEventListener('input', drawMargin);
     drawMargin();
     f.querySelector('[data-photo]').addEventListener('change', async (ev) => {
-      const file = ev.target.files[0];
+      const files = [...ev.target.files].slice(0, 6 - photos.length);
       ev.target.value = '';
-      if (!file) return;
+      if (!files.length) return;
       Busy.show('上傳中⋯');
       try {
-        const data = await shrinkImage(file);
-        photo = (await Api.admin('adminUploadFile', { mime: 'image/jpeg', name: file.name, data })).id;
+        for (const file of files) {
+          const data = await shrinkImage(file);
+          photos.push((await Api.admin('adminUploadFile', { mime: 'image/jpeg', name: file.name, data })).id);
+        }
         Busy.hide();
         drawPhoto();
       } catch (e) {
@@ -164,7 +187,8 @@
       try {
         await Api.admin('adminShopSaveProduct', { product: {
           id: p ? p.id : '', name: f.elements.name.value, price: f.elements.price.value.trim(), cost: f.elements.cost.value.trim(), unit: f.elements.unit.value,
-          description: f.elements.description.value, photo, order: f.elements.order.value.trim(), active: f.elements.active ? f.elements.active.checked : true
+          description: f.elements.description.value, photo: photos[0] || '', photos: photos.slice(1), order: f.elements.order.value.trim(), active: f.elements.active ? f.elements.active.checked : true,
+          options: { label: f.elements.optLabel.value.trim(), options: opt.rows.filter((r) => r.name.trim()).map((r) => ({ name: r.name.trim(), price: r.price.trim() })) }
         } });
         Busy.hide();
         m.close();
@@ -500,7 +524,14 @@
   /** 管理者幫人下單、改單（不受截止限制；限量、每人上限照樣檢查） */
   function orderForm(d, o, guard, after) {
     const g = d.group;
-    const qty = (id) => { const it = o && o.items.find((x) => x.id === id); return it ? it.qty : 0; };
+    const qty = (id, option) => { const it = o && o.items.find((x) => x.id === id && (x.option || '') === (option || '')); return it ? it.qty : 0; };
+    const qtyAll = (id) => o ? o.items.filter((x) => x.id === id).reduce((n, x) => n + x.qty, 0) : 0;
+    // 有規格的商品：每個選項一行
+    const rows = [];
+    g.items.forEach((it) => {
+      if (it.options) it.options.options.forEach((op) => rows.push({ it, option: op.name, label: `${it.name}（${op.name}）`, price: op.price !== null ? op.price : it.price }));
+      else rows.push({ it, option: '', label: it.name, price: it.price });
+    });
     const m = Modal.open(`
       <form class="modal-form admin-form" novalidate>
         <h2 class="modal-title">${o ? '改單：' + esc(o.name) : '幫人下單'}</h2>
@@ -508,7 +539,7 @@
         <label class="form-row"><span>第一次來的話：怎麼認識的？（名單上有的人不用選）</span><select class="input" name="source"><option value="">（名單上有，不用選）</option>${(window.SITE.sources || []).map((x) => `<option>${esc(x)}</option>`).join('')}</select></label>
         <label class="form-row" data-ref hidden><span>介紹人</span><input class="input" name="referrer" maxlength="20"></label>`}
         ${g.pickups.length ? `<label class="form-row"><span>取貨場次</span><select class="input" name="pickup">${g.pickups.map((p) => `<option value="${esc(p.id)}"${o && o.pickupId === p.id ? ' selected' : ''}>${esc(pickupText(p))}</option>`).join('')}</select></label>` : ''}
-        <div class="form-row"><span>數量</span><div class="shop-qty-list">${g.items.map((it) => `<label class="shop-qty-row">${thumb(it.photo, it.name, 'shop-thumb-sm')}<span>${esc(it.name)}<small>${money(it.price)}${it.left !== null ? `・剩 ${it.left + qty(it.id)}` : ''}</small></span><input class="input" type="number" min="0" max="99" data-qty="${esc(it.id)}" value="${qty(it.id)}"></label>`).join('')}</div></div>
+        <div class="form-row"><span>數量</span><div class="shop-qty-list">${rows.map((r) => `<label class="shop-qty-row">${thumb(r.it.photo, r.it.name, 'shop-thumb-sm')}<span>${esc(r.label)}<small>${money(r.price)}${r.it.left !== null ? `・剩 ${r.it.left + qtyAll(r.it.id)}` : ''}</small></span><input class="input" type="number" min="0" max="99" data-qty="${esc(r.it.id)}" data-opt="${esc(r.option)}" value="${qty(r.it.id, r.option)}"></label>`).join('')}</div></div>
         <div class="form-row"><span>付款</span><div class="seg">${[['現場', '取貨付現'], ['轉帳', '轉帳']].map(([v, l]) => `<label class="seg-item"><input type="radio" name="pay" value="${v}"${(o ? o.pay : '現場') === v ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div></div>
         <label class="form-row"><span>轉帳末五碼（選填）</span><input class="input" name="last5" inputmode="numeric" maxlength="5" value="${esc(o ? o.last5 : '')}"></label>
         <label class="form-row"><span>備註（只有後台看得到）</span><input class="input" name="note" maxlength="100" value="${esc(o ? o.note : '')}" placeholder="例：電話訂的"></label>
@@ -530,7 +561,7 @@
         await Api.admin('adminShopOrder', {
           groupId: g.id, orderId: o ? o.id : '', name: o ? o.name : f.elements.name.value,
           source: f.elements.source ? f.elements.source.value : '', referrer: f.elements.referrer ? f.elements.referrer.value : '',
-          pickupId: f.elements.pickup ? f.elements.pickup.value : '', items: [...f.querySelectorAll('[data-qty]')].map((x) => ({ id: x.dataset.qty, qty: x.value || 0 })),
+          pickupId: f.elements.pickup ? f.elements.pickup.value : '', items: [...f.querySelectorAll('[data-qty]')].map((x) => ({ id: x.dataset.qty, option: x.dataset.opt || '', qty: x.value || 0 })),
           pay: f.querySelector('input[name=pay]:checked').value, last5: f.elements.last5.value.trim(), note: f.elements.note.value
         });
         Busy.hide();

@@ -57,21 +57,22 @@ async function seedDemo(call, get) {
   // 團購：三樣商品、一次開放中的團購（在兩場植素園出攤取貨）、幾張訂單
   // 商品照片：tools/demo-photos/*.png（自己畫的示範圖），上傳到 Cloudflare（同 DM）
   const upload = async (file) => { const data = require('fs').readFileSync(require('path').join(__dirname, 'demo-photos', file)).toString('base64'); const r = await admin('adminUploadFile', { mime: 'image/png', name: file, data }); return r.ok ? r.data.id : ''; };
-  const prod = async (name, price, unit, description, photo) => (await admin('adminShopSaveProduct', { product: { name, price, unit, description, photo: photo ? await upload(photo) : '' } })).data.product.id;
+  const prod = async (name, price, unit, description, photo, extra) => (await admin('adminShopSaveProduct', { product: Object.assign({ name, price, unit, description, photo: photo ? await upload(photo) : '' }, extra || {}) })).data.product.id;
   const tofu = await prod('手工豆腐', 60, '盒', '當天現做，冷藏 3 天內吃完', 'tofu.png');
-  const jam = await prod('桑葚果醬', 150, '罐', '植素園自己熬的，少糖', 'jam.png');
+  // 果醬：有口味（規格），鳳梨的比較貴；兩張照片（商品頁可以左右滑）
+  const jam = await prod('手工果醬', 150, '罐', '植素園自己熬的，少糖', 'jam.png', { photos: [await upload('jam.png')], options: { label: '口味', options: [{ name: '桑葚', price: '' }, { name: '鳳梨', price: '160' }] } });
   const bread = await prod('全麥饅頭', 80, '包', '一包 4 顆', 'bread.png');
   const pickups = [find('植素園出攤', sun).id, find('植素園出攤', sun2).id];
   const g = await admin('adminShopSaveGroup', { group: {
-    name: '植素園十月團購', description: '這次有新鮮的手工豆腐、果醬和饅頭 🌿 在出攤時取貨', deadline: addDays(sun, -1) + ' 22:00', pickups,
+    name: '植素園十月團購', description: '這次有新鮮的手工豆腐、果醬和饅頭 🌿 在出攤時取貨', deadline: addDays(sun2, -1) + ' 22:00', pickups,
     payInfo: '（示範）轉帳帳號：測試銀行 000-0000000-000，轉好請填末五碼',
     items: [{ id: tofu, price: '', limit: '', perPerson: '' }, { id: jam, price: '', limit: '10', perPerson: '2' }, { id: bread, price: '', limit: '', perPerson: '' }]
   } });
   if (!g.ok) throw new Error('示範團購建立失敗：' + JSON.stringify(g.error));
   const order = (name, pickup, items, pay) => call({ action: 'shopOrder', groupId: g.data.id, name, pickupId: pickup, items, pay: pay || '現場' });
-  await order('測試甲', pickups[0], [{ id: tofu, qty: 2 }, { id: jam, qty: 1 }], '轉帳');
+  await order('測試甲', pickups[0], [{ id: tofu, qty: 2 }, { id: jam, option: '桑葚', qty: 1 }], '轉帳');
   await order('王小明', pickups[0], [{ id: bread, qty: 1 }]);
-  await order('測試乙', pickups[1], [{ id: jam, qty: 2 }, { id: tofu, qty: 1 }]);
+  await order('測試乙', pickups[1], [{ id: jam, option: '鳳梨', qty: 2 }, { id: tofu, qty: 1 }]);
   // 待確認的新朋友保留成正式成員（名字提示才找得到）
   const members = (await admin('adminMembers', {})).data.members.filter((m) => m.pending);
   if (members.length) await admin('adminConfirmMembers', { rows: members.map((m) => ({ row: m.row, original: m.name })) });

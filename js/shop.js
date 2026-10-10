@@ -83,7 +83,7 @@
         <li><a class="shop-group-card" href="#/shop/${encodeURIComponent(g.id)}">
           <span class="shop-group-name">${esc(g.name)}</span>
           <span class="badge ${g.closed ? 'badge-full' : 'badge-ok'}">${g.closed ? '已截止' : '開放中'}</span>
-          <span class="shop-group-meta">${esc(g.deadline)} 截止・${g.link ? '🛒 在賣貨便下單' : '取貨 ' + g.pickups.map((p) => esc(Fmt.shortDate(p.date))).join('、')}</span>
+          <span class="shop-group-meta">${esc(g.deadline)} 截止・${g.link ? '🛒 在賣貨便下單' : g.pickups.length ? '取貨 ' + g.pickups.map((p) => esc(Fmt.shortDate(p.date))).join('、') : '線上訂購'}</span>
         </a></li>`).join('')}</ul>` : '<div class="notice"><p>目前沒有開放中的團購，下次開團會通知大家 😊</p></div>'}
       ${back()}`;
   }
@@ -168,21 +168,21 @@
             </li>`;
           }).join('')}</ul>
         </section>
-        <section class="shop-step">
+        ${g.pickups.length ? `<section class="shop-step">
           <h2><span class="step">2</span>在哪一場取貨</h2>
           <div class="shop-pickups">${g.pickups.map((p) => `<label class="choice${form.pickupId === p.id ? ' is-checked' : ''}"><input type="radio" name="pickup" value="${esc(p.id)}"${form.pickupId === p.id ? ' checked' : ''}${closed ? ' disabled' : ''}>
             <span class="choice-main">${esc(Fmt.shortDate(p.date))}${p.startTime ? ' ' + esc(p.startTime) : ''}</span><span class="choice-sub">📍 ${esc(p.location || p.name)}</span></label>`).join('')}</div>
-        </section>
+        </section>` : ''}
         <section class="shop-step">
-          <h2><span class="step">3</span>你的名字</h2>
+          <h2><span class="step">${g.pickups.length ? 3 : 2}</span>你的名字</h2>
           <input class="input" data-name maxlength="20" autocomplete="name" placeholder="例：王小明" value="${esc(form.name)}"${closed ? ' disabled' : ''}>
           <div class="suggestions" data-suggestions></div>
           ${form.existing ? `<div class="notice shop-existing"><p>✏️ <strong>${esc(form.name)}</strong> 已經訂過這次團購了，下面是原本的內容；改好送出就會更新那一張。</p></div>` : ''}
           ${sourceHtml()}
         </section>
         <section class="shop-step">
-          <h2><span class="step">4</span>怎麼付款</h2>
-          <div class="segmented">${[['現場', '💵 取貨時付現'], ['轉帳', '🏦 轉帳']].map(([v, l]) => `<label class="segment${form.pay === v ? ' is-checked' : ''}"><input type="radio" name="pay" value="${v}"${form.pay === v ? ' checked' : ''}${closed ? ' disabled' : ''}>${l}</label>`).join('')}</div>
+          <h2><span class="step">${g.pickups.length ? 4 : 3}</span>怎麼付款</h2>
+          <div class="segmented">${[['現場', g.pickups.length ? '💵 取貨時付現' : '💵 付現'], ['轉帳', '🏦 轉帳']].map(([v, l]) => `<label class="segment${form.pay === v ? ' is-checked' : ''}"><input type="radio" name="pay" value="${v}"${form.pay === v ? ' checked' : ''}${closed ? ' disabled' : ''}>${l}</label>`).join('')}</div>
           ${form.pay === '轉帳' ? `<label class="form-row shop-last5"><span>轉帳後五碼（還沒轉可以先空著，之後在「查我的報名」補）</span><input class="input" data-last5 inputmode="numeric" maxlength="5" value="${esc(form.last5)}" placeholder="例：12345"></label>
             <p class="hint">${g.hasPayInfo ? '送出訂單後會顯示轉帳帳號。' : '轉帳帳號請問小編。'}</p>` : ''}
         </section>
@@ -277,7 +277,7 @@
 
   function problem(g) {
     if (!total(g)) return '請至少選一樣商品（按＋）';
-    if (!form.pickupId) return '請選在哪一場取貨';
+    if (g.pickups.length && !form.pickupId) return '請選在哪一場取貨';
     if (form.name.replace(/[\s　]+/g, '').length < 2) return '請填你的名字';
     if (SOURCES.length && form.known === false && !form.source) return '第一次來的朋友，請選怎麼認識我們的（不知道選「不確定」）';
     if (form.known === false && form.source === '朋友介紹' && !form.referrer.trim()) return '請填介紹人是誰';
@@ -323,7 +323,7 @@
       <div class="notice notice-success notice-big" role="status">
         <p><strong>✅ ${res.updated ? '訂單更新好了！' : '訂好了！'}</strong></p>
         <p>${esc(o.name)}：${o.items.map((it) => esc(it.name) + ' × ' + it.qty).join('、')}</p>
-        <p>💰 共 <strong>${money(o.total)}</strong>（${o.pay === '轉帳' ? '轉帳' : '取貨時付現'}）</p>
+        <p>💰 共 <strong>${money(o.total)}</strong>（${o.pay === '轉帳' ? '轉帳' : p ? '取貨時付現' : '付現'}）</p>
         ${p ? `<p>📦 ${esc(pickupText(p))} 取貨</p>` : ''}
         ${p ? `<div class="addcal-row">${AddCal.button({ name: '取團購：' + g.name, location: p.location, start: p.date, end: p.date, startTime: p.startTime, endTime: p.endTime || '', dutyId: p.id, date: p.date }, '加到手機行事曆（取貨那天）')}</div>` : ''}
       </div>
@@ -350,7 +350,7 @@
           <li class="shop-order">
             <div class="shop-order-head"><strong>${esc(o.groupName)}</strong><span>${money(o.total)}</span></div>
             <p>${o.items.map((it) => esc(it.name) + ' × ' + it.qty).join('、')}</p>
-            <p class="muted">📦 ${o.pickup ? esc(pickupText(o.pickup)) : esc(Fmt.shortDate(o.pickupDate))} 取貨・${o.pay === '轉帳' ? `轉帳${o.last5 ? '（末五碼 ' + esc(o.last5) + '）' : '・還沒填末五碼'}` : '取貨時付現'}${o.paid ? '・✅ 已付款' : ''}</p>
+            <p class="muted">${o.pickup ? '📦 ' + esc(pickupText(o.pickup)) + ' 取貨・' : o.pickupDate ? '📦 ' + esc(Fmt.shortDate(o.pickupDate)) + ' 取貨・' : ''}${o.pay === '轉帳' ? `轉帳${o.last5 ? '（末五碼 ' + esc(o.last5) + '）' : '・還沒填末五碼'}` : '取貨時付現'}${o.paid ? '・✅ 已付款' : ''}</p>
             ${o.pay === '轉帳' && o.payInfo && !o.paid ? `<p class="shop-payinfo-small">🏦 ${esc(o.payInfo).replace(/\n/g, '<br>')}</p>` : ''}
             <div class="shop-order-actions">
               ${o.closed ? '<span class="muted">已截止，要改請找小編</span>' : `<a class="btn btn-small" href="#/shop/${encodeURIComponent(o.groupId)}">改單</a><button type="button" class="btn btn-small btn-quiet-danger" data-shop-cancel="${esc(o.id)}">取消</button>`}

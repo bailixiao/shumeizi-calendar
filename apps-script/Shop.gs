@@ -109,7 +109,7 @@ function shopValidate_(ctx, input) {
   if (g.status === '結束') return [{ message: '這次團購已經結束了' }];
   if (g.link) return [{ message: '這次團購請到賣貨便下單' }];
   if (!ctx.admin && g.deadline && ctx.now > g.deadline) return [{ message: '已經過了截止時間（' + g.deadline + '），要改請找小編' }];
-  if (!g.pickups.some(function (p) { return p.id === input.pickupId; })) errors.push({ message: '請選取貨場次' });
+  if (g.pickups.length && !g.pickups.some(function (p) { return p.id === input.pickupId; })) errors.push({ message: '請選取貨場次' });
   var items = Array.isArray(input.items) ? input.items : [];
   var total = 0;
   var seen = {};
@@ -198,11 +198,12 @@ function shopOrder_(body, opts) {
     var pickup = view.pickups.filter(function (p) { return p.id === input.pickupId; })[0];
     var now = nowString_();
     var values = {
-      '姓名': who.name, '取貨活動ID': pickup.id, '取貨日期': pickup.date, '品項': JSON.stringify(lines), '金額': String(total),
+      // 沒有設取貨場次的團購（2026/10/10）：取貨活動、日期空白
+      '姓名': who.name, '取貨活動ID': pickup ? pickup.id : '', '取貨日期': pickup ? pickup.date : '', '品項': JSON.stringify(lines), '金額': String(total),
       '付款方式': input.pay, '末五碼': input.pay === '轉帳' ? (input.last5 || (existing ? existing['末五碼'] : '') || '') : '', '更新時間': now
     };
     if (admin && body.note !== undefined) values['備註'] = cleanText_(body.note).slice(0, 100);
-    var summary = who.name + '｜' + g['名稱'] + '｜' + lines.map(function (l) { return l.name + '×' + l.qty; }).join('、') + '｜' + total + ' 元｜' + pickup.date + ' ' + pickup.name + '｜' + input.pay;
+    var summary = who.name + '｜' + g['名稱'] + '｜' + lines.map(function (l) { return l.name + '×' + l.qty; }).join('、') + '｜' + total + ' 元｜' + (pickup ? pickup.date + ' ' + pickup.name + '｜' : '') + input.pay;
     var row;
     if (existing) {
       var before = rowSnapshot_(SHEETS.SHOP_ORDERS, existing);
@@ -214,7 +215,7 @@ function shopOrder_(body, opts) {
       appendRows_(SHEETS.SHOP_ORDERS, [row]);
       writeDutyLog_('團購下單', summary + (admin ? adminTag_() : ''));
     }
-    addPendingMembers_([{ '姓名': who.name, '佛堂': who.temple, '日期': pickup.date, '身分': '' }], '團購：' + g['名稱'], sources);
+    addPendingMembers_([{ '姓名': who.name, '佛堂': who.temple, '日期': pickup ? pickup.date : todayString_(), '身分': '' }], '團購：' + g['名稱'], sources);
     SpreadsheetApp.flush();
     invalidateTable_(SHEETS.SHOP_ORDERS);
     return { order: shopOrderOut_(row, g, true), updated: !!existing };
@@ -228,7 +229,10 @@ function shopMyOrders_(body) {
   var today = todayString_();
   var groups = readTableCached_(SHEETS.SHOP_GROUPS);
   var orders = readTable_(SHEETS.SHOP_ORDERS).filter(function (o) {
-    return normalizeName_(o['姓名']) === who.name && o['狀態'] !== '已取消' && o['已取貨'] !== '是' && (o['取貨日期'] || '') >= today;
+    if (normalizeName_(o['姓名']) !== who.name || o['狀態'] === '已取消' || o['已取貨'] === '是') return false;
+    if (o['取貨日期']) return o['取貨日期'] >= today;
+    var g = findById_(groups, '團購ID', o['團購ID']); // 沒有取貨場次：團購還沒結束就列出來
+    return !!g && g['狀態'] !== '結束';
   });
   return {
     name: who.name,
@@ -310,8 +314,9 @@ function adminShopGroup_(body) {
   view.itemSettings = shopJson_(g['商品設定'], []);
   var active = orders.filter(function (o) { return o['狀態'] !== '已取消'; });
   // 備貨清單：每個取貨場次，每項商品幾份
-  var prep = view.pickups.map(function (p) {
-    var list = active.filter(function (o) { return o['取貨活動ID'] === p.id; });
+  // 沒有取貨場次的團購：全部訂單算一份（pickup＝null）
+  var prep = (view.pickups.length ? view.pickups : [null]).map(function (p) {
+    var list = active.filter(function (o) { return !p || o['取貨活動ID'] === p.id; });
     var count = {};
     list.forEach(function (o) { shopJson_(o['品項'], []).forEach(function (it) { count[it.id] = (count[it.id] || 0) + (Number(it.qty) || 0); }); });
     return {
@@ -387,8 +392,8 @@ function adminShopSaveGroup_(body) {
   var cover = String(g.cover || '').trim();
   if (cover && !/^[^\s<>"'&]{1,80}$/.test(cover)) errors.push('封面照片不對，請重新上傳');
   var duties = readTableCached_(SHEETS.DUTIES);
+  // 取貨場次：可以不選（2026/10/10，使用者不需要）
   var pickups = external ? [] : (Array.isArray(g.pickups) ? g.pickups : []).map(String).filter(function (id, i, arr) { return id && arr.indexOf(id) === i; });
-  if (!external && !pickups.length) errors.push('請至少選一個取貨場次');
   pickups.forEach(function (id) { if (!findById_(duties, '勤務ID', id)) errors.push('有一個取貨場次找不到（可能活動被刪掉了）'); });
   var products = readTable_(SHEETS.SHOP_PRODUCTS);
   var items = [];

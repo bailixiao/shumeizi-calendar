@@ -133,13 +133,13 @@ test('後台：備貨清單（每場每項幾份）、總覽、取貨與付款�
   assert.equal(all.products.length, 2);
 });
 
-test('開團的檢查：名稱、截止時間、取貨場次、商品、限量格式', () => {
+test('開團的檢查：名稱、截止時間、商品、限量格式（取貨場次可以不選）', () => {
   const { call, tofu, ids } = setup();
   const r = call('adminShopSaveGroup', { group: { name: '', deadline: '10/15', pickups: [], items: [{ id: tofu.id, limit: '0' }] } });
   const m = JSON.stringify(r.error);
   assert.match(m, /團購名稱/);
   assert.match(m, /截止時間/);
-  assert.match(m, /取貨場次/);
+  assert.doesNotMatch(m, /取貨場次/); // 取貨場次可以不選（2026/10/10）
   assert.match(m, /限量/);
   assert.match(JSON.stringify(call('adminShopSaveGroup', { group: { name: 'x', deadline: '2026-10-15 22:00', pickups: ids, items: [] } }).error), /至少選一樣商品/);
   assert.match(JSON.stringify(call('adminShopSaveProduct', { product: { name: '', price: 'abc' } }).error), /商品名稱.*價格|價格.*商品名稱/s);
@@ -223,4 +223,17 @@ test('賣貨便團購：貼賣場連結就好，不用選商品、取貨場次�
   // 截止後大家看不到
   env.clock.now = Date.UTC(2026, 9, 20, 15, 0, 0); // 台北 10/20 23:00
   assert.equal(ok(env.get({ action: 'getShop' })).groups.some((x) => x.id === id), false);
+});
+
+test('沒有取貨場次的團購：直接下單，備貨清單算全部，我的團購查得到', () => {
+  const { env, call, ok, tofu } = setup();
+  const id = ok(call('adminShopSaveGroup', { group: { name: '寄送團購', deadline: '2026-10-15 22:00', pickups: [], items: [{ id: tofu.id }] } })).id;
+  const r = env.post({ action: 'shopOrder', groupId: id, name: '測試甲', source: '官網', pay: '轉帳', items: [{ id: tofu.id, qty: 2 }] });
+  assert.equal(r.ok, true, JSON.stringify(r.error));
+  const d = ok(call('adminShopGroup', { id }));
+  assert.equal(d.prep.length, 1);
+  assert.equal(d.prep[0].pickup, null);
+  assert.deepEqual(d.prep[0].items.map((x) => [x.name, x.qty]), [['手工豆腐', 2]]);
+  const mine = ok(env.post({ action: 'shopMyOrders', name: '測試甲' })).orders;
+  assert.ok(mine.some((o) => o.groupId === id && o.pickupId === ''));
 });

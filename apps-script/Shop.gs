@@ -25,11 +25,30 @@ function shopInt_(v) {
   return /^\d{1,6}$/.test(s) ? Number(s) : null;
 }
 
+var SHOP_MAX_PHOTOS = 6; // 一個商品最多幾張照片（照片＋更多照片）
+var SHOP_MAX_OPTIONS = 12; // 一組規格最多幾個選項
+
+/** 商品的規格：{ label, options: [{ name, price（null＝商品價格） }] }，沒有就 null */
+function shopOptions_(p) {
+  var v = shopJson_(p['規格'], null);
+  if (!v || !Array.isArray(v.options) || !v.options.length) return null;
+  return {
+    label: String(v.label || '規格'),
+    options: v.options.map(function (o) { return { name: String(o.name), price: o.price === '' || o.price === null || o.price === undefined ? null : Number(o.price) }; })
+  };
+}
+
+/** 商品的所有照片（第一張＝照片） */
+function shopPhotos_(p) {
+  return [p['照片']].concat(shopJson_(p['更多照片'], [])).filter(Boolean).slice(0, SHOP_MAX_PHOTOS);
+}
+
 function shopProductOut_(p) {
   return {
     id: p['商品ID'], name: p['名稱'], price: Number(p['價格']) || 0, unit: p['單位'] || '', description: p['說明'] || '',
     photo: p['照片'] || '', active: p['啟用'] !== '否', order: Number(p['排序']) || 0,
-    cost: p['成本'] === '' || p['成本'] === undefined || p['成本'] === null ? null : Number(p['成本']) // 成本（只給後台）
+    cost: p['成本'] === '' || p['成本'] === undefined || p['成本'] === null ? null : Number(p['成本']), // 成本（只給後台）
+    photos: shopPhotos_(p), options: shopOptions_(p)
   };
 }
 
@@ -68,7 +87,7 @@ function shopGroupView_(g, products, orders, opts) {
     var s = sold[it.id] || 0;
     return {
       id: it.id, name: p['名稱'], price: it.price === '' || it.price === undefined || it.price === null ? Number(p['價格']) || 0 : Number(it.price),
-      unit: p['單位'] || '', description: p['說明'] || '', photo: p['照片'] || '',
+      unit: p['單位'] || '', description: p['說明'] || '', photo: p['照片'] || '', photos: shopPhotos_(p), options: shopOptions_(p),
       limit: limit, perPerson: it.perPerson === '' || it.perPerson === null || it.perPerson === undefined ? null : Number(it.perPerson),
       sold: s, left: limit === null ? null : Math.max(limit - s, 0)
     };
@@ -104,7 +123,7 @@ function getShop_() {
 /**
  * 檢查一張訂單（純函式，方便測試）。
  * ctx = { group: shopGroupView_ 的結果, sold: 其他有效訂單已訂的份數 { 商品ID: 份數 }, now: 'yyyy-MM-dd HH:mm', admin: boolean }
- * input = { pickupId, items: [{ id, qty }], pay, last5 }
+ * input = { pickupId, items: [{ id, option?, qty }], pay, last5 }（有規格的商品要選 option；同商品不同規格可以分開，限量、每人上限照商品加總）
  * 回傳 [{ message }]（空陣列＝可以）
  */
 function shopValidate_(ctx, input) {
@@ -118,15 +137,26 @@ function shopValidate_(ctx, input) {
   var items = Array.isArray(input.items) ? input.items : [];
   var total = 0;
   var seen = {};
+  var perItem = {}; // 商品ID → 這張訂單的份數（各規格加總）
   items.forEach(function (it) {
     var qty = shopInt_(it && it.qty);
     var gi = g.items.filter(function (x) { return x.id === (it && it.id); })[0];
     if (!gi) { errors.push({ message: '有一樣商品這次沒有賣，請重新整理' }); return; }
     if (qty === null || qty > SHOP_MAX_QTY) { errors.push({ message: '「' + gi.name + '」的數量不對' }); return; }
-    if (seen[gi.id]) { errors.push({ message: '「' + gi.name + '」重複了' }); return; }
-    seen[gi.id] = true;
+    var option = String((it && it.option) || '');
+    if (gi.options) {
+      if (!gi.options.options.some(function (o) { return o.name === option; })) { if (qty) errors.push({ message: '「' + gi.name + '」請選' + gi.options.label }); return; }
+    } else option = '';
+    var key = gi.id + '|' + option;
+    if (seen[key]) { errors.push({ message: '「' + gi.name + (option ? '（' + option + '）' : '') + '」重複了' }); return; }
+    seen[key] = true;
     if (!qty) return;
     total += qty;
+    perItem[gi.id] = (perItem[gi.id] || 0) + qty;
+  });
+  g.items.forEach(function (gi) {
+    var qty = perItem[gi.id];
+    if (!qty) return;
     if (gi.perPerson !== null && qty > gi.perPerson) errors.push({ message: '「' + gi.name + '」每人最多 ' + gi.perPerson + ' ' + (gi.unit || '份') });
     if (gi.limit !== null) {
       var left = Math.max(gi.limit - ((ctx.sold && ctx.sold[gi.id]) || 0), 0);
@@ -164,7 +194,9 @@ function shopName_(name, temple) {
 }
 
 /**
- * body = { groupId, name, temple?, pickupId, items: [{ id, qty }], pay, last5?, source?, referrer?, sourceNote? }
+ * body = { groupId, name, temple?, pickupId, items: [{ id, option?, qty }], pay, last5?, source?, referrer?, sourceNote?, mode? }
+ * mode＝'add'（購物車結帳）：這個人在這次團購已經有訂單，就把這次的東西加進去（同商品同規格數量相加）；沒有就新增。
+ * 沒有 mode＝整張換成這次的內容（改單）。
  * 管理者（opts.admin）另外可帶 orderId（改指定那張）、note；不受截止時間限制。
  */
 function shopOrder_(body, opts) {
@@ -187,7 +219,19 @@ function shopOrder_(body, opts) {
     if (existing && existing['狀態'] === '已取消') existing = null;
     if (existing && existing['已取貨'] === '是' && !admin) throw new ApiError_('FORBIDDEN', '這張訂單已經取貨了，要改請找小編');
     var view = shopGroupView_(g, products, orders);
-    var input = { pickupId: body.pickupId, items: body.items, pay: body.pay, last5: body.last5 ? String(body.last5).trim() : '' };
+    var items = Array.isArray(body.items) ? body.items : [];
+    if (body.mode === 'add' && existing) {
+      // 加進原本那張：原本的品項＋這次的（同商品同規格相加）
+      var merged = {};
+      var order = [];
+      shopJson_(existing['品項'], []).concat(items).forEach(function (it) {
+        var key = it.id + '|' + (it.option || '');
+        if (!merged[key]) { merged[key] = { id: it.id, option: it.option || '', qty: 0 }; order.push(key); }
+        merged[key].qty += Number(shopInt_(it.qty)) || 0;
+      });
+      items = order.map(function (k) { return merged[k]; });
+    }
+    var input = { pickupId: body.pickupId || (existing && body.mode === 'add' && !body.pickupId ? existing['取貨活動ID'] : ''), items: items, pay: body.pay, last5: body.last5 ? String(body.last5).trim() : '' };
     var errors = shopValidate_({ group: view, sold: shopSold_(orders, g['團購ID'], existing ? existing['訂單ID'] : ''), now: shopNowMinute_(), admin: admin }, input);
     if (errors.length) throw new ApiError_('VALIDATION', '訂單沒有送出，請看下面的說明', errors);
 
@@ -197,8 +241,11 @@ function shopOrder_(body, opts) {
       var qty = shopInt_(it.qty);
       if (!qty) return;
       var gi = view.items.filter(function (x) { return x.id === it.id; })[0];
-      lines.push({ id: gi.id, name: gi.name, qty: qty, price: gi.price, unit: gi.unit });
-      total += qty * gi.price;
+      var opt = gi.options ? gi.options.options.filter(function (o) { return o.name === String(it.option || ''); })[0] : null;
+      var price = opt && opt.price !== null ? opt.price : gi.price;
+      // name＝顯示用（商品（規格））；base、option 分開記，後台備貨分規格算
+      lines.push({ id: gi.id, name: gi.name + (opt ? '（' + opt.name + '）' : ''), base: gi.name, option: opt ? opt.name : '', qty: qty, price: price, unit: gi.unit, photo: gi.photo });
+      total += qty * price;
     });
     var pickup = view.pickups.filter(function (p) { return p.id === input.pickupId; })[0];
     var now = nowString_();
@@ -223,18 +270,24 @@ function shopOrder_(body, opts) {
     addPendingMembers_([{ '姓名': who.name, '佛堂': who.temple, '日期': pickup ? pickup.date : todayString_(), '身分': '' }], '團購：' + g['名稱'], sources);
     SpreadsheetApp.flush();
     invalidateTable_(SHEETS.SHOP_ORDERS);
-    return { order: shopOrderOut_(row, g, true), updated: !!existing };
+    return { order: shopOrderOut_(row, g, true), updated: !!existing, merged: !!existing && body.mode === 'add' };
   });
 }
 
-/** body = { name }：這個人還沒取貨的訂單（今天以後取貨的），附團購名稱、截止、取貨場次、付款說明 */
+/**
+ * body = { name, all? }：這個人還沒取貨的訂單（今天以後取貨的），附團購名稱、截止、取貨場次、付款說明。
+ * all＝true（我的訂單頁）：最近 90 天下的單都列（含已取貨），不含已取消。
+ */
 function shopMyOrders_(body) {
   var who = shopName_(body.name);
   if (who.name.length < 2) throw new ApiError_('BAD_REQUEST', '請輸入完整的名字');
   var today = todayString_();
   var groups = readTableCached_(SHEETS.SHOP_GROUPS);
+  var since = addDaysStr_(today, -90);
   var orders = readTable_(SHEETS.SHOP_ORDERS).filter(function (o) {
-    if (normalizeName_(o['姓名']) !== who.name || o['狀態'] === '已取消' || o['已取貨'] === '是') return false;
+    if (normalizeName_(o['姓名']) !== who.name || o['狀態'] === '已取消') return false;
+    if (body.all) return String(o['建立時間'] || '').slice(0, 10) >= since;
+    if (o['已取貨'] === '是') return false;
     if (o['取貨日期']) return o['取貨日期'] >= today;
     var g = findById_(groups, '團購ID', o['團購ID']); // 沒有取貨場次：團購還沒結束就列出來
     return !!g && g['狀態'] !== '結束';
@@ -242,7 +295,7 @@ function shopMyOrders_(body) {
   return {
     name: who.name,
     orders: orders.map(function (o) { return shopOrderOut_(o, findById_(groups, '團購ID', o['團購ID']), true); })
-      .sort(function (a, b) { return a.pickupDate < b.pickupDate ? -1 : 1; })
+      .sort(body.all ? function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; } : function (a, b) { return a.pickupDate < b.pickupDate ? -1 : 1; })
   };
 }
 
@@ -322,11 +375,19 @@ function adminShopGroup_(body) {
   // 沒有取貨場次的團購：全部訂單算一份（pickup＝null）
   var prep = (view.pickups.length ? view.pickups : [null]).map(function (p) {
     var list = active.filter(function (o) { return !p || o['取貨活動ID'] === p.id; });
+    // 分規格算：key＝商品ID|規格
     var count = {};
-    list.forEach(function (o) { shopJson_(o['品項'], []).forEach(function (it) { count[it.id] = (count[it.id] || 0) + (Number(it.qty) || 0); }); });
+    list.forEach(function (o) { shopJson_(o['品項'], []).forEach(function (it) { var k = it.id + '|' + (it.option || ''); count[k] = (count[k] || 0) + (Number(it.qty) || 0); }); });
+    var rows = [];
+    view.items.forEach(function (it) {
+      Object.keys(count).filter(function (k) { return k.split('|')[0] === it.id; }).sort().forEach(function (k) {
+        var opt = k.slice(it.id.length + 1);
+        rows.push({ id: it.id, option: opt, name: it.name + (opt ? '（' + opt + '）' : ''), unit: it.unit, qty: count[k] });
+      });
+    });
     return {
       pickup: p, orders: list.length, total: list.reduce(function (n, o) { return n + (Number(o['金額']) || 0); }, 0),
-      items: view.items.filter(function (it) { return count[it.id]; }).map(function (it) { return { id: it.id, name: it.name, unit: it.unit, qty: count[it.id] }; })
+      items: rows
     };
   });
   var sum = function (list) { return list.reduce(function (n, o) { return n + (Number(o['金額']) || 0); }, 0); };
@@ -367,12 +428,36 @@ function adminShopSaveProduct_(body) {
   if (cleanText_(p.unit).length > 6) errors.push('單位太長（例：包、罐、份）');
   if (cleanText_(p.description).length > 300) errors.push('說明太長（最多 300 字）');
   if (p.photo && !/^F-[\w-]+$/.test(String(p.photo))) errors.push('照片代號不對，請重新上傳');
+  var more = (Array.isArray(p.photos) ? p.photos : []).map(String).filter(Boolean);
+  if (more.some(function (x) { return !/^F-[\w-]+$/.test(x); })) errors.push('照片代號不對，請重新上傳');
+  if (more.length > SHOP_MAX_PHOTOS - 1) errors.push('照片最多 ' + SHOP_MAX_PHOTOS + ' 張');
+  // 規格：{ label, options: [{ name, price }] }；選項名稱不能重複，價格空白＝商品價格
+  var opts = '';
+  if (p.options && Array.isArray(p.options.options) && p.options.options.some(function (o) { return o && cleanText_(o.name); })) {
+    var label = cleanText_(p.options.label) || '規格';
+    var names = {};
+    var list = [];
+    p.options.options.forEach(function (o) {
+      var n = cleanText_(o && o.name);
+      if (!n) return;
+      if (n.length > 20) errors.push('規格「' + n + '」太長（最多 20 字）');
+      if (names[n]) errors.push('規格「' + n + '」重複了');
+      names[n] = true;
+      var pr = o.price === '' || o.price === undefined || o.price === null ? '' : shopInt_(o.price);
+      if (pr === null) errors.push('規格「' + n + '」的價格請填整數，或空白（照商品價格）');
+      list.push({ name: n, price: pr === null ? '' : pr });
+    });
+    if (label.length > 10) errors.push('規格名稱太長（例：口味、大小）');
+    if (list.length > SHOP_MAX_OPTIONS) errors.push('規格最多 ' + SHOP_MAX_OPTIONS + ' 個選項');
+    opts = JSON.stringify({ label: label, options: list });
+  }
   if (errors.length) throw new ApiError_('VALIDATION', '商品沒有存檔', errors.map(function (m) { return { message: m }; }));
   return withSignupLock_(function () {
     var rows = readTable_(SHEETS.SHOP_PRODUCTS);
     var now = nowString_();
     var values = { '名稱': name, '價格': String(price), '單位': cleanText_(p.unit), '說明': cleanText_(p.description), '照片': p.photo || '',
-      '啟用': p.active === false ? '否' : '是', '排序': String(shopInt_(p.order) || 0), '成本': cost === '' ? '' : String(cost), '更新時間': now };
+      '啟用': p.active === false ? '否' : '是', '排序': String(shopInt_(p.order) || 0), '成本': cost === '' ? '' : String(cost),
+      '更多照片': more.length ? JSON.stringify(more) : '', '規格': opts, '更新時間': now };
     var row;
     if (p.id) {
       row = findById_(rows, '商品ID', p.id);

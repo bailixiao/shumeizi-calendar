@@ -253,3 +253,41 @@ test('成本：只有後台看得到；團購頁算總成本、毛利，沒填�
   assert.equal(s.profit, 240 - 70);
   assert.deepEqual(s.costMissing, ['果醬']);
 });
+
+test('規格、多張照片：商品有口味，每個口味可以有自己的價格；限量、每人上限照商品加總；備貨分口味算', () => {
+  const { env, call, ok, ids } = setup();
+  const bad = call('adminShopSaveProduct', { product: { name: '冰淇淋', price: 25, options: { label: '口味', options: [{ name: '荔枝' }, { name: '荔枝' }] } } });
+  assert.match(JSON.stringify(bad.error), /重複/);
+  const ice = ok(call('adminShopSaveProduct', { product: { name: '冰淇淋', price: 25, unit: '杯', photo: 'F-a1', photos: ['F-a2', 'F-a3'],
+    options: { label: '口味', options: [{ name: '荔枝', price: '' }, { name: '芒果', price: '30' }] } } })).product;
+  assert.deepEqual(ice.photos, ['F-a1', 'F-a2', 'F-a3']);
+  assert.deepEqual(ice.options, { label: '口味', options: [{ name: '荔枝', price: null }, { name: '芒果', price: 30 }] });
+  const gid = ok(call('adminShopSaveGroup', { group: { name: '冰品團', deadline: '2026-10-15 22:00', pickups: [ids[0]], items: [{ id: ice.id, limit: '5', perPerson: '3' }] } })).id;
+  const g = ok(env.get({ action: 'getShop' })).groups.find((x) => x.id === gid);
+  assert.equal(g.items[0].photos.length, 3);
+  assert.equal(g.items[0].options.label, '口味');
+  const post = (body) => env.post(Object.assign({ action: 'shopOrder', groupId: gid, pickupId: ids[0], pay: '現場', source: '官網' }, body));
+  assert.match(JSON.stringify(post({ name: '測試甲', items: [{ id: ice.id, qty: 1 }] }).error), /請選口味/);
+  assert.match(JSON.stringify(post({ name: '測試甲', items: [{ id: ice.id, option: '荔枝', qty: 2 }, { id: ice.id, option: '芒果', qty: 2 }] }).error), /每人最多 3/);
+  const r = ok(post({ name: '測試甲', items: [{ id: ice.id, option: '荔枝', qty: 1 }, { id: ice.id, option: '芒果', qty: 2 }] }));
+  assert.equal(r.order.total, 25 + 60);
+  assert.deepEqual(r.order.items.map((x) => [x.name, x.qty, x.price]), [['冰淇淋（荔枝）', 1, 25], ['冰淇淋（芒果）', 2, 30]]);
+  const prep = ok(call('adminShopGroup', { id: gid })).prep[0].items;
+  assert.deepEqual(prep.map((x) => [x.name, x.qty]), [['冰淇淋（芒果）', 2], ['冰淇淋（荔枝）', 1]]);
+  // 限量 5：已經賣 3，剩 2
+  assert.match(JSON.stringify(post({ name: '測試乙', items: [{ id: ice.id, option: '芒果', qty: 3 }] }).error), /只剩 2/);
+});
+
+test('購物車結帳（mode＝add）：已經有訂單就加進原本那張；我的訂單（all）列出全部', () => {
+  const { env, call, ok, tofu, jam, gid, order } = setup();
+  ok(order({ name: '測試甲', source: '官網', items: [{ id: tofu.id, qty: 1 }] }));
+  const r = ok(order({ name: '測試甲', mode: 'add', items: [{ id: tofu.id, qty: 2 }, { id: jam.id, qty: 1 }] }));
+  assert.equal(r.merged, true);
+  assert.deepEqual(r.order.items.map((x) => [x.name, x.qty]), [['手工豆腐', 3], ['果醬', 1]]);
+  const mine = ok(env.post({ action: 'shopMyOrders', name: '測試甲', all: true })).orders;
+  assert.equal(mine.length, 1);
+  // 已取貨的也在 all 裡面，不在預設裡
+  ok(call('adminShopOrderSet', { orderId: mine[0].id, picked: true }));
+  assert.equal(ok(env.post({ action: 'shopMyOrders', name: '測試甲', all: true })).orders.length, 1);
+  assert.equal(ok(env.post({ action: 'shopMyOrders', name: '測試甲' })).orders.length, 0);
+});

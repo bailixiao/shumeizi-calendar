@@ -91,6 +91,21 @@ test('import 要管理密碼（第一次除外）；syncExport 回傳所有分�
   assert.equal(u.data.updatedAt, '2026-10-01 09:00:00');
 });
 
+test('同步密鑰：用管理密碼設定一次；之後後台改了管理密碼，同步照樣用密鑰通過', async () => {
+  const { call, store } = await setup();
+  const key = 'k'.repeat(40);
+  assert.equal((await call('POST', { action: 'setSyncKey', password: 'wrong', key })).error.code, 'UNAUTHORIZED');
+  assert.equal((await call('POST', { action: 'setSyncKey', password: 'test-pass', key: 'short' })).error.code, 'BAD_REQUEST');
+  assert.equal((await call('POST', { action: 'setSyncKey', password: 'test-pass', key })).ok, true);
+  const tok = (await call('POST', { action: 'adminLogin', password: 'test-pass' })).data.token;
+  assert.equal((await call('POST', { action: 'adminChangePassword', token: tok, oldPassword: 'test-pass', newPassword: 'brand-new-99' })).ok, true);
+  assert.equal(store.getProp('ADMIN_PASSWORD'), 'brand-new-99');
+  assert.equal((await call('POST', { action: 'syncExport', password: key })).ok, true);
+  assert.equal((await call('POST', { action: 'syncExport', password: 'test-pass' })).error.code, 'UNAUTHORIZED');
+  assert.equal((await call('POST', { action: 'import', password: key, sheets: {} })).ok, true);
+  assert.equal((await call('POST', { action: 'adminLogin', password: 'brand-new-99' })).ok, true);
+});
+
 test('DM 檔案：登入才能上傳（唯讀不行），之後用網址讀得到；存進勤務的 dm 欄位', async () => {
   const { call, app, store } = await setup();
   const tok = (await call('POST', { action: 'adminLogin', password: 'test-pass' })).data.token;

@@ -171,3 +171,23 @@ test('各佛堂道務目標：道務能看能改、唯讀只能看、勤務教�
   assert.equal(env.post({ action: 'adminGoals', token: superTok, year: 2026 }).data.rows.length, 1);
   assert.deepEqual(env.post({ action: 'adminGoals', token: superTok, year: 2027 }).data.rows, []);
 });
+
+test('總管理者在後台改密碼：舊的要對、新的至少 8 個字；改好後所有總管理者登入失效、要用新密碼；其他帳號不受影響', () => {
+  const { env, login, superTok, save } = setup();
+  save({ account: '道務組', role: '道務', password: 'abc12345' });
+  const dao = login('道務組', 'abc12345').data.token;
+  const change = (tok, oldPassword, newPassword) => env.post({ action: 'adminChangePassword', token: tok, oldPassword, newPassword });
+  assert.equal(change(dao, 'test-pass', 'new-pass-123').error.code, 'FORBIDDEN'); // 只有總管理者
+  assert.equal(change(superTok, 'wrong', 'new-pass-123').error.code, 'VALIDATION');
+  assert.equal(change(superTok, 'test-pass', 'short').error.code, 'VALIDATION');
+  assert.equal(change(superTok, 'test-pass', 'test-pass').error.code, 'VALIDATION');
+  const r = change(superTok, 'test-pass', 'new-pass-123');
+  assert.equal(r.ok, true, JSON.stringify(r.error));
+  assert.equal(env.post({ action: 'adminPing', token: superTok }).error.code, 'UNAUTHORIZED'); // 這台要重新登入
+  assert.equal(env.post({ action: 'adminPing', token: dao }).ok, true); // 其他帳號照常
+  assert.equal(login('', 'test-pass').error.code, 'UNAUTHORIZED');
+  assert.equal(login('', 'new-pass-123').data.role, '總管理者');
+  const logs = env.sheets['操作紀錄'].data;
+  assert.ok(logs.some((row) => row.join('|').includes('改總管理者密碼')));
+  assert.ok(!logs.some((row) => row.join('|').includes('new-pass-123'))); // 紀錄裡沒有密碼
+});

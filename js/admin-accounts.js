@@ -21,8 +21,8 @@
   function render(body, guard, data, flash) {
     body.innerHTML = `
       ${flash || ''}
-      <div class="admin-toolbar"><button type="button" class="btn btn-primary" data-new>＋ 新增帳號</button></div>
-      <p class="hint">總管理者就是你現在用的帳號（帳號欄留空或填「總管理者」＋原本的管理密碼），不會列在下面。</p>
+      <div class="admin-toolbar"><button type="button" class="btn btn-primary" data-new>＋ 新增帳號</button><button type="button" class="btn" data-change-pw>🔑 改總管理者密碼</button></div>
+      <p class="hint">總管理者就是你現在用的帳號（帳號選「總管理者」＋管理密碼），不會列在下面；要換密碼按「🔑 改總管理者密碼」。</p>
       ${data.accounts.length ? `<ul class="account-list">${data.accounts.map((a, i) => `
         <li class="account-item${a.active ? '' : ' is-off'}">
           <button type="button" class="account-main" data-edit="${i}">
@@ -32,7 +32,55 @@
           </button>
         </li>`).join('')}</ul>` : '<p class="panel-empty">還沒有其他帳號，按上面的「＋ 新增帳號」建立。</p>'}`;
     body.querySelector('[data-new]').addEventListener('click', () => edit(null));
+    body.querySelector('[data-change-pw]').addEventListener('click', changePassword);
     body.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => edit(data.accounts[Number(b.dataset.edit)])));
+
+    // 總管理者改自己的密碼：改好後所有總管理者登入都要重新登入
+    function changePassword() {
+      const m = Modal.open(`
+        <h2 class="modal-title">🔑 改總管理者密碼</h2>
+        <form class="admin-form" novalidate>
+          <label class="form-row"><span>原本的密碼</span><input class="input" name="old" type="password" autocomplete="current-password"></label>
+          <label class="form-row"><span>新密碼（至少 8 個字）</span><input class="input" name="next" type="password" autocomplete="new-password"></label>
+          <label class="form-row"><span>新密碼再輸入一次</span><input class="input" name="again" type="password" autocomplete="new-password"></label>
+          <label class="de-check"><input type="checkbox" data-show> 顯示密碼</label>
+          <p class="hint">改好後這台和其他裝置的總管理者都會登出，請用新密碼重新登入。其他帳號（${esc(Fmt.catLabel('勤務'))}、唯讀⋯）不受影響。新密碼請記在安全的地方。</p>
+          <div class="form-error" data-error hidden></div>
+          <div class="modal-actions">
+            <button type="submit" class="btn btn-block btn-primary">改密碼</button>
+            <button type="button" class="btn btn-block" data-close>返回</button>
+          </div>
+        </form>`);
+      const f = m.el.querySelector('form');
+      const err = m.el.querySelector('[data-error]');
+      m.el.querySelector('[data-close]').addEventListener('click', () => m.close());
+      m.el.querySelector('[data-show]').addEventListener('change', (ev) => {
+        ['old', 'next', 'again'].forEach((n) => { f.elements[n].type = ev.target.checked ? 'text' : 'password'; });
+      });
+      f.elements.old.focus();
+      f.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const fail = (msg) => { err.textContent = msg; err.hidden = false; };
+        const oldPassword = f.elements.old.value;
+        const newPassword = f.elements.next.value;
+        if (!oldPassword) return fail('請輸入原本的密碼');
+        if (newPassword.length < 8) return fail('新密碼至少 8 個字');
+        if (newPassword !== f.elements.again.value) return fail('兩次輸入的新密碼不一樣');
+        if (newPassword === oldPassword) return fail('新密碼和原本的一樣');
+        Busy.show('改密碼中⋯');
+        try {
+          await Api.admin('adminChangePassword', { oldPassword, newPassword });
+          Busy.hide();
+          m.close();
+          Api.adminLogout();
+          guard({ code: 'UNAUTHORIZED', message: '密碼改好了，請用新密碼重新登入' });
+        } catch (e) {
+          Busy.hide();
+          if (e.code === 'UNAUTHORIZED') { m.close(); guard(e); return; }
+          fail(e.message || '改密碼失敗');
+        }
+      });
+    }
 
     function edit(a) {
       const isNew = !a;

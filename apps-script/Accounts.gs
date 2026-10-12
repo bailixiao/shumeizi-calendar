@@ -13,6 +13,7 @@ var CATEGORIES = ['勤務', '道務', '教育', '植素']; // 一般活動類別
 var FREE_CATEGORIES = ['道務', '教育', '植素'];
 var SUPER_ACCOUNT = '總管理者';
 var PASSWORD_MIN = 6;
+var SUPER_PASSWORD_MIN = 8; // 總管理者密碼至少幾個字
 
 /** 目前這次請求的登入者（{ account, role }）；操作紀錄記下是誰做的 */
 var ADMIN_SESSION_ = null;
@@ -210,6 +211,31 @@ function accountToJson_(r) {
 
 function adminAccounts_() {
   return { accounts: sortedAccountRows_().map(accountToJson_), roles: ROLES.slice(1) };
+}
+
+/**
+ * 總管理者在後台改自己的密碼（只有總管理者能用）：body = { oldPassword, newPassword }
+ * 改好後所有總管理者登入（含自己這台）都要用新密碼重新登入。
+ * 和 Google 試算表的同步用另一組同步密鑰（SYNC_KEY，見 Sync.gs），改密碼不會影響同步。
+ */
+function adminChangePassword_(body) {
+  var props = PropertiesService.getScriptProperties();
+  var cache = CacheService.getScriptCache();
+  var fails = Number(cache.get('admin-fails') || 0);
+  if (fails >= ADMIN_MAX_FAILS) throw new ApiError_('LOCKED', '密碼錯誤太多次，請 10 分鐘後再試');
+  var old = props.getProperty('ADMIN_PASSWORD');
+  if (!old || String(body.oldPassword || '') !== old) {
+    cache.put('admin-fails', String(fails + 1), ADMIN_LOCK_SEC);
+    throw new ApiError_('VALIDATION', '原本的密碼不正確');
+  }
+  var next = String(body.newPassword || '');
+  if (next.length < SUPER_PASSWORD_MIN) throw new ApiError_('VALIDATION', '新密碼至少 ' + SUPER_PASSWORD_MIN + ' 個字');
+  if (/^\s|\s$/.test(next)) throw new ApiError_('VALIDATION', '新密碼前後不能有空白');
+  if (next === old) throw new ApiError_('VALIDATION', '新密碼和原本的一樣');
+  props.setProperty('ADMIN_PASSWORD', next);
+  props.setProperty(currentTokenKey_(SUPER_ACCOUNT), 'revoked-' + Utilities.getUuid());
+  writeDutyLog_('帳號', '改總管理者密碼' + adminTag_());
+  return { changed: true };
 }
 
 /** body.account = { account, name, role, active, password（新帳號必填；舊帳號留空表示不改）, original（修改時原本的帳號） } */

@@ -305,6 +305,7 @@ function adminRun_(body) {
     case 'adminMe': return { account: ADMIN_SESSION_.account, role: ADMIN_SESSION_.role };
     case 'adminAccounts': return adminAccounts_(body);
     case 'adminSaveAccount': return adminSaveAccount_(body);
+    case 'adminChangePassword': return adminChangePassword_(body);
     case 'adminLogout': return adminLogout_(body);
     case 'adminPing': return {};
     case 'adminDraftFromImages': return adminDraftFromImages_(body);

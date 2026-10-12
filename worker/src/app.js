@@ -45,10 +45,25 @@ export function createApp(store, opts) {
     }
   }
 
+  /** Google 試算表同步用同步密鑰（SYNC_KEY）；還沒設定時用管理密碼。這樣在後台改管理密碼不會讓同步斷掉 */
+  function checkSync(password, allowEmpty) {
+    const key = store.getProp('SYNC_KEY');
+    if (key && String(password || '') === key) return;
+    checkPassword(password, allowEmpty);
+  }
+
   const special = {
+    /** Google 端第一次同步時設定同步密鑰（用管理密碼或舊的同步密鑰驗證） */
+    setSyncKey(body) {
+      checkSync(body.password, true);
+      const key = String(body.key || '');
+      if (!/^[A-Za-z0-9-]{32,128}$/.test(key)) throw new gs.ApiError_('BAD_REQUEST', '同步密鑰格式不對');
+      store.setProp('SYNC_KEY', key);
+      return { set: true };
+    },
     /** 第一次搬家（或切換正式前再搬一次最新的）：用 Google 端的資料整個取代 */
     import(body) {
-      checkPassword(body.password, true);
+      checkSync(body.password, true);
       const sheets = body.sheets || {};
       Object.keys(sheets).forEach((name) => {
         if (!Array.isArray(sheets[name])) return;
@@ -62,7 +77,7 @@ export function createApp(store, opts) {
     },
     /** Google 端每 10 分鐘來拿資料寫回試算表（統計分頁由 Google 端自己算） */
     syncExport(body) {
-      checkPassword(body.password, false);
+      checkSync(body.password, false);
       if (body.statsUpdatedAt) store.setProp('STATS_UPDATED_AT', String(body.statsUpdatedAt));
       store.setProp('LAST_SYNC_AT', gs.nowString_()); // 同步停太久會通知總管理者（PushMore.gs checkSyncHealth_）
       const sheets = {};

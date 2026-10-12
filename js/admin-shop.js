@@ -27,6 +27,7 @@
     const stall = String(sub || '').match(/^shop\/stall(?:\/([^?]+))?/);
     if (stall) return AdminStock.stall(body, guard, stall[1] ? decodeURIComponent(stall[1]) : '');
     if (/^shop\/import/.test(sub)) return AdminStock.importPage(body, guard);
+    if (/^shop\/ledger/.test(sub)) return AdminStock.ledger(body, guard);
     const m = String(sub || '').match(/^shop\/(new|edit\/([^?]+)|g\/([^?]+))(?:\?from=(.+))?/);
     if (m && m[1] === 'new') return showForm(body, guard, '', m[4] ? decodeURIComponent(m[4]) : '');
     if (m && m[2]) return showForm(body, guard, decodeURIComponent(m[2]), '');
@@ -70,7 +71,7 @@
           <p class="muted">${esc(r.date)}・${esc(r.method)}・金額 ${money(r.amount)}${r.type === '出' && r.method === '售出' ? (r.price !== null ? '（售價 ' + money(r.price) + '）' : '') : (r.cost !== null ? '（成本 ' + money(r.cost) + '）' : '')}${r.by ? '・' + esc(r.by) : ''}</p>
           ${r.note ? `<p class="stock-rec-note">${esc(r.note)}</p>` : ''}
         </div>
-        ${edit && !r.orderId ? `<button type="button" class="link-btn" data-rec-del="${esc(r.id)}">刪除</button>` : ''}
+        ${edit && !r.orderId ? `<button type="button" class="btn btn-small btn-quiet-danger" data-rec-del="${esc(r.id)}">刪除</button>` : ''}
       </li>`).join('')}</ul>` : '<p class="panel-empty">還沒有進出紀錄。</p>';
     body.innerHTML = `
       ${AdminPage.staleNote(stale)}
@@ -87,7 +88,12 @@
         ${recHtml}
         <p class="hint">訂單打勾「已取貨」會自動記一筆「售出」，取消打勾會還回去；手動的記錯可以刪除。</p>` : `
         ${stockHtml}
-        <div class="stock-tools"><a class="btn" href="#/admin/shop/report">📊 進銷存報表</a><a class="btn" href="#/admin/shop/stall">🧾 出攤銷售統計</a>${edit ? '<a class="btn" href="#/admin/shop/import">📥 匯入 Excel</a>' : ''}</div>
+        <div class="stock-tools">
+          <a class="btn stock-tool" href="#/admin/shop/report"><span class="stock-tool-icon" aria-hidden="true">📊</span><span>進銷存報表</span></a>
+          <a class="btn stock-tool" href="#/admin/shop/stall"><span class="stock-tool-icon" aria-hidden="true">🧾</span><span>出攤銷售統計</span></a>
+          <a class="btn stock-tool" href="#/admin/shop/ledger"><span class="stock-tool-icon" aria-hidden="true">💰</span><span>記帳</span></a>
+          ${edit ? '<a class="btn stock-tool" href="#/admin/shop/import"><span class="stock-tool-icon" aria-hidden="true">📥</span><span>匯入 Excel</span></a>' : ''}
+        </div>
         <p class="hint">目前庫存＝進貨－出貨。點商品可以修改（名稱、照片、規格、編號、分類）；停用的商品不能再加進新的團購。</p>`}`;
     flash = '';
     bindZoom(body);
@@ -120,14 +126,14 @@
     const rows = [blank()];
     const draw = (err) => {
       body.innerHTML = `
-        <p><a href="#/admin/shop">‹ 團購</a></p>
+        <a class="btn back-btn" href="#/admin/shop">‹ 回團購</a>
         <h2>${isIn ? '➕ 商品增加（進貨）' : '➖ 商品減少（出貨）'}</h2>
         <p class="hint">${isIn ? '一次可以填好幾樣。填的成本價、售價會變成商品現在的價格。' : '一次可以填好幾樣。大家在團購下單、取貨打勾的，會自動記「售出」，不用再填。'}</p>
         <form class="admin-form stock-form" novalidate>
           <label class="form-row stock-date"><span>日期（補登以前的可以改）</span><input class="input" type="date" name="date" max="${esc(st.today)}" value="${esc(date)}"></label>
           ${rows.map((r, i) => { const p = products.find((x) => x.id === r.id); return `
           <fieldset class="form-block stock-line">
-            <legend>第 ${i + 1} 列${rows.length > 1 ? `<button type="button" class="link-btn stock-line-del" data-del="${i}">刪除這列</button>` : ''}</legend>
+            <legend>第 ${i + 1} 列${rows.length > 1 ? `<button type="button" class="btn btn-small btn-quiet-danger stock-line-del" data-del="${i}">刪除這列</button>` : ''}</legend>
             <div class="stock-line-top">
               <span class="stock-line-img">${p ? thumb(p.photo, p.name) : '<span class="shop-thumb shop-noimg" aria-hidden="true">🌿</span>'}</span>
               <label class="form-row stock-line-pick"><span>編號／商品</span><select class="input" data-k="id" data-i="${i}"><option value="">（選商品）</option>${products.map((x) => `<option value="${esc(x.id)}"${x.id === r.id ? ' selected' : ''}>${esc(x.code || '—')}　${esc(x.name)}（庫存 ${x.stock}）</option>`).join('')}</select></label>
@@ -376,7 +382,7 @@
     const duties = base.duties.slice().sort((a, b) => ((b.category === '植素') - (a.category === '植素')) || (a.date < b.date ? -1 : 1));
     (g && g.pickups || []).forEach((p) => { if (!duties.some((d) => d.id === p.id)) duties.push({ id: p.id, name: p.name, date: p.date, startTime: p.startTime, location: p.location, category: p.category }); });
     body.innerHTML = `
-      <p><a href="#/admin/shop">‹ 團購</a></p>
+      <a class="btn back-btn" href="#/admin/shop">‹ 回團購</a>
       <h2>${id ? '修改團購' : '開團'}</h2>
       <form class="admin-form shop-form" novalidate>
         <fieldset class="form-block"><legend>下單方式</legend>
@@ -526,7 +532,7 @@
     body.innerHTML = `
       ${AdminPage.staleNote(stale)}
       ${flash}
-      <p><a href="#/admin/shop">‹ 團購</a></p>
+      <a class="btn back-btn" href="#/admin/shop">‹ 回團購</a>
       <h2 class="shop-title">${esc(g.name)}<span class="badge ${g.status === '結束' ? 'badge-full' : g.closed ? 'badge-notice' : 'badge-ok'}">${g.status === '結束' ? '已結束' : g.closed ? '已截止' : '開放中'}</span></h2>
       <p class="muted">截止 ${esc(g.deadline)}${g.description ? '<br>' + esc(g.description) : ''}</p>
       ${edit ? `<div class="admin-actions">
@@ -574,7 +580,7 @@
             <div class="shop-order-actions">
               <label class="check"><input type="checkbox" data-picked="${esc(o.id)}"${o.picked ? ' checked' : ''}${edit ? '' : ' disabled'}> 已取貨</label>
               <label class="check"><input type="checkbox" data-paid="${esc(o.id)}"${o.paid ? ' checked' : ''}${edit ? '' : ' disabled'}> 已付款</label>
-              ${edit ? `<button type="button" class="link-btn" data-edit-order="${esc(o.id)}">改單</button><button type="button" class="link-btn" data-note="${esc(o.id)}">備註</button><button type="button" class="link-btn" data-cancel="${esc(o.id)}">取消</button>` : ''}
+              ${edit ? `<button type="button" class="btn btn-small" data-edit-order="${esc(o.id)}">改單</button><button type="button" class="btn btn-small" data-note="${esc(o.id)}">備註</button><button type="button" class="btn btn-small btn-quiet-danger" data-cancel="${esc(o.id)}">取消</button>` : ''}
             </div>`}
           </li>`).join('')}</ul>` : '<p class="panel-empty">這一場還沒有訂單</p>'}
         ${state.pickup || !g.pickups.length ? `<button type="button" class="btn btn-small" data-copy-pick>📋 複製${g.pickups.length ? '這場的取貨名單' : '訂單名單'}</button>` : ''}

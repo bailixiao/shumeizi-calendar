@@ -415,3 +415,26 @@ test('出攤銷售統計表：售前、預購（那場取貨的訂單）、現�
   assert.equal(ok(call('adminShopStock', {})).products.find((p) => p.id === tofu.id).stock, 6);
   assert.equal(env.post({ action: 'adminShopStall', dutyId: ids[0] }).ok, false);
 });
+
+test('記帳：收入、支出、類別小計；淨利＝毛利＋收入－支出；修改、刪除；唯讀不能記', () => {
+  const { env, call, ok, tofu, order } = setup();
+  // 毛利：進 10 個成本 30、賣 2 個（訂單取貨，售價 60）→ 毛利 60
+  ok(call('adminShopStockMove', { type: 'in', rows: [{ id: tofu.id, qty: 10, cost: 30, method: '買進' }] }));
+  const o = ok(order({ name: '測試甲', source: '官網', items: [{ id: tofu.id, qty: 2 }] })).order;
+  ok(call('adminShopOrderSet', { orderId: o.id, picked: true }));
+  assert.match(JSON.stringify(call('adminShopLedgerSave', { entry: { type: '支出', category: '', amount: 0 } }).error), /類別.*金額|金額.*類別/s);
+  ok(call('adminShopLedgerSave', { entry: { date: '2026-10-01', type: '支出', category: '攤位費', amount: 300, note: '宏宗出攤' } }));
+  const pack = ok(call('adminShopLedgerSave', { entry: { date: '2026-10-01', type: '支出', category: '包材', amount: 50 } })).entry;
+  ok(call('adminShopLedgerSave', { entry: { date: '2026-10-01', type: '收入', category: '佈施', amount: 500 } }));
+  let L = ok(call('adminShopLedger', { from: '2026-10-01', to: '2026-10-31' }));
+  assert.deepEqual([L.income, L.expense, L.profit], [500, 350, 60]);
+  assert.equal(L.net, 60 + 500 - 350);
+  assert.deepEqual(L.categories.map((c) => [c.type, c.category, c.amount]), [['收入', '佈施', 500], ['支出', '攤位費', 300], ['支出', '包材', 50]]);
+  ok(call('adminShopLedgerSave', { entry: Object.assign({}, pack, { amount: 80, category: '郵寄紙箱' }) }));
+  L = ok(call('adminShopLedger', { from: '2026-10-01', to: '2026-10-31' }));
+  assert.equal(L.expense, 380);
+  assert.ok(L.categoryOptions.支出.includes('郵寄紙箱'), '用過的類別會出現在選單');
+  ok(call('adminShopLedgerDelete', { id: pack.id }));
+  assert.equal(ok(call('adminShopLedger', { from: '2026-10-01', to: '2026-10-31' })).expense, 300);
+  assert.equal(env.post({ action: 'adminShopLedger' }).ok, false);
+});

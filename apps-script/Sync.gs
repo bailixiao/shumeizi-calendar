@@ -9,7 +9,7 @@
  */
 
 var WORKER_URL = 'https://shumeizi-api.duty-calendar-worker.workers.dev/';
-var SYNC_SKIP_PROPS = ['BACKUP_FOLDER_ID', 'BACKUP_LAST', 'MIGRATED'];
+var SYNC_SKIP_PROPS = ['BACKUP_FOLDER_ID', 'BACKUP_LAST', 'MIGRATED', 'NEW_ADMIN_PASSWORD'];
 
 function syncSheetDefs_() {
   // 帳號只存在 Cloudflare（含密碼雜湊），不在兩邊之間複製，避免覆蓋
@@ -42,6 +42,25 @@ function exportToWorker(live) {
   Logger.log('已複製到 Cloudflare：' + Object.keys(res.sheets).map(function (n) { return n + ' ' + res.sheets[n] + ' 列'; }).join('、') +
     (res.live ? '（已正式切換，Cloudflare 負責推播）' : '（測試中）'));
   return res;
+}
+
+/**
+ * 改總管理者密碼（Google 和 Cloudflare 兩邊一起改，同步才不會斷）：
+ *   1. 專案設定 → 指令碼屬性 → 新增 NEW_ADMIN_PASSWORD＝新密碼（至少 8 個字）
+ *   2. 在編輯器選 changeAdminPassword 按「執行」
+ * 改好後 ADMIN_PASSWORD 換成新的、NEW_ADMIN_PASSWORD 自動刪掉；所有後台登入要重新登入。
+ */
+function changeAdminPassword() {
+  var props = PropertiesService.getScriptProperties();
+  var next = String(props.getProperty('NEW_ADMIN_PASSWORD') || '').trim();
+  if (next.length < 8) throw new Error('請先在「專案設定 → 指令碼屬性」新增 NEW_ADMIN_PASSWORD（新密碼，至少 8 個字），再執行一次');
+  var old = props.getProperty('ADMIN_PASSWORD');
+  if (next === old) throw new Error('新密碼和原本的一樣');
+  // 先改 Cloudflare（用舊密碼驗證、只改設定、不動資料），成功了才改這裡
+  workerPost_({ action: 'import', password: old, sheets: {}, props: { ADMIN_PASSWORD: next } });
+  props.setProperty('ADMIN_PASSWORD', next);
+  props.deleteProperty('NEW_ADMIN_PASSWORD');
+  Logger.log('總管理者密碼改好了（Google、Cloudflare 都換成新的）。後台請用新密碼重新登入。');
 }
 
 /** 正式切換到 Cloudflare（前端網址同時改成 Cloudflare） */

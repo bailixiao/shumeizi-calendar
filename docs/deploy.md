@@ -4,6 +4,7 @@
 
 - 網站：https://bailixiao.github.io/shumeizi-calendar/ （GitHub Pages，main 分支根目錄；push 後約 1 分鐘更新）
 - 管理後台：網址後面加 `#/admin`，總管理者密碼在 Apps Script 的指令碼屬性 `ADMIN_PASSWORD`（不寫在這裡）
+- **改總管理者密碼**（Google、Cloudflare 兩邊要一樣，不能只改指令碼屬性）：Apps Script → 專案設定 → 指令碼屬性 → 新增 `NEW_ADMIN_PASSWORD`＝新密碼（至少 8 個字）→ 回編輯器選 `changeAdminPassword` 按「執行」。成功後 `ADMIN_PASSWORD` 自動換成新的、`NEW_ADMIN_PASSWORD` 自動刪掉，後台要用新密碼重新登入。
 - API：Cloudflare Worker `shumeizi-api`（https://shumeizi-api.duty-calendar-worker.workers.dev/ ），和教全區的 `duty-calendar-api` 在同一個 Cloudflare 帳號、資料完全分開。
   - **排程只用一個**（每 5 分鐘）：Cloudflare 免費方案整個帳號最多 5 個排程，教全區用了 3 個。台北 7 點、20 點的手機提醒在 `worker/src/index.js` 判斷。
 - Google 試算表「書槑子青年坊行事曆」（副本，每 10 分鐘同步）與綁定的 Apps Script（`clasp push` 上傳；`.clasp.json` 不進儲存庫）。

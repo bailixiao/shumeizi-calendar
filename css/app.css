@@ -2608,3 +2608,27 @@ body.is-sub .homepage-link { display: none; }
 .stock-line-pick { flex: 1; min-width: 0; }
 .stock-line-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 10px; }
 @media (min-width: 640px) { .stock-line-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* ===== 庫存：報表、出攤銷售統計表、匯入（js/admin-stock.js） ===== */
+.stock-tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 10px; }
+.stock-tools .btn { text-decoration: none; }
+.stock-cat { margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--paper-2); color: var(--ink-2); font-weight: 500; letter-spacing: 0; }
+.stock-date { max-width: 260px; }
+.stock-line-hint { margin: -4px 0 6px; font-size: .85rem; }
+.stock-range { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin: 0 0 12px; }
+.stock-range label { display: grid; gap: 2px; font-size: .9rem; color: var(--muted); }
+.stock-range .input { min-width: 150px; }
+.stock-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 12px; }
+@media (min-width: 720px) { .stock-sum { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.stock-table-wrap { overflow-x: auto; margin: 0 0 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.stock-table { border-collapse: collapse; font-size: .88rem; white-space: nowrap; min-width: 100%; }
+.stock-table th, .stock-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); text-align: center; }
+.stock-table th { background: var(--paper-2); font-weight: 700; }
+.stock-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.stock-table td.name { text-align: left; white-space: normal; min-width: 8em; }
+.stock-table tfoot td { font-weight: 800; background: var(--ok-soft); }
+.stock-table th:first-child, .stock-table td:first-child { position: sticky; left: 0; background: var(--card); z-index: 1; }
+.stock-table thead th:first-child { background: var(--paper-2); }
+.stall-in { width: 4.2em; min-height: 36px; padding: 4px 6px; text-align: right; }
+.stall-in.is-diff { border-color: var(--berry); background: var(--berry-soft, #f6e1df); }
+.stall-note { width: 9em; min-height: 36px; padding: 4px 6px; }

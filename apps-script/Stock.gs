@@ -370,7 +370,7 @@ function adminShopStall_(body) {
   var minus = sumBy(b.parts.own, function (r) { return r['方式'] === '盤虧'; });
   var counted = b.parts.own.length > 0; // 存過＝點過（沒有盤盈盤虧＝實際和應有一樣）
   var notes = {};
-  b.parts.own.forEach(function (r) { if (r['方式'] === '售出' && r['備註']) notes[r['商品ID']] = r['備註']; });
+  b.parts.own.forEach(function (r) { if (r['方式'] === '售出' && r['備註'] && r['備註'].indexOf('出攤：') !== 0) notes[r['商品ID']] = r['備註']; }); // 自動寫的「出攤：⋯」不算
   var rows = products.filter(function (p) { return p['啟用'] !== '否' || b.before[p['商品ID']] || pre.q[p['商品ID']] || onsite.q[p['商品ID']]; }).map(function (p) {
     var id = p['商品ID'];
     var beforeQty = b.before[id] || 0;

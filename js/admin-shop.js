@@ -22,6 +22,11 @@
   function show(body, guard, sub) {
     const sm = String(sub || '').match(/^shop\/stock\/(in|out)/);
     if (sm) return showStockForm(body, guard, sm[1]);
+    // 報表、出攤銷售統計表、匯入 Excel（js/admin-stock.js）
+    if (/^shop\/report/.test(sub)) return AdminStock.report(body, guard);
+    const stall = String(sub || '').match(/^shop\/stall(?:\/([^?]+))?/);
+    if (stall) return AdminStock.stall(body, guard, stall[1] ? decodeURIComponent(stall[1]) : '');
+    if (/^shop\/import/.test(sub)) return AdminStock.importPage(body, guard);
     const m = String(sub || '').match(/^shop\/(new|edit\/([^?]+)|g\/([^?]+))(?:\?from=(.+))?/);
     if (m && m[1] === 'new') return showForm(body, guard, '', m[4] ? decodeURIComponent(m[4]) : '');
     if (m && m[2]) return showForm(body, guard, decodeURIComponent(m[2]), '');
@@ -50,7 +55,7 @@
       <li class="stock-row${p.active ? '' : ' is-inactive'}">
         ${thumb(p.photo, p.name)}
         <button type="button" class="stock-main" data-product="${esc(p.id)}"${edit ? '' : ' disabled'}>
-          <span class="stock-code">${esc(p.code || '—')}</span>
+          <span class="stock-code">${esc(p.code || '—')}${p.category ? `<span class="stock-cat">${esc(p.category)}</span>` : ''}</span>
           <strong>${esc(p.name)}</strong>
           <small>成本 ${p.cost !== null && p.cost !== undefined ? money(p.cost) : '—'}・售價 ${money(p.price)}${p.options ? `・${esc(p.options.label)} ${p.options.options.length} 種` : ''}${p.active ? '' : '・已停用'}</small>
         </button>
@@ -62,7 +67,7 @@
         <span class="stock-rec-type ${r.type === '進' ? 'is-in' : 'is-out'}">${r.type === '進' ? '進' : '出'}</span>
         <div class="stock-rec-main">
           <p><strong>${esc(r.code ? r.code + ' ' : '')}${esc(r.name)}</strong><span class="stock-rec-qty ${r.type === '進' ? 'is-in' : 'is-out'}">${r.type === '進' ? '+' : '−'}${r.qty}</span></p>
-          <p class="muted">${esc(r.time.slice(0, 16))}・${esc(r.method)}${r.cost !== null ? '・成本 ' + money(r.cost) : ''}${r.price !== null ? '・售價 ' + money(r.price) : ''}${r.by ? '・' + esc(r.by) : ''}</p>
+          <p class="muted">${esc(r.date)}・${esc(r.method)}・金額 ${money(r.amount)}${r.type === '出' && r.method === '售出' ? (r.price !== null ? '（售價 ' + money(r.price) + '）' : '') : (r.cost !== null ? '（成本 ' + money(r.cost) + '）' : '')}${r.by ? '・' + esc(r.by) : ''}</p>
           ${r.note ? `<p class="stock-rec-note">${esc(r.note)}</p>` : ''}
         </div>
         ${edit && !r.orderId ? `<button type="button" class="link-btn" data-rec-del="${esc(r.id)}">刪除</button>` : ''}
@@ -82,7 +87,8 @@
         ${recHtml}
         <p class="hint">訂單打勾「已取貨」會自動記一筆「售出」，取消打勾會還回去；手動的記錯可以刪除。</p>` : `
         ${stockHtml}
-        <p class="hint">目前庫存＝進貨－出貨。點商品可以修改（名稱、照片、規格、編號）；停用的商品不能再加進新的團購。</p>`}`;
+        <div class="stock-tools"><a class="btn" href="#/admin/shop/report">📊 進銷存報表</a><a class="btn" href="#/admin/shop/stall">🧾 出攤銷售統計</a>${edit ? '<a class="btn" href="#/admin/shop/import">📥 匯入 Excel</a>' : ''}</div>
+        <p class="hint">目前庫存＝進貨－出貨。點商品可以修改（名稱、照片、規格、編號、分類）；停用的商品不能再加進新的團購。</p>`}`;
     flash = '';
     bindZoom(body);
     body.querySelectorAll('input[name=shoptab]').forEach((r) => r.addEventListener('change', () => { state.tab = r.value; renderList(body, guard, data, false); }));
@@ -109,7 +115,8 @@
     const isIn = type === 'in';
     const methods = isIn ? st.inMethods : st.outMethods;
     const products = st.products.filter((p) => p.active || !isIn);
-    const blank = () => ({ id: '', qty: '', cost: '', price: '', method: methods[0], note: '' });
+    const blank = () => ({ id: '', qty: '', cost: '', price: '', amount: '', method: isIn ? '買進' : '售出', note: '' });
+    let date = st.today; // 這次的日期（可以補登以前的）
     const rows = [blank()];
     const draw = (err) => {
       body.innerHTML = `
@@ -117,6 +124,7 @@
         <h2>${isIn ? '➕ 商品增加（進貨）' : '➖ 商品減少（出貨）'}</h2>
         <p class="hint">${isIn ? '一次可以填好幾樣。填的成本價、售價會變成商品現在的價格。' : '一次可以填好幾樣。大家在團購下單、取貨打勾的，會自動記「售出」，不用再填。'}</p>
         <form class="admin-form stock-form" novalidate>
+          <label class="form-row stock-date"><span>日期（補登以前的可以改）</span><input class="input" type="date" name="date" max="${esc(st.today)}" value="${esc(date)}"></label>
           ${rows.map((r, i) => { const p = products.find((x) => x.id === r.id); return `
           <fieldset class="form-block stock-line">
             <legend>第 ${i + 1} 列${rows.length > 1 ? `<button type="button" class="link-btn stock-line-del" data-del="${i}">刪除這列</button>` : ''}</legend>
@@ -129,7 +137,9 @@
               <label class="form-row"><span>售價</span><input class="input" data-k="price" data-i="${i}" inputmode="numeric" maxlength="6" value="${esc(r.price)}" placeholder="元"></label>
               <label class="form-row"><span>數量</span><input class="input" data-k="qty" data-i="${i}" inputmode="numeric" maxlength="5" value="${esc(r.qty)}" placeholder="${p ? esc(p.unit || '份') : ''}"></label>
               <label class="form-row"><span>${isIn ? '進貨方式' : '出貨方式'}</span><select class="input" data-k="method" data-i="${i}">${methods.map((m) => `<option${m === r.method ? ' selected' : ''}>${esc(m)}</option>`).join('')}</select></label>
+              <label class="form-row"><span>金額（選填）</span><input class="input" data-k="amount" data-i="${i}" inputmode="numeric" maxlength="7" value="${esc(r.amount)}" placeholder="${(Number(r.qty) || 0) * (Number(isIn || r.method !== '售出' ? r.cost : r.price) || 0) || '總價'}"></label>
             </div>
+            <p class="hint stock-line-hint">填了金額（總價）會自動算單價；空白＝數量×單價。${isIn ? '' : '折讓、價差：數量填 0、只填金額。'}</p>
             <label class="form-row"><span>備註（選填）</span><input class="input" data-k="note" data-i="${i}" maxlength="100" value="${esc(r.note)}" placeholder="${isIn ? '例：向○○農場買' : '例：運送時壓壞'}"></label>
           </fieldset>`; }).join('')}
           <button type="button" class="btn btn-block" data-add-row>＋ 加一列</button>
@@ -141,6 +151,7 @@
         </form>`;
       bindZoom(body);
       const f = body.querySelector('form');
+      f.elements.date.addEventListener('change', () => { date = f.elements.date.value || st.today; });
       f.querySelectorAll('[data-k]').forEach((x) => x.addEventListener(x.tagName === 'SELECT' ? 'change' : 'input', () => {
         const r = rows[Number(x.dataset.i)];
         r[x.dataset.k] = x.value;
@@ -158,7 +169,7 @@
         ev.preventDefault();
         Busy.show('存檔中⋯');
         try {
-          const res = await Api.admin('adminShopStockMove', { type, rows: rows.filter((r) => r.id) });
+          const res = await Api.admin('adminShopStockMove', { type, rows: rows.filter((r) => r.id).map((r) => Object.assign({ date }, r)) });
           Busy.hide();
           AdminPage.clearMemo();
           state.tab = 'stock';
@@ -215,7 +226,10 @@
       <form class="modal-form admin-form" novalidate>
         <h2 class="modal-title">${p ? '修改商品' : '新增商品'}</h2>
         <div class="shop-two">
-          <label class="form-row"><span>編號（空白＝自動）</span><input class="input" name="code" maxlength="20" value="${esc(v.code || '')}" placeholder="例：001"></label>
+          <label class="form-row"><span>編號（空白＝照分類自動給）</span><input class="input" name="code" maxlength="20" value="${esc(v.code || '')}" placeholder="例：A001"></label>
+          <label class="form-row"><span>分類</span><input class="input" name="category" maxlength="10" list="shop-cats" value="${esc(v.category || '')}" placeholder="例：國內食品"><datalist id="shop-cats"><option value="國內食品">A</option><option value="國外食品">B</option><option value="用品">C</option></datalist></label>
+        </div>
+        <div class="shop-two">
           <label class="form-row"><span>名稱</span><input class="input" name="name" maxlength="40" value="${esc(v.name)}" placeholder="例：手工豆腐"></label>
         </div>
         <div class="shop-two">
@@ -319,7 +333,7 @@
       Busy.show('存檔中⋯');
       try {
         await Api.admin('adminShopSaveProduct', { product: {
-          id: p ? p.id : '', code: f.elements.code.value.trim(), name: f.elements.name.value, price: f.elements.price.value.trim(), cost: f.elements.cost.value.trim(), unit: f.elements.unit.value,
+          id: p ? p.id : '', code: f.elements.code.value.trim(), category: f.elements.category.value.trim(), name: f.elements.name.value, price: f.elements.price.value.trim(), cost: f.elements.cost.value.trim(), unit: f.elements.unit.value,
           description: f.elements.description.value, photo: photos[0] || '', photos: photos.slice(1), order: f.elements.order.value.trim(), active: f.elements.active ? f.elements.active.checked : true,
           options: { label: f.elements.optLabel.value.trim(), options: opt.rows.filter((r) => r.name.trim()).map((r) => ({ name: r.name.trim(), price: r.price.trim() })) }
         } });

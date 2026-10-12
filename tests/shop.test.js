@@ -300,7 +300,9 @@ test('庫存：進貨更新價格、出貨、目前庫存；編號自動給、�
   assert.match(JSON.stringify(call('adminShopSaveProduct', { product: { name: '饅頭', price: 80, code: '001' } }).error), /編號「001」已經有/);
   assert.equal(ok(call('adminShopSaveProduct', { product: { name: '饅頭', price: 80 } })).product.code, '003');
   // 進貨：方式要選、數量要填
-  assert.match(JSON.stringify(call('adminShopStockMove', { type: 'in', rows: [{ id: tofu.id, qty: '0', method: '偷來' }] }).error), /數量.*進貨方式/s);
+  const bad = JSON.stringify(call('adminShopStockMove', { type: 'in', rows: [{ id: tofu.id, qty: '0', method: '偷來' }] }).error);
+  assert.match(bad, /數量/);
+  assert.match(bad, /進貨方式/);
   const r = ok(call('adminShopStockMove', { type: 'in', rows: [{ id: tofu.id, qty: 10, cost: 30, price: 65, method: '買進', note: '第一批' }, { id: jam.id, qty: 3, method: '了願' }] }));
   assert.equal(r.count, 2);
   let s = st();
@@ -340,4 +342,76 @@ test('刪除商品：要先停用；還在開放中的團購裡不能刪；刪�
   assert.ok(!ok(call('adminShop', {})).products.some((p) => p.id === tofu.id));
   const mine = ok(env.post({ action: 'shopMyOrders', name: '測試甲', all: true })).orders.find((x) => x.id === o.id);
   assert.equal(mine.items[0].name, '手工豆腐', '以前的訂單照樣顯示');
+});
+
+test('匯入 Excel（民國日期、分類對照、重複跳過）＋進銷存報表（加權平均成本，和成本表單一樣）', () => {
+  const { call, ok } = setup();
+  const products = [{ code: 'A001', name: '肉骨茶-XX克' }, { code: 'B002', name: '柬埔寨_生腰果' }];
+  const rows = [
+    { date: '114/10/20', kind: '初存', code: 'A001', unit: '包', qty: '6', amount: '600' },
+    { date: '114/10/20', kind: '初存', code: 'B002', unit: '包', qty: '5', amount: '750' },
+    { date: '114/10/21', kind: '進貨', code: 'A001', unit: '包', qty: '3', amount: '350' },
+    { date: '114/10/26', kind: '銷貨', code: 'A001', unit: '包', qty: '3', amount: '400' },
+    { date: '114/10/26', kind: '其他：減', code: 'B002', qty: '1', amount: '150', note: '試吃' },
+    { date: '114/10/26', kind: '', code: '', qty: '' } // 空白列：略過
+  ];
+  const r = ok(call('adminShopStockImport', { products, rows }));
+  assert.equal(r.records, 5);
+  assert.equal(r.created.length, 2);
+  // 再匯一次：全部跳過
+  const again = ok(call('adminShopStockImport', { products, rows }));
+  assert.equal(again.records, 0);
+  assert.equal(again.skipped.length, 5);
+  const st = ok(call('adminShopStock', {}));
+  const a001 = st.products.find((p) => p.code === 'A001');
+  assert.equal(a001.stock, 6);
+  assert.equal(a001.category, '國內食品');
+  assert.equal(a001.price, 133, '售價用銷貨單價');
+  assert.equal(st.products.find((p) => p.code === 'B002').category, '國外食品');
+  // 報表（2025 整年）：A001 期初 6×100、進貨 3（350）、銷貨 3（售價 400）→ 平均成本 round(950/9)=106
+  const rep = ok(call('adminShopStockReport', { from: '2025-01-01', to: '2025-12-31' }));
+  const x = rep.rows.find((y) => y.code === 'A001');
+  assert.deepEqual([x.open.qty, x.open.amount, x.buy.qty, x.buy.amount], [6, 600, 3, 350]);
+  assert.deepEqual([x.saleCost.price, x.saleCost.amount, x.sale.amount, x.end.qty, x.end.amount], [106, 318, 400, 6, 636]);
+  const y = rep.rows.find((z) => z.code === 'B002');
+  assert.deepEqual([y.sub.qty, y.sub.amount, y.end.qty], [1, 150, 4]);
+  assert.equal(rep.profit, 400 - 318);
+  // 期間從 10/26 開始：10/20、10/21 的變成期初
+  const rep2 = ok(call('adminShopStockReport', { from: '2025-10-26', to: '2025-12-31' }));
+  const x2 = rep2.rows.find((z) => z.code === 'A001');
+  assert.deepEqual([x2.open.qty, x2.open.amount, x2.buy.qty], [9, 9 * 106, 0]);
+});
+
+test('日期、金額、分類：補登以前的；填總金額自動算單價；折讓只填金額；編號照分類 A001', () => {
+  const { call, ok, tofu } = setup();
+  assert.equal(ok(call('adminShopSaveProduct', { product: { name: '咖哩粉', price: 230, category: '國外食品' } })).product.code, 'B001');
+  ok(call('adminShopStockMove', { type: 'in', rows: [{ id: tofu.id, date: '2026-09-01', qty: 4, amount: 130, method: '買進' }] }));
+  let rec = ok(call('adminShopStock', {})).records[0];
+  assert.deepEqual([rec.date, rec.cost, rec.amount], ['2026-09-01', 33, 130]);
+  assert.equal(call('adminShopStockMove', { type: 'out', rows: [{ id: tofu.id, qty: 0, method: '損壞' }] }).error.code, 'VALIDATION');
+  ok(call('adminShopStockMove', { type: 'out', rows: [{ id: tofu.id, qty: 0, amount: 20, method: '折讓' }] }));
+  rec = ok(call('adminShopStock', {})).records[0];
+  assert.deepEqual([rec.method, rec.qty, rec.amount], ['折讓', 0, 20]);
+  assert.equal(call('adminShopStockMove', { type: 'in', rows: [{ id: tofu.id, date: '2099-01-01', qty: 1, method: '買進' }] }).error.code, 'VALIDATION');
+});
+
+test('出攤銷售統計表：售前、預購（那場取貨的訂單）、現場、售後應有／實際（盤盈盤虧）；再存一次換掉上次的', () => {
+  const { env, call, ok, ids, tofu, order } = setup();
+  ok(call('adminShopStockMove', { type: 'in', rows: [{ id: tofu.id, qty: 10, cost: 30, method: '買進' }] }));
+  const o = ok(order({ name: '測試甲', source: '官網', pickupId: ids[0], items: [{ id: tofu.id, qty: 2 }] })).order;
+  ok(call('adminShopOrderSet', { orderId: o.id, picked: true }));
+  let s = ok(call('adminShopStall', { dutyId: ids[0] }));
+  let row = s.rows.find((r) => r.id === tofu.id);
+  assert.deepEqual([row.before, row.pre, row.onsite, row.expected, row.actual], [10, 2, 0, 8, null]);
+  ok(call('adminShopStallSave', { dutyId: ids[0], rows: [{ id: tofu.id, onsite: 3, price: 60, actual: 4 }] }));
+  s = ok(call('adminShopStall', { dutyId: ids[0] }));
+  row = s.rows.find((r) => r.id === tofu.id);
+  assert.deepEqual([row.onsite, row.revenue, row.expected, row.actual], [3, 120 + 180, 5, 4]);
+  assert.equal(ok(call('adminShopStock', {})).products.find((p) => p.id === tofu.id).stock, 4);
+  // 再存一次（現場改 2、實際 6）：上次的現場、盤虧被換掉
+  ok(call('adminShopStallSave', { dutyId: ids[0], rows: [{ id: tofu.id, onsite: 2, price: 60, actual: 6 }] }));
+  row = ok(call('adminShopStall', { dutyId: ids[0] })).rows.find((r) => r.id === tofu.id);
+  assert.deepEqual([row.onsite, row.expected, row.actual], [2, 6, 6]);
+  assert.equal(ok(call('adminShopStock', {})).products.find((p) => p.id === tofu.id).stock, 6);
+  assert.equal(env.post({ action: 'adminShopStall', dutyId: ids[0] }).ok, false);
 });

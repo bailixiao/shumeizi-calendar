@@ -321,7 +321,7 @@ window.AdminStock = (function () {
   function yearClose(body, guard, flash) {
     if (Api.adminWho().role !== '總管理者') { body.innerHTML = `${back}<p class="panel-empty">年度結帳只有總管理者可以做。</p>`; return; }
     const thisYear = new Date().getFullYear();
-    if (!yearState.year) yearState.year = new Date().getMonth() >= 10 ? thisYear : thisYear - 1; // 11 月以後預設今年
+    if (!yearState.year) yearState.year = new Date().getMonth() <= 1 ? thisYear - 1 : thisYear; // 1、2 月預設去年（結去年的帳），其他時候今年
     const y = yearState.year;
     const c = yearState.check;
     const roc = y - 1911;
@@ -335,9 +335,11 @@ window.AdminStock = (function () {
       <h2>📕 年度結帳</h2>
       <p class="hint">年底照順序做：先「📋 盤點」（盤點日選 12/31）→ 這裡「1. 對帳檢查」→ 有問題的處理好 →「2. 結帳」。結帳後那一年的進出貨、訂單、記帳都鎖住，帳存成 Excel／PDF 封存，並開好下一年的植素園記帳（期初餘額自動帶過去）。</p>
       ${flash || ''}
+      <p class="hint">🧪 試結帳：只產生一份標示「試算」的 Excel／PDF 給你看（放在雲端硬碟「植素園記帳封存」），不鎖、不開下一年，隨時可以按。</p>
       <div class="stock-range">
         <label>年度 <select class="input" data-year>${[thisYear, thisYear - 1].map((v) => `<option value="${v}"${v === y ? ' selected' : ''}>${v - 1911} 年（${v}）</option>`).join('')}</select></label>
         <button type="button" class="btn btn-primary" data-check>1. 對帳檢查</button>
+        ${!(c && c.locked && c.locked >= y + '-12-31') ? '<button type="button" class="btn" data-trial>🧪 試結帳（先看看）</button>' : ''}
       </div>
       ${c ? `
         ${c.locked && c.locked >= y + '-12-31' ? `<div class="notice notice-success"><p><strong>✅ ${roc} 年已經結帳（鎖住）。</strong></p><p>要改那一年的帳，先解除結帳；改完要再結帳一次。</p><button type="button" class="btn btn-quiet-danger" data-unlock>解除 ${roc} 年結帳</button></div>` : ''}
@@ -356,8 +358,8 @@ window.AdminStock = (function () {
             ${['應收帳款', '應付帳款'].map((a) => `<tr><td class="name">${a}</td><td class="num">${money(bal[a] || 0)}</td><td colspan="2" class="muted">${a === '應收帳款' ? '別人還欠的' : '還欠別人的'}</td></tr>`).join('')}
           </tbody></table></div>
           <p class="hint">實際和帳上不一樣：到植素園記帳的「手動記帳」記一筆調整（例：零用金 -50、科目「其他損失」、摘要寫原因），再按一次對帳檢查。<a href="${esc(sheet.url)}" target="_blank" rel="noopener">打開 ${roc} 年植素園記帳 ›</a></p>` : ''}
-        ${!(c.locked && c.locked >= y + '-12-31') ? `<div class="admin-actions"><button type="button" class="btn" data-trial>🧪 試結帳（先看看）</button><button type="button" class="btn btn-primary" data-close-year>2. 結帳 ${roc} 年</button></div>
-        <p class="hint">🧪 試結帳：只產生一份標示「試算」的 Excel／PDF 給你看（放在「植素園記帳封存」），不鎖、不開下一年，隨時可以按。</p>` : ''}` : '<p class="muted">按「1. 對帳檢查」開始（要讀植素園記帳，大約 10～30 秒）。</p>'}
+        ${!(c.locked && c.locked >= y + '-12-31') ? `<div class="admin-actions"><button type="button" class="btn btn-primary" data-close-year>2. 結帳 ${roc} 年</button></div>
+` : ''}` : '<p class="muted">按「1. 對帳檢查」開始（要讀植素園記帳，大約 10～30 秒）。</p>'}
       ${yearState.trial ? `<div class="notice"><p><strong>🧪 試結帳好了（${roc} 年，沒有鎖、也沒有開下一年）</strong></p>
         <p>看看：<a href="${esc(yearState.trial.archive.xlsx)}" target="_blank" rel="noopener">Excel</a>・<a href="${esc(yearState.trial.archive.pdf)}" target="_blank" rel="noopener">PDF</a>・<a href="${esc(yearState.trial.archive.folder)}" target="_blank" rel="noopener">封存資料夾</a></p>
         <p>真的結帳時，帶到 ${roc + 1} 年 1/1 的期初餘額會是：${Object.entries(yearState.trial.nextBalances || {}).map(([a, v]) => esc(a) + ' ' + money(v) + ' 元').join('、')}</p>

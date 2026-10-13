@@ -27,7 +27,7 @@
     const stall = String(sub || '').match(/^shop\/stall(?:\/([^?]+))?/);
     if (stall) return AdminStock.stall(body, guard, stall[1] ? decodeURIComponent(stall[1]) : '');
     if (/^shop\/import/.test(sub)) return AdminStock.importPage(body, guard);
-    if (/^shop\/ledger/.test(sub)) return AdminLedger.show(body, guard);
+    if (/^shop\/ledger/.test(sub)) return showLedger(body, guard);
     if (/^shop\/promos/.test(sub)) return AdminStock.promos(body, guard);
     const m = String(sub || '').match(/^shop\/(new|edit\/([^?]+)|g\/([^?]+))(?:\?from=(.+))?/);
     if (m && m[1] === 'new') return showForm(body, guard, '', m[4] ? decodeURIComponent(m[4]) : '');
@@ -92,7 +92,7 @@
         <div class="stock-tools">
           <a class="btn stock-tool" href="#/admin/shop/report"><span class="stock-tool-icon" aria-hidden="true">📊</span><span>進銷存報表</span></a>
           <a class="btn stock-tool" href="#/admin/shop/stall"><span class="stock-tool-icon" aria-hidden="true">🧾</span><span>出攤銷售統計</span></a>
-          <a class="btn stock-tool" href="#/admin/shop/ledger"><span class="stock-tool-icon" aria-hidden="true">💰</span><span>記帳</span></a>
+          <a class="btn stock-tool" href="${data.ledgerUrl ? esc(data.ledgerUrl) : '#/admin/shop/ledger'}"${data.ledgerUrl ? ' target="_blank" rel="noopener"' : ''}><span class="stock-tool-icon" aria-hidden="true">💰</span><span>記帳</span></a>
           <a class="btn stock-tool" href="#/admin/shop/promos"><span class="stock-tool-icon" aria-hidden="true">🏷️</span><span>買多優惠</span></a>
           ${edit ? '<a class="btn stock-tool" href="#/admin/shop/import"><span class="stock-tool-icon" aria-hidden="true">📥</span><span>匯入 Excel</span></a>' : ''}
         </div>
@@ -111,6 +111,21 @@
       Busy.show('刪除中⋯');
       try { await Api.admin('adminShopStockDelete', { id: r.id }); Busy.hide(); AdminPage.clearMemo(); showList(body, guard); } catch (e) { Busy.hide(); if (!guard(e)) alert(e.message || '刪除失敗'); }
     }));
+  }
+
+  // ---------- 💰 記帳：開 Google 試算表「植素園記帳」（apps-script/LedgerSheet.gs） ----------
+
+  async function showLedger(body, guard) {
+    body.innerHTML = '<p class="panel-empty">載入中⋯</p>';
+    let d;
+    try { d = await Api.admin('adminShop', {}, true); } catch (e) { guard(e, body); return; }
+    body.innerHTML = `
+      <a class="btn back-btn" href="#/admin/shop">‹ 回團購</a>
+      <h2>💰 記帳</h2>
+      ${d.ledgerUrl ? `<p>記帳在 Google 試算表「植素園記帳」：和「115年簡易記帳表格」一樣的格式，公式可以自己改。</p>
+        <a class="btn btn-primary btn-block" href="${esc(d.ledgerUrl)}" target="_blank" rel="noopener">📗 打開植素園記帳</a>`
+        : '<div class="notice"><p>「植素園記帳」Google 試算表還沒建好：每 10 分鐘同步時會自動建立，請等一下再重新整理。</p></div>'}
+      <p class="hint">團購付款、取貨還沒付、出攤現場營業額、商品增加的買進會自動寫進試算表的「系統記帳」（10 分鐘內）；自己的收入、支出打在「手動記帳」。試算表只有建立的人看得到，要給管帳的人請在試算表按「共用」。</p>`;
   }
 
   // ---------- ➕ 商品增加／➖ 商品減少 ----------

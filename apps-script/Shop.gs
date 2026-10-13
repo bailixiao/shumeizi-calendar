@@ -364,7 +364,8 @@ function adminShop_() {
     .filter(function (d) { return d['勤務ID'] && d['開始日'] >= today && d['開始日'] <= until; })
     .map(function (d) { return { id: d['勤務ID'], name: d['名稱'], date: d['開始日'], startTime: d['開始時間'] || '', location: d['地點'] || '', category: dutyCategory_(d), nature: d['性質'] }; })
     .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
-  return { products: products, groups: groups, duties: duties, promos: adminShopPromos_() };
+  // ledgerUrl：植素園記帳 Google 試算表（LedgerSheet.gs，同步時建立）
+  return { products: products, groups: groups, duties: duties, promos: adminShopPromos_(), ledgerUrl: PropertiesService.getScriptProperties().getProperty('LEDGER_SHEET_URL') || '' };
 }
 
 /** body = { id }：一次團購的全部（含付款說明、所有訂單、備貨清單、總覽） */

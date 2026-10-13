@@ -143,11 +143,6 @@ const SHOTS = [
   // 後台團購：總覽＋備貨清單
   { name: 'adm-shop', admin: true, hash: '#/admin/shop', js: `await __wait(2000); document.querySelector('input[name=shoptab][value=groups]').click(); await __wait(300); document.querySelector('.shop-group-card').click(); await __wait(2500);`,
     clip: `const a = document.querySelector('.shop-title'); a.scrollIntoView(); const r = a.getBoundingClientRect(); const b = document.querySelector('[data-copy-prep]').getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 8, width: innerWidth, height: b.bottom - r.top + 16 };` },
-  // 記帳：銀行存款（自動記的進貨、銷貨收入）、資產負債表
-  { name: 'adm-ledger', admin: true, hash: '#/admin/shop/ledger', js: `await __wait(2500); document.querySelector('[data-tab="銀行存款"]').click(); await __wait(300);`,
-    clip: `const a = document.querySelector('.ledger-top'); a.scrollIntoView(); const r = a.getBoundingClientRect(); const b = document.querySelector('.ledger-body').getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 8, width: innerWidth, height: b.bottom - r.top + 16 };` },
-  { name: 'adm-ledger-bs', admin: true, hash: '#/admin/shop/ledger', js: `await __wait(2500); document.querySelector('[data-tab="bs"]').click(); await __wait(300);`,
-    clip: `return __box('.ledger-body', 6);` },
   // 後台吃飯統計：各選項幾份、備註（靈魂健身房，示範資料有餐點選項）
   { name: 'adm-meal', admin: true, hash: '#/admin', js: `const d = (await __g({ action: 'getEvents', from: '${GYM}', to: '${GYM}' })).data.duties.find((x) => x.name.includes('靈魂健身房'));
       location.hash = '#/admin/duty/' + encodeURIComponent(d.id); await __wait(3000);`,

@@ -10,7 +10,7 @@
  */
 
 var WORKER_URL = 'https://shumeizi-api.duty-calendar-worker.workers.dev/';
-var SYNC_SKIP_PROPS = ['BACKUP_FOLDER_ID', 'BACKUP_LAST', 'MIGRATED', 'NEW_ADMIN_PASSWORD', 'SYNC_KEY', 'ADMIN_CURRENT_TOKEN'];
+var SYNC_SKIP_PROPS = ['BACKUP_FOLDER_ID', 'BACKUP_LAST', 'MIGRATED', 'NEW_ADMIN_PASSWORD', 'SYNC_KEY', 'ADMIN_CURRENT_TOKEN', 'LEDGER_SHEET_ID'];
 
 function syncSheetDefs_() {
   // 帳號只存在 Cloudflare（含密碼雜湊），不在兩邊之間複製，避免覆蓋
@@ -113,6 +113,7 @@ function syncFromWorker() {
   SpreadsheetApp.flush();
   invalidateAllTables_();
   writeStatsSheet_(Number(todayString_().slice(0, 4)));
+  ledgerSheetSync_(); // 植素園記帳 Google 試算表（LedgerSheet.gs）
 }
 
 /** 緊急退回 Google 版：先把 Cloudflare 的最新資料寫回試算表，再恢復這裡的寫入與排程（前端網址也要改回 Google） */

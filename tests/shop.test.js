@@ -524,3 +524,24 @@ test('買多優惠：一包 50 三包 100、不同口味混搭、不同商品任
   assert.equal(ok(call('adminShop', {})).promos.length, 0);
   void jam;
 });
+
+test('植素園記帳 Google 試算表：系統記帳的列（帳戶增減、來源）、每年存貨、科目預設；後台拿得到網址', () => {
+  const { env, call, ok, tofu, order } = setup();
+  ok(call('adminShopStockMove', { type: 'in', pay: '銀行存款', rows: [{ id: tofu.id, qty: 10, cost: 30, method: '買進' }] }));
+  const a = ok(order({ name: '測試甲', source: '官網', items: [{ id: tofu.id, qty: 2 }] })).order;
+  ok(call('adminShopOrderSet', { orderId: a.id, picked: true, paid: true }));
+  ok(call('adminShopLedgerSave', { entry: { date: '2026-09-30', type: '支出', category: '攤位費', amount: 300 } }));
+  const rows = env.fn('readTable_')(env.fn('SHEETS').SHOP_LEDGER);
+  const sys = env.fn('ledgerSheetSystemRows_')(rows);
+  assert.deepEqual(sys.map((r) => [r[0], r[1], r[2], r[4], r[5]]), [
+    ['2026-09-30', '零用金', '攤位費', -300, '後台記的'],
+    ['2026-10-01', '銀行存款', '進貨', -300, '商品增加（進貨）'],
+    ['2026-10-01', '零用金', '銷貨收入', 120, '團購訂單']
+  ]);
+  const stock = env.fn('ledgerSheetStockRows_')(env.fn('readTable_')(env.fn('SHEETS').SHOP_STOCK), env.fn('readTable_')(env.fn('SHEETS').SHOP_PRODUCTS), 2026, 2027);
+  assert.deepEqual(stock, [[2026, 0, 300, 240], [2027, 240, 0, 240]]);
+  const subjects = env.fn('ledgerSheetSubjects_')(rows);
+  assert.ok(subjects.some((s) => s[0] === '進貨' && s[1] === '成本'));
+  assert.ok(subjects.some((s) => s[0] === '存提款' && s[1] === '移轉'));
+  assert.equal(ok(call('adminShop', {})).ledgerUrl, '');
+});

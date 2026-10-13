@@ -413,29 +413,69 @@ test('出攤銷售統計表：售前、預購（那場取貨的訂單）、現�
   row = ok(call('adminShopStall', { dutyId: ids[0] })).rows.find((r) => r.id === tofu.id);
   assert.deepEqual([row.onsite, row.expected, row.actual], [2, 6, 6]);
   assert.equal(ok(call('adminShopStock', {})).products.find((p) => p.id === tofu.id).stock, 6);
+  // 記帳：現場營業額記零用金的銷貨收入（再存一次是更新，不會變兩筆）
+  const cash = ok(call('adminShopLedger', { year: 2026 })).accounts.find((a) => a.name === '零用金').entries.filter((e) => e.source.startsWith('S:'));
+  assert.deepEqual(cash.map((e) => [e.date, e.category, e.amount]), [['2026-10-18', '銷貨收入', 120]]);
   assert.equal(env.post({ action: 'adminShopStall', dutyId: ids[0] }).ok, false);
 });
 
-test('記帳：收入、支出、類別小計；淨利＝毛利＋收入－支出；修改、刪除；唯讀不能記', () => {
-  const { env, call, ok, tofu, order } = setup();
-  // 毛利：進 10 個成本 30、賣 2 個（訂單取貨，售價 60）→ 毛利 60
-  ok(call('adminShopStockMove', { type: 'in', rows: [{ id: tofu.id, qty: 10, cost: 30, method: '買進' }] }));
-  const o = ok(order({ name: '測試甲', source: '官網', items: [{ id: tofu.id, qty: 2 }] })).order;
-  ok(call('adminShopOrderSet', { orderId: o.id, picked: true }));
-  assert.match(JSON.stringify(call('adminShopLedgerSave', { entry: { type: '支出', category: '', amount: 0 } }).error), /類別.*金額|金額.*類別/s);
-  ok(call('adminShopLedgerSave', { entry: { date: '2026-10-01', type: '支出', category: '攤位費', amount: 300, note: '宏宗出攤' } }));
-  const pack = ok(call('adminShopLedgerSave', { entry: { date: '2026-10-01', type: '支出', category: '包材', amount: 50 } })).entry;
-  ok(call('adminShopLedgerSave', { entry: { date: '2026-10-01', type: '收入', category: '佈施', amount: 500 } }));
-  let L = ok(call('adminShopLedger', { from: '2026-10-01', to: '2026-10-31' }));
-  assert.deepEqual([L.income, L.expense, L.profit], [500, 350, 60]);
-  assert.equal(L.net, 60 + 500 - 350);
-  assert.deepEqual(L.categories.map((c) => [c.type, c.category, c.amount]), [['收入', '佈施', 500], ['支出', '攤位費', 300], ['支出', '包材', 50]]);
-  ok(call('adminShopLedgerSave', { entry: Object.assign({}, pack, { amount: 80, category: '郵寄紙箱' }) }));
-  L = ok(call('adminShopLedger', { from: '2026-10-01', to: '2026-10-31' }));
-  assert.equal(L.expense, 380);
-  assert.ok(L.categoryOptions.支出.includes('郵寄紙箱'), '用過的類別會出現在選單');
-  ok(call('adminShopLedgerDelete', { id: pack.id }));
-  assert.equal(ok(call('adminShopLedger', { from: '2026-10-01', to: '2026-10-31' })).expense, 300);
+test('記帳（115年簡易記帳表格）：期初、手動收支、移轉；自動記團購訂單、進貨；資產負債表平衡、損益表用進銷存的存貨', () => {
+  const { env, call, ok, tofu, jam, order } = setup();
+  const book = () => ok(call('adminShopLedger', { year: 2026 }));
+  const acc = (L, n) => L.accounts.find((a) => a.name === n);
+  ok(call('adminShopLedgerOpening', { year: 2026, balances: { 零用金: 1000, 銀行存款: 5000 } }));
+  // 進貨（銀行付）→ 自動記進貨
+  ok(call('adminShopStockMove', { type: 'in', pay: '銀行存款', rows: [{ id: tofu.id, qty: 10, cost: 30, method: '買進' }] }));
+  // 訂單：取貨還沒付＝應收；付了＝零用金（應收那筆拿掉）
+  const a = ok(order({ name: '測試甲', source: '官網', items: [{ id: tofu.id, qty: 2 }] })).order;
+  ok(call('adminShopOrderSet', { orderId: a.id, picked: true }));
+  let L = book();
+  assert.equal(acc(L, '應收帳款').closing, 120);
+  ok(call('adminShopOrderSet', { orderId: a.id, paid: true }));
+  // 轉帳的訂單付了＝銀行
+  const b = ok(order({ name: '王小明', source: '官網', items: [{ id: tofu.id, qty: 1 }], pay: '轉帳' })).order;
+  ok(call('adminShopOrderSet', { orderId: b.id, paid: true }));
+  // 手動：攤位費、佈施（舊類別算收入）；存提款
+  assert.match(JSON.stringify(call('adminShopLedgerSave', { entry: { type: '支出', category: '', amount: 0 } }).error), /科目.*金額|金額.*科目/s);
+  assert.equal(call('adminShopLedgerSave', { entry: { type: '收入', account: '應付帳款', category: '銷貨收入', amount: 10 } }).error.code, 'VALIDATION');
+  const fee = ok(call('adminShopLedgerSave', { entry: { date: '2026-10-01', type: '支出', account: '零用金', category: '攤位費', amount: 300, note: '宏宗出攤' } })).entry;
+  ok(call('adminShopLedgerSave', { entry: { date: '2026-10-01', type: '收入', category: '佈施', amount: 500 } })); // 沒選帳戶＝零用金
+  ok(call('adminShopLedgerTransfer', { kind: '存提款', from: '零用金', to: '銀行存款', amount: 200, date: '2026-10-01' }));
+  // 賒帳進貨→應付；之後用銀行付清
+  ok(call('adminShopStockMove', { type: 'in', pay: '應付帳款', rows: [{ id: jam.id, qty: 2, amount: 200, method: '買進' }] }));
+  assert.equal(acc(book(), '應付帳款').closing, 200);
+  ok(call('adminShopLedgerTransfer', { kind: '付清應付', from: '銀行存款', amount: 200 }));
+  L = book();
+  assert.deepEqual(L.accounts.map((x) => [x.name, x.opening, x.closing]), [['零用金', 1000, 1120], ['銀行存款', 5000, 4760], ['應收帳款', 0, 0], ['應付帳款', 0, 0]]);
+  // 損益表：收入 180＋佈施 500；進貨 500；期末存貨 8×30＋2×100＝440；銷貨成本 60；費用 300 → 損益 320
+  assert.equal(L.is.incomeTotal, 680);
+  assert.deepEqual([L.is.openInv, L.is.purchases, L.is.closeInv, L.is.cogs, L.is.stockBuy], [0, 500, 440, 60, 500]);
+  assert.equal(L.is.expenseTotal, 300);
+  assert.equal(L.is.profit, 320);
+  // 資產負債表：資產 1120＋4760＋440＝6320＝累積結餘 6000＋本期結餘 320
+  assert.deepEqual([L.bs.assetTotal, L.bs.retained, L.bs.profit, L.bs.diff], [6320, 6000, 320, 0]);
+  // 分類帳：照科目
+  assert.deepEqual(L.ledger.map((g) => [g.subject, g.total]), [['銷貨收入', 180], ['佈施', 500], ['進貨', 500], ['攤位費', 300]]);
+  // 自動記的不能刪、只能改帳戶；取消付款就拿掉
+  const auto = acc(L, '銀行存款').entries.find((e) => e.source && e.category === '銷貨收入');
+  assert.equal(call('adminShopLedgerDelete', { id: auto.id }).error.code, 'FORBIDDEN');
+  ok(call('adminShopLedgerSave', { entry: { id: auto.id, account: '零用金', note: '其實收現金', amount: 9999 } }));
+  L = book();
+  assert.equal(acc(L, '零用金').entries.find((e) => e.id === auto.id).amount, 60, '自動記的金額不能改');
+  ok(call('adminShopOrderSet', { orderId: b.id, paid: false }));
+  assert.equal(acc(book(), '零用金').entries.some((e) => e.id === auto.id), false);
+  // 移轉兩筆一起刪；手動的可以刪
+  const tr = acc(L, '零用金').entries.find((e) => e.type === '移轉' && e.category === '存提款');
+  ok(call('adminShopLedgerDelete', { id: tr.id }));
+  assert.equal(book().accounts.flatMap((x) => x.entries).filter((e) => e.category === '存提款').length, 0);
+  ok(call('adminShopLedgerDelete', { id: fee.id }));
+  // 刪掉進貨紀錄，記帳的進貨跟著拿掉
+  const rec = ok(call('adminShopStock', {})).records.find((r) => r.method === '買進' && r.name === '果醬');
+  ok(call('adminShopStockDelete', { id: rec.id }));
+  assert.equal(book().is.purchases, 300);
+  // 隔年：期初自動接續
+  assert.equal(acc(ok(call('adminShopLedger', { year: 2027 })), '零用金').opening, acc(book(), '零用金').closing);
+  assert.ok(book().categoryOptions.支出.includes('飲品耗材'));
   assert.equal(env.post({ action: 'adminShopLedger' }).ok, false);
 });
 

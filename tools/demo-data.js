@@ -75,6 +75,14 @@ async function seedDemo(call, get) {
   await order('測試甲', pickups[0], [{ id: tofu, qty: 2 }, { id: jam, option: '桑葚', qty: 1 }], '轉帳');
   await order('王小明', pickups[0], [{ id: bread, qty: 3 }]);
   await order('測試乙', pickups[1], [{ id: jam, option: '鳳梨', qty: 2 }, { id: tofu, qty: 1 }]);
+  // 記帳：期初、進貨（銀行付）、攤位費、隨喜；測試甲的訂單已付款（自動記銷貨收入）
+  const year = today.slice(0, 4);
+  await admin('adminShopLedgerOpening', { year, balances: { 零用金: 3000, 銀行存款: 20000 } });
+  await admin('adminShopStockMove', { type: 'in', pay: '銀行存款', rows: [{ id: tofu, qty: 20, cost: 30, method: '買進' }, { id: jam, qty: 10, cost: 90, method: '買進' }, { id: bread, qty: 15, cost: 45, method: '買進' }] });
+  await admin('adminShopLedgerSave', { entry: { type: '支出', account: '零用金', category: '攤位費', amount: 300, note: '出攤攤位費' } });
+  await admin('adminShopLedgerSave', { entry: { type: '收入', account: '零用金', category: '隨喜收入', amount: 500, note: '飲品隨喜' } });
+  const paid = (await admin('adminShopGroup', { id: g.data.id })).data.orders.find((o) => o.name === '測試甲');
+  if (paid) await admin('adminShopOrderSet', { orderId: paid.id, paid: true });
   // 待確認的新朋友保留成正式成員（名字提示才找得到）
   const members = (await admin('adminMembers', {})).data.members.filter((m) => m.pending);
   if (members.length) await admin('adminConfirmMembers', { rows: members.map((m) => ({ row: m.row, original: m.name })) });

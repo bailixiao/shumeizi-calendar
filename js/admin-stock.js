@@ -222,9 +222,7 @@ window.AdminStock = (function () {
     });
   }
 
-  // ---------- 記帳 ----------
-
-  const ledState = { from: '', to: '' };
+  // 記帳在 js/admin-ledger.js
 
   /** 照片縮小成 jpg（base64），收據用 */
   function shrinkImage(file) {
@@ -242,135 +240,6 @@ window.AdminStock = (function () {
       };
       img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('這張照片讀不出來，請換 jpg 或 png')); };
       img.src = url;
-    });
-  }
-
-  async function ledger(body, guard) {
-    const today = Fmt.toDateStr(new Date());
-    if (!ledState.from) { ledState.from = today.slice(0, 8) + '01'; ledState.to = today; }
-    body.innerHTML = `${back}<h2>💰 記帳</h2><p class="panel-empty">載入中⋯</p>`;
-    let d;
-    try { d = await Api.admin('adminShopLedger', { from: ledState.from, to: ledState.to }, true); } catch (e) { guard(e, body); return; }
-    const edit = canEdit();
-    const reload = () => { AdminPage.clearMemo(); ledger(body, guard); };
-    body.innerHTML = `
-      ${back}
-      <h2>💰 記帳</h2>
-      <p class="hint">記跟商品無關的錢：攤位費、包材、印刷、運費⋯（支出），佈施、利息⋯（收入）。商品的進貨、賣出在「庫存」記。</p>
-      ${edit ? '<div class="stock-actions ledger-actions"><button type="button" class="btn stock-btn is-out" data-new="支出">➖ 記一筆支出</button><button type="button" class="btn stock-btn is-in" data-new="收入">➕ 記一筆收入</button></div>' : ''}
-      <form class="stock-range" novalidate>
-        <label>從 <input class="input" type="date" name="from" value="${esc(d.from)}"></label>
-        <label>到 <input class="input" type="date" name="to" value="${esc(d.to)}"></label>
-        <button type="submit" class="btn btn-primary">查詢</button>
-        <button type="button" class="btn" data-csv>⬇️ 下載 Excel（CSV）</button>
-      </form>
-      <div class="stat-cards stock-sum">
-        <div class="stat-card"><span class="stat-label">商品毛利</span><span class="stat-num">${money(d.profit)}</span><span class="stat-hint">銷貨 ${money(d.sales)}－成本 ${money(d.salesCost)}</span></div>
-        <div class="stat-card"><span class="stat-label">其他收入</span><span class="stat-num">${money(d.income)}</span><span class="stat-hint">佈施、利息⋯</span></div>
-        <div class="stat-card"><span class="stat-label">支出</span><span class="stat-num">${money(d.expense)}</span><span class="stat-hint">攤位費、包材⋯</span></div>
-        <div class="stat-card ledger-net${d.net < 0 ? ' is-neg' : ''}"><span class="stat-label">淨利</span><span class="stat-num">${money(d.net)}</span><span class="stat-hint">毛利＋收入－支出</span></div>
-      </div>
-      ${d.categories.length ? `<div class="ledger-cats">${d.categories.map((c) => `<span class="ledger-cat ${c.type === '收入' ? 'is-in' : 'is-out'}">${esc(c.category)} <b>${c.type === '收入' ? '+' : '−'}${money(c.amount)}</b></span>`).join('')}</div>` : ''}
-      ${d.entries.length ? `<ul class="stock-recs">${d.entries.map((e) => `
-        <li class="stock-rec">
-          <span class="stock-rec-type ${e.type === '收入' ? 'is-in' : 'is-out'}">${e.type === '收入' ? '收' : '支'}</span>
-          <div class="stock-rec-main">
-            <p><strong>${esc(e.category)}</strong><span class="stock-rec-qty ${e.type === '收入' ? 'is-in' : 'is-out'}">${e.type === '收入' ? '+' : '−'}${money(e.amount)}</span></p>
-            <p class="muted">${esc(e.date)}${e.by ? '・' + esc(e.by) : ''}</p>
-            ${e.note ? `<p class="stock-rec-note">${esc(e.note)}</p>` : ''}
-            ${e.receipt ? `<button type="button" class="btn btn-small" data-receipt="${esc(e.receipt)}">🧾 看收據</button>` : ''}
-          </div>
-          ${edit ? `<span class="ledger-acts"><button type="button" class="btn btn-small" data-edit="${esc(e.id)}">修改</button><button type="button" class="btn btn-small btn-quiet-danger" data-del="${esc(e.id)}">刪除</button></span>` : ''}
-        </li>`).join('')}</ul>` : '<p class="panel-empty">這段期間還沒有記帳。</p>'}
-      <p class="hint">淨利＝商品毛利（進銷存報表同一段期間）＋其他收入－支出。</p>`;
-    const f = body.querySelector('form.stock-range');
-    f.addEventListener('submit', (ev) => { ev.preventDefault(); ledState.from = f.elements.from.value; ledState.to = f.elements.to.value; ledger(body, guard); });
-    body.querySelector('[data-csv]').addEventListener('click', () => {
-      const rows = [['日期', '收入／支出', '類別', '金額', '備註', '記錄的人']].concat(d.entries.slice().reverse().map((e) => [e.date, e.type, e.category, e.type === '收入' ? e.amount : -e.amount, e.note, e.by]),
-        [[], ['', '商品毛利', '', d.profit], ['', '其他收入', '', d.income], ['', '支出', '', -d.expense], ['', '淨利', '', d.net]]);
-      downloadCsv(`植素園記帳_${d.from}_${d.to}.csv`, rows);
-    });
-    body.querySelectorAll('[data-receipt]').forEach((b) => b.addEventListener('click', () => Modal.image(Api.fileUrl(b.dataset.receipt), '收據')));
-    body.querySelectorAll('[data-new]').forEach((b) => b.addEventListener('click', () => entryForm(null, b.dataset.new, d, guard, reload)));
-    body.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => { const e = d.entries.find((x) => x.id === b.dataset.edit); entryForm(e, e.type, d, guard, reload); }));
-    body.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => {
-      const e = d.entries.find((x) => x.id === b.dataset.del);
-      if (!(await Confirm.open({ title: '刪除這筆？', rows: [['日期', e.date], [e.type, `${e.category} ${money(e.amount)} 元`]], confirmText: '刪除', danger: true }))) return;
-      Busy.show('刪除中⋯');
-      try { await Api.admin('adminShopLedgerDelete', { id: e.id }); Busy.hide(); reload(); } catch (err) { Busy.hide(); if (!guard(err)) alert(err.message || '刪除失敗'); }
-    }));
-  }
-
-  /** 記一筆／修改：日期、收入／支出、類別、金額、備註、收據照片 */
-  function entryForm(e, type, d, guard, after) {
-    const v = e || { date: d.today, type, category: '', amount: '', note: '', receipt: '' };
-    let receipt = v.receipt || '';
-    let kind = v.type;
-    const m = Modal.open(`
-      <form class="modal-form admin-form" novalidate>
-        <h2 class="modal-title">${e ? '修改' : '記一筆'}</h2>
-        <div class="seg">${['支出', '收入'].map((t) => `<label class="seg-item"><input type="radio" name="type" value="${t}"${kind === t ? ' checked' : ''}><span>${t === '支出' ? '➖ 支出' : '➕ 收入'}</span></label>`).join('')}</div>
-        <label class="form-row"><span>日期</span><input class="input" type="date" name="date" max="${esc(d.today)}" value="${esc(v.date)}"></label>
-        <div class="form-row"><span>類別</span><div class="pos-chips" data-cats></div><input class="input" name="category" maxlength="20" value="${esc(v.category)}" placeholder="選上面的，或自己打"></div>
-        <label class="form-row"><span>金額（元）</span><input class="input" name="amount" inputmode="numeric" maxlength="7" value="${esc(v.amount)}" placeholder="例：300"></label>
-        <label class="form-row"><span>備註（選填）</span><input class="input" name="note" maxlength="200" value="${esc(v.note)}" placeholder="例：宏宗聖堂出攤攤位費"></label>
-        <div class="form-row"><span>收據照片（選填）</span><div data-receipt-box></div><label class="btn btn-small">📷 拍照／選照片<input type="file" accept="image/*" hidden data-file></label></div>
-        <div class="form-error" data-error hidden></div>
-        <div class="modal-actions">
-          <button type="submit" class="btn btn-block btn-primary">存檔</button>
-          <button type="button" class="btn btn-block" data-close>返回</button>
-        </div>
-      </form>`);
-    const f = m.el.querySelector('form');
-    const box = f.querySelector('[data-error]');
-    const drawCats = () => {
-      f.querySelector('[data-cats]').innerHTML = (d.categoryOptions[kind] || []).map((c) => `<button type="button" class="pos-chip${f.elements.category.value === c ? ' is-checked' : ''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('');
-      f.querySelectorAll('[data-cat]').forEach((b) => b.addEventListener('click', () => { f.elements.category.value = b.dataset.cat; drawCats(); }));
-    };
-    const drawReceipt = () => {
-      f.querySelector('[data-receipt-box]').innerHTML = receipt ? `<button type="button" class="shop-thumb shop-thumb-big" data-zoom><img src="${esc(Api.fileUrl(receipt))}" alt="收據"></button><button type="button" class="link-btn" data-receipt-del>拿掉照片</button>` : '<span class="muted">還沒有照片</span>';
-      const z = f.querySelector('[data-zoom]');
-      if (z) z.addEventListener('click', () => Modal.image(Api.fileUrl(receipt), '收據'));
-      const del = f.querySelector('[data-receipt-del]');
-      if (del) del.addEventListener('click', () => { receipt = ''; drawReceipt(); });
-    };
-    drawCats();
-    drawReceipt();
-    f.querySelectorAll('input[name=type]').forEach((r) => r.addEventListener('change', () => { kind = r.value; drawCats(); }));
-    f.elements.category.addEventListener('input', drawCats);
-    f.querySelector('[data-file]').addEventListener('change', async (ev) => {
-      const file = ev.target.files[0];
-      ev.target.value = '';
-      if (!file) return;
-      Busy.show('上傳中⋯');
-      try {
-        receipt = (await Api.admin('adminUploadFile', { mime: 'image/jpeg', name: file.name, data: await shrinkImage(file) })).id;
-        Busy.hide();
-        drawReceipt();
-      } catch (err) {
-        Busy.hide();
-        if (err.code === 'UNAUTHORIZED') { m.close(); guard(err); return; }
-        box.textContent = err.message || '上傳失敗';
-        box.hidden = false;
-      }
-    });
-    m.el.querySelector('[data-close]').addEventListener('click', () => m.close());
-    f.addEventListener('submit', async (ev) => {
-      ev.preventDefault();
-      m.el.setAttribute('data-locked', '');
-      Busy.show('存檔中⋯');
-      try {
-        await Api.admin('adminShopLedgerSave', { entry: { id: e ? e.id : '', date: f.elements.date.value, type: kind, category: f.elements.category.value.trim(), amount: f.elements.amount.value.trim(), note: f.elements.note.value, receipt } });
-        Busy.hide();
-        m.close();
-        after();
-      } catch (err) {
-        Busy.hide();
-        m.el.removeAttribute('data-locked');
-        if (err.code === 'UNAUTHORIZED') { m.close(); guard(err); return; }
-        box.innerHTML = `<strong>${esc(err.message)}</strong>${(err.details || []).map((x) => '<br>' + esc(x.message)).join('')}`;
-        box.hidden = false;
-      }
     });
   }
 
@@ -458,5 +327,5 @@ window.AdminStock = (function () {
     });
   }
 
-  return { report, stall, importPage, ledger, promos };
+  return { report, stall, importPage, promos, shrinkImage, downloadCsv };
 })();

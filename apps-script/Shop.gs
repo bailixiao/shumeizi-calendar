@@ -265,6 +265,7 @@ function shopOrder_(body, opts) {
       var before = rowSnapshot_(SHEETS.SHOP_ORDERS, existing);
       updateRow_(SHEETS.SHOP_ORDERS, existing, values);
       row = existing;
+      ledgerSyncOrder_(row); // 已付款的改了金額，記帳跟著改
       writeDutyLog_('團購改單', summary + (admin ? adminTag_() : ''), before);
     } else {
       row = Object.assign({ '訂單ID': newId_('O'), '團購ID': g['團購ID'], '已付款': '', '已取貨': '', '狀態': '有效', '備註': '', '建立時間': now }, values);
@@ -320,6 +321,7 @@ function shopCancel_(body) {
     if (g && g['截止時間'] && shopNowMinute_() > g['截止時間']) throw new ApiError_('FORBIDDEN', '已經過了截止時間，要取消請找小編');
     var before = rowSnapshot_(SHEETS.SHOP_ORDERS, o);
     updateRow_(SHEETS.SHOP_ORDERS, o, { '狀態': '已取消', '更新時間': nowString_() });
+    ledgerSyncOrder_(o);
     writeDutyLog_('團購取消', o['姓名'] + '｜' + (g ? g['名稱'] : o['團購ID']) + '｜' + o['金額'] + ' 元' + (o['付款方式'] === '轉帳' && o['末五碼'] ? '｜已轉帳（末五碼 ' + o['末五碼'] + '），要退款' : ''), before);
     SpreadsheetApp.flush();
     invalidateTable_(SHEETS.SHOP_ORDERS);
@@ -628,6 +630,7 @@ function adminShopOrderSet_(body) {
     // 庫存：打勾已取貨記售出、取消打勾刪掉；取消訂單也刪掉
     if (body.picked !== undefined) stockForOrder_(o, !!body.picked && o['狀態'] !== '已取消');
     if (body.cancel === true) stockForOrder_(o, false);
+    ledgerSyncOrder_(o); // 記帳：已付款＝銷貨收入、已取貨沒付＝應收帳款
     writeDutyLog_('團購訂單', o['姓名'] + '｜' + what.join('、') + adminTag_(), before);
     SpreadsheetApp.flush();
     invalidateTable_(SHEETS.SHOP_ORDERS);

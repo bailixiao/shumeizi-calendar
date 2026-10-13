@@ -189,6 +189,9 @@ function adminShopStockMove_(body) {
         cost: c.cost !== '' ? c.cost : c.p['成本'], price: c.price !== '' ? c.price : c.p['價格'], note: c.note, batch: batch });
     });
     appendRows_(SHEETS.SHOP_STOCK, add);
+    invalidateTable_(SHEETS.SHOP_STOCK);
+    // 記帳：買進的加起來記一筆進貨（body.pay＝零用金／銀行存款／應付帳款）
+    if (type === '進' && clean.some(function (c) { return c.method === '買進'; })) ledgerSyncStockBatch_(batch, body.pay);
     // 進貨：成本、售價變成商品現在的價格
     if (type === '進') {
       clean.forEach(function (c) {
@@ -217,6 +220,7 @@ function adminShopStockDelete_(body) {
     writeDutyLog_('團購庫存刪除', (r['類型'] === '進' ? '進貨' : '出貨') + '｜' + (p ? p['名稱'] : r['商品ID']) + '×' + r['數量'] + '（' + r['方式'] + '）' + adminTag_());
     SpreadsheetApp.flush();
     invalidateTable_(SHEETS.SHOP_STOCK);
+    if (r['方式'] === '買進' && r['批次ID']) ledgerSyncStockBatch_(r['批次ID']); // 記帳的進貨跟著改
     return { deleted: true };
   });
 }
@@ -430,6 +434,8 @@ function adminShopStallSave_(body) {
       else if (diff < 0) add.push(stockRow_({ now: now, date: b.date, type: '出', method: '盤虧', id: r.id, qty: -diff, amount: -diff * cost, cost: cost, price: p['價格'], note: '出攤盤點：' + where, batch: batch, dutyId: b.duty['勤務ID'] }));
     });
     if (add.length) appendRows_(SHEETS.SHOP_STOCK, add);
+    // 記帳：現場賣的營業額記零用金的銷貨收入
+    ledgerSyncStall_(b.duty['勤務ID'], b.date, add.filter(function (x) { return x['方式'] === '售出'; }).reduce(function (n, x) { return n + (Number(x['金額']) || 0); }, 0), where);
     writeDutyLog_('團購出攤統計', b.date + ' ' + where + '｜' + add.filter(function (x) { return x['方式'] === '售出'; }).length + ' 樣現場售出' + adminTag_());
     SpreadsheetApp.flush();
     invalidateTable_(SHEETS.SHOP_STOCK);

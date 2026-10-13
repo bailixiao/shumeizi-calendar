@@ -27,7 +27,7 @@
     const stall = String(sub || '').match(/^shop\/stall(?:\/([^?]+))?/);
     if (stall) return AdminStock.stall(body, guard, stall[1] ? decodeURIComponent(stall[1]) : '');
     if (/^shop\/import/.test(sub)) return AdminStock.importPage(body, guard);
-    if (/^shop\/ledger/.test(sub)) return AdminStock.ledger(body, guard);
+    if (/^shop\/ledger/.test(sub)) return AdminLedger.show(body, guard);
     if (/^shop\/promos/.test(sub)) return AdminStock.promos(body, guard);
     const m = String(sub || '').match(/^shop\/(new|edit\/([^?]+)|g\/([^?]+))(?:\?from=(.+))?/);
     if (m && m[1] === 'new') return showForm(body, guard, '', m[4] ? decodeURIComponent(m[4]) : '');
@@ -125,6 +125,7 @@
     const products = st.products.filter((p) => p.active || !isIn);
     const blank = () => ({ id: '', qty: '', cost: '', price: '', amount: '', method: isIn ? '買進' : '售出', note: '' });
     let date = st.today; // 這次的日期（可以補登以前的）
+    let pay = '零用金'; // 買進怎麼付（記帳自動記進貨）
     const rows = [blank()];
     const draw = (err) => {
       body.innerHTML = `
@@ -151,6 +152,8 @@
             <label class="form-row"><span>備註（選填）</span><input class="input" data-k="note" data-i="${i}" maxlength="100" value="${esc(r.note)}" placeholder="${isIn ? '例：向○○農場買' : '例：運送時壓壞'}"></label>
           </fieldset>`; }).join('')}
           <button type="button" class="btn btn-block" data-add-row>＋ 加一列</button>
+          ${isIn && rows.some((r) => r.method === '買進') ? `<div class="form-row stock-pay"><span>💰 買進的錢怎麼付（記帳會自動記一筆「進貨」）</span>
+            <div class="seg">${[['零用金', '💵 零用金'], ['銀行存款', '🏦 銀行'], ['應付帳款', '🧾 還沒付']].map(([v, l]) => `<label class="seg-item"><input type="radio" name="pay" value="${v}"${pay === v ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div></div>` : ''}
           ${err ? `<div class="form-error">${err}</div>` : ''}
           <div class="admin-actions">
             <button type="submit" class="btn btn-primary">存檔（${rows.filter((r) => r.id).length} 樣）</button>
@@ -160,9 +163,11 @@
       bindZoom(body);
       const f = body.querySelector('form');
       f.elements.date.addEventListener('change', () => { date = f.elements.date.value || st.today; });
+      f.querySelectorAll('input[name=pay]').forEach((x) => x.addEventListener('change', () => { pay = x.value; }));
       f.querySelectorAll('[data-k]').forEach((x) => x.addEventListener(x.tagName === 'SELECT' ? 'change' : 'input', () => {
         const r = rows[Number(x.dataset.i)];
         r[x.dataset.k] = x.value;
+        if (x.dataset.k === 'method' && isIn) draw();
         if (x.dataset.k === 'id') {
           // 選了商品：帶入商品現在的成本、售價
           const p = products.find((y) => y.id === x.value);
@@ -177,7 +182,7 @@
         ev.preventDefault();
         Busy.show('存檔中⋯');
         try {
-          const res = await Api.admin('adminShopStockMove', { type, rows: rows.filter((r) => r.id).map((r) => Object.assign({ date }, r)) });
+          const res = await Api.admin('adminShopStockMove', { type, pay, rows: rows.filter((r) => r.id).map((r) => Object.assign({ date }, r)) });
           Busy.hide();
           AdminPage.clearMemo();
           state.tab = 'stock';

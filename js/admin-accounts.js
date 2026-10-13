@@ -5,6 +5,7 @@
 
   const esc = Fmt.esc;
   const ROLE_NOTE = {
+    總管理者: '全部功能都能用（含帳號管理），和你一樣',
     勤務: '只能新增、修改「' + Fmt.catLabel('勤務') + '」類的排班與報名',
     道務: '只能新增、修改「' + Fmt.catLabel('道務') + '」類的活動',
     教育: '只能新增、修改「' + Fmt.catLabel('教育') + '」類的活動',
@@ -22,7 +23,7 @@
     body.innerHTML = `
       ${flash || ''}
       <div class="admin-toolbar"><button type="button" class="btn btn-primary" data-new>＋ 新增帳號</button><button type="button" class="btn" data-change-pw>🔑 改總管理者密碼</button></div>
-      <p class="hint">總管理者就是你現在用的帳號（帳號選「總管理者」＋管理密碼），不會列在下面；要換密碼按「🔑 改總管理者密碼」。</p>
+      <p class="hint">原本的總管理者（帳號選「總管理者」＋管理密碼）不會列在下面，要換密碼按「🔑 改總管理者密碼」。需要好幾個人都有全部權限，就新增帳號、角色選「總管理者」，每個人用自己的帳號密碼。</p>
       ${data.accounts.length ? `<ul class="account-list">${data.accounts.map((a, i) => `
         <li class="account-item${a.active ? '' : ' is-off'}">
           <button type="button" class="account-main" data-edit="${i}">

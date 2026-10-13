@@ -149,7 +149,7 @@ window.AdminStock = (function () {
         ev.preventDefault();
         Busy.show('存檔中⋯');
         try {
-          await Api.admin('adminShopStallSave', { dutyId, rows: d.rows.map((r, i) => ({ id: r.id, onsite: st[i].onsite || 0, price: st[i].price, actual: st[i].actual, note: st[i].note })) });
+          await Api.admin('adminShopStallSave', { dutyId, rows: d.rows.map((r, i) => ({ id: r.id, option: r.option || '', onsite: st[i].onsite || 0, price: st[i].price, actual: st[i].actual, note: st[i].note })) });
           Busy.hide();
           AdminPage.clearMemo();
           d = await Api.admin('adminShopStall', { dutyId }, true);

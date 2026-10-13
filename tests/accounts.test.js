@@ -191,3 +191,15 @@ test('總管理者在後台改密碼：舊的要對、新的至少 8 個字；�
   assert.ok(logs.some((row) => row.join('|').includes('改總管理者密碼')));
   assert.ok(!logs.some((row) => row.join('|').includes('new-pass-123'))); // 紀錄裡沒有密碼
 });
+
+test('可以另外建「總管理者」角色的帳號：全部權限（含帳號管理）', () => {
+  const { env, login, save } = setup();
+  const r = save({ account: '小編甲', role: '總管理者', password: 'abc12345' });
+  assert.equal(r.ok, true, JSON.stringify(r.error));
+  const tok = login('小編甲', 'abc12345').data;
+  assert.equal(tok.role, '總管理者');
+  const call = (action, body) => env.post(Object.assign({ action, token: tok.token }, body));
+  assert.equal(call('adminAccounts', {}).ok, true);
+  assert.equal(call('adminSaveAccount', { account: { account: '查看用', role: '唯讀', password: 'abc12345' } }).ok, true);
+  assert.equal(login('', 'test-pass').data.role, '總管理者', '原本的總管理者照常');
+});

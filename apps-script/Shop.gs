@@ -28,13 +28,14 @@ function shopInt_(v) {
 var SHOP_MAX_PHOTOS = 6; // 一個商品最多幾張照片（照片＋更多照片）
 var SHOP_MAX_OPTIONS = 12; // 一組規格最多幾個選項
 
-/** 商品的規格：{ label, options: [{ name, price（null＝商品價格） }] }，沒有就 null */
-function shopOptions_(p) {
+/** 商品的規格：{ label, options: [{ name, price（null＝商品價格）, cost（withCost 才有，只給後台） }] }，沒有就 null */
+function shopOptions_(p, withCost) {
   var v = shopJson_(p['規格'], null);
   if (!v || !Array.isArray(v.options) || !v.options.length) return null;
+  var num = function (x) { return x === '' || x === null || x === undefined ? null : Number(x); };
   return {
     label: String(v.label || '規格'),
-    options: v.options.map(function (o) { return { name: String(o.name), price: o.price === '' || o.price === null || o.price === undefined ? null : Number(o.price) }; })
+    options: v.options.map(function (o) { var out = { name: String(o.name), price: num(o.price) }; if (withCost) out.cost = num(o.cost); return out; })
   };
 }
 
@@ -48,7 +49,7 @@ function shopProductOut_(p) {
     id: p['商品ID'], name: p['名稱'], price: Number(p['價格']) || 0, unit: p['單位'] || '', description: p['說明'] || '',
     photo: p['照片'] || '', active: p['啟用'] !== '否', order: Number(p['排序']) || 0,
     cost: p['成本'] === '' || p['成本'] === undefined || p['成本'] === null ? null : Number(p['成本']), // 成本（只給後台）
-    photos: shopPhotos_(p), options: shopOptions_(p), code: p['編號'] || '', category: p['分類'] || ''
+    photos: shopPhotos_(p), options: shopOptions_(p, true), code: p['編號'] || '', category: p['分類'] || ''
   };
 }
 
@@ -403,7 +404,9 @@ function adminShopGroup_(body) {
   active.forEach(function (o) {
     shopJson_(o['品項'], []).forEach(function (l) {
       var it = view.items.filter(function (x) { return x.id === l.id; })[0];
-      if (it && it.cost !== null) costSum.cost += it.cost * (Number(l.qty) || 0);
+      var pp = findById_(products, '商品ID', l.id);
+      var lc = pp ? stockVariantPrice_(pp, l.option || '').cost : null; // 有規格的照規格的成本
+      if (it && lc !== null) costSum.cost += lc * (Number(l.qty) || 0);
       else if (costSum.missing.indexOf(l.name) === -1) costSum.missing.push(l.name);
     });
   });
@@ -421,15 +424,28 @@ function adminShopGroup_(body) {
   };
 }
 
-/** body = { product: { id?, name, price, unit, description, photo, active, order } } */
+/**
+ * body = { product: { id?, name, price, cost, unit, description, photo, active, order, stock?,
+ *   options: { label, options: [{ name, price, cost, stock?, was? }] } } }
+ * stock（數量）：新商品＝初存；修改＝改成這個數量（差多少記盤盈／盤虧）；空白＝不動。有規格的填在每個規格。
+ * was＝規格原本的名字（改名時，庫存紀錄跟著改）。有規格時價格可以空白（用第一個規格的價格）。
+ */
 function adminShopSaveProduct_(body) {
   var p = body.product || {};
   var name = cleanText_(p.name);
+  var hasOpts = p.options && Array.isArray(p.options.options) && p.options.options.some(function (o) { return o && cleanText_(o.name); });
+  if (hasOpts && (p.price === '' || p.price === undefined || p.price === null)) {
+    var firstPriced = p.options.options.filter(function (o) { return o && cleanText_(o.name) && shopInt_(o.price) !== null; })[0];
+    if (firstPriced) p.price = firstPriced.price;
+  }
   var price = shopInt_(p.price);
   var errors = [];
+  var stockOf = function (v) { if (v === '' || v === undefined || v === null) return null; var s = String(v).trim(); return /^\d{1,6}$/.test(s) ? Number(s) : NaN; };
+  var wantStock = {}; // 規格名（沒規格＝''）→ 要的數量
+  var renames = [];
   if (!name) errors.push('請填商品名稱');
   if (name.length > 40) errors.push('商品名稱太長（最多 40 字）');
-  if (price === null) errors.push('價格請填 0 以上的整數（元）');
+  if (price === null) errors.push(hasOpts ? '每個規格的售價請填整數（元）' : '價格請填 0 以上的整數（元）');
   var code = cleanText_(p.code);
   if (code.length > 20) errors.push('編號太長（最多 20 字）');
   var category = cleanText_(p.category);
@@ -456,11 +472,22 @@ function adminShopSaveProduct_(body) {
       names[n] = true;
       var pr = o.price === '' || o.price === undefined || o.price === null ? '' : shopInt_(o.price);
       if (pr === null) errors.push('規格「' + n + '」的價格請填整數，或空白（照商品價格）');
-      list.push({ name: n, price: pr === null ? '' : pr });
+      var oc = o.cost === '' || o.cost === undefined || o.cost === null ? '' : shopInt_(o.cost);
+      if (oc === null) errors.push('規格「' + n + '」的成本請填整數，或空白');
+      var st = stockOf(o.stock);
+      if (st !== st) errors.push('規格「' + n + '」的數量請填 0 以上的整數，或空白');
+      else if (st !== null) wantStock[n] = st;
+      if (o.was && String(o.was) !== n) renames.push([String(o.was), n]);
+      list.push({ name: n, price: pr === null ? '' : pr, cost: oc === null ? '' : oc });
     });
     if (label.length > 10) errors.push('規格名稱太長（例：口味、大小）');
     if (list.length > SHOP_MAX_OPTIONS) errors.push('規格最多 ' + SHOP_MAX_OPTIONS + ' 個選項');
     opts = JSON.stringify({ label: label, options: list });
+  }
+  if (!opts) {
+    var st0 = stockOf(p.stock);
+    if (st0 !== st0) errors.push('數量請填 0 以上的整數，或空白');
+    else if (st0 !== null) wantStock[''] = st0;
   }
   if (errors.length) throw new ApiError_('VALIDATION', '商品沒有存檔', errors.map(function (m) { return { message: m }; }));
   return withSignupLock_(function () {
@@ -485,8 +512,44 @@ function adminShopSaveProduct_(body) {
     writeDutyLog_('團購商品', (p.id ? '修改' : '新增') + '｜' + name + '｜' + price + ' 元' + adminTag_());
     SpreadsheetApp.flush();
     invalidateTable_(SHEETS.SHOP_PRODUCTS);
+    shopProductStock_(row, !p.id, renames, wantStock);
     return { product: shopProductOut_(row) };
   });
+}
+
+/**
+ * 商品表單的數量（在鎖裡面呼叫）：規格改名→庫存紀錄跟著改；數量→新商品記「初存」，修改記「盤盈／盤虧」補差額。
+ */
+function shopProductStock_(p, isNew, renames, want) {
+  var id = p['商品ID'];
+  if (renames.length) {
+    readTable_(SHEETS.SHOP_STOCK).forEach(function (r) {
+      if (r['商品ID'] !== id) return;
+      var m = renames.filter(function (x) { return x[0] === (r['規格'] || ''); })[0];
+      if (m) updateRow_(SHEETS.SHOP_STOCK, r, { '規格': m[1] });
+    });
+    invalidateTable_(SHEETS.SHOP_STOCK);
+  }
+  var names = Object.keys(want);
+  if (!names.length) return;
+  var levels = stockLevels_(readTable_(SHEETS.SHOP_STOCK));
+  var now = nowString_();
+  var batch = newId_('K');
+  var add = [];
+  names.forEach(function (o) {
+    var diff = want[o] - (levels[stockKeyOf_(id, o)] || 0);
+    if (!diff) return;
+    var vp = stockVariantPrice_(p, o);
+    var cost = Number(vp.cost) || 0;
+    var q = Math.abs(diff);
+    add.push(stockRow_({ now: now, date: todayString_(), type: diff > 0 ? '進' : '出', method: isNew ? '初存' : diff > 0 ? '盤盈' : '盤虧', id: id, option: o,
+      qty: q, amount: q * cost, cost: cost, price: vp.price, note: isNew ? '新增商品' : '商品表單改數量', batch: batch }));
+  });
+  if (!add.length) return;
+  appendRows_(SHEETS.SHOP_STOCK, add);
+  writeDutyLog_('團購庫存', p['名稱'] + '｜' + add.map(function (r) { return (r['規格'] || '') + (r['類型'] === '進' ? '+' : '-') + r['數量'] + '（' + r['方式'] + '）'; }).join('、') + adminTag_());
+  SpreadsheetApp.flush();
+  invalidateTable_(SHEETS.SHOP_STOCK);
 }
 
 /** body = { group: { id?, name, description, deadline, pickups: [活動ID], items: [{ id, price, limit, perPerson }], payInfo, status } } */

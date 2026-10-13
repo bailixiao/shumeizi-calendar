@@ -35,8 +35,11 @@
       if (ev.key === 'Escape' && !box.hasAttribute('data-locked')) close();
     }
     document.addEventListener('keydown', onKey);
+    // 點外面關閉；有表單（填到一半）的不關，免得要重填，要按「返回」才關
     wrap.addEventListener('click', (ev) => {
-      if (ev.target === wrap && !box.hasAttribute('data-locked')) close();
+      if (ev.target !== wrap || box.hasAttribute('data-locked')) return;
+      if (box.querySelector('form')) { box.classList.remove('is-nudge'); void box.offsetWidth; box.classList.add('is-nudge'); return; }
+      close();
     });
     return { el: box, close };
   }

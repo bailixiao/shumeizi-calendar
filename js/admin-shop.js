@@ -59,7 +59,8 @@
         <button type="button" class="stock-main" data-product="${esc(p.id)}"${edit ? '' : ' disabled'}>
           <span class="stock-code">${esc(p.code || '—')}${p.category ? `<span class="stock-cat">${esc(p.category)}</span>` : ''}</span>
           <strong>${esc(p.name)}</strong>
-          <small>成本 ${p.cost !== null && p.cost !== undefined ? money(p.cost) : '—'}・售價 ${money(p.price)}${p.options ? `・${esc(p.options.label)} ${p.options.options.length} 種` : ''}${p.active ? '' : '・已停用'}</small>
+          <small>${p.options ? `${esc(p.options.label)} ${p.options.options.length} 種` : `成本 ${p.cost !== null && p.cost !== undefined ? money(p.cost) : '—'}・售價 ${money(p.price)}`}${p.active ? '' : '・已停用'}</small>
+          ${p.variants ? `<span class="stock-variants">${p.variants.map((x) => `<span class="stock-variant${x.stock <= 0 ? ' is-low' : ''}">${esc(x.option || '未分規格')} <b>${x.stock}</b></span>`).join('')}</span>` : ''}
         </button>
         <span class="stock-qty${p.stock <= 0 ? ' is-low' : ''}"><b>${p.stock}</b><small>${esc(p.unit || '份')}</small></span>
       </li>`).join('')}</ul>` : '<p class="panel-empty">還沒有商品，按上面「🆕 新增商品」。</p>';
@@ -72,7 +73,7 @@
           <p class="muted">${esc(r.date)}・${esc(r.method)}・金額 ${money(r.amount)}${r.type === '出' && r.method === '售出' ? (r.price !== null ? '（售價 ' + money(r.price) + '）' : '') : (r.cost !== null ? '（成本 ' + money(r.cost) + '）' : '')}${r.by ? '・' + esc(r.by) : ''}</p>
           ${r.note ? `<p class="stock-rec-note">${esc(r.note)}</p>` : ''}
         </div>
-        ${edit && !r.orderId ? `<button type="button" class="btn btn-small btn-quiet-danger" data-rec-del="${esc(r.id)}">刪除</button>` : ''}
+        ${edit && !r.orderId ? `<span class="stock-rec-acts"><button type="button" class="btn btn-small" data-rec-edit="${esc(r.id)}">修改</button><button type="button" class="btn btn-small btn-quiet-danger" data-rec-del="${esc(r.id)}">刪除</button></span>` : ''}
       </li>`).join('')}</ul>` : '<p class="panel-empty">還沒有進出紀錄。</p>';
     body.innerHTML = `
       ${AdminPage.staleNote(stale)}
@@ -87,7 +88,7 @@
         ${edit ? '<div class="admin-actions"><a class="btn btn-primary" href="#/admin/shop/new">＋ 開團</a></div>' : ''}
         ${groupsHtml}` : state.tab === 'records' ? `
         ${recHtml}
-        <p class="hint">訂單打勾「已取貨」會自動記一筆「售出」，取消打勾會還回去；手動的記錯可以刪除。</p>` : `
+        <p class="hint">訂單打勾「已取貨」會自動記一筆「售出」，取消打勾會還回去；手動記的記錯了可以「修改」或刪除。</p>` : `
         ${stockHtml}
         <div class="stock-tools">
           <a class="btn stock-tool" href="#/admin/shop/report"><span class="stock-tool-icon" aria-hidden="true">📊</span><span>進銷存報表</span></a>
@@ -105,6 +106,7 @@
     body.querySelectorAll('[data-product]').forEach((b) => b.addEventListener('click', () => {
       editProduct(st.products.find((p) => p.id === b.dataset.product), guard, () => showList(body, guard));
     }));
+    body.querySelectorAll('[data-rec-edit]').forEach((b) => b.addEventListener('click', () => editRecord(st.records.find((x) => x.id === b.dataset.recEdit), st, guard, () => { AdminPage.clearMemo(); showList(body, guard); })));
     body.querySelectorAll('[data-rec-del]').forEach((b) => b.addEventListener('click', async () => {
       const r = st.records.find((x) => x.id === b.dataset.recDel);
       if (!(await Confirm.open({ title: '刪除這筆紀錄？', rows: [['商品', r.name], [r.type === '進' ? '進貨' : '出貨', r.method + ' ' + r.qty]], note: '記錯了才刪；庫存會跟著變。', confirmText: '刪除', danger: true }))) return;
@@ -138,10 +140,18 @@
     const isIn = type === 'in';
     const methods = isIn ? st.inMethods : st.outMethods;
     const products = st.products.filter((p) => p.active || !isIn);
-    const blank = () => ({ id: '', qty: '', cost: '', price: '', amount: '', method: isIn ? '買進' : '售出', note: '' });
+    const blank = () => ({ id: '', option: '', qty: '', cost: '', price: '', amount: '', method: isIn ? '買進' : '售出', note: '' });
+    const variantStock = (p, o) => { const v = (p.variants || []).find((x) => x.option === o); return v ? v.stock : 0; };
     let date = st.today; // 這次的日期（可以補登以前的）
     let pay = '零用金'; // 買進怎麼付（記帳自動記進貨）
     const rows = [blank()];
+    /** 帶入成本、售價：規格有填用規格的，沒有用商品的 */
+    const setPrices = (r, p) => {
+      const o = p && p.options && r.option ? p.options.options.find((x) => x.name === r.option) : null;
+      const cost = o && o.cost !== null && o.cost !== undefined ? o.cost : p ? p.cost : null;
+      r.cost = cost !== null && cost !== undefined ? String(cost) : '';
+      r.price = o && o.price !== null ? String(o.price) : p ? String(p.price) : '';
+    };
     const draw = (err) => {
       body.innerHTML = `
         <a class="btn back-btn" href="#/admin/shop">‹ 回團購</a>
@@ -156,6 +166,7 @@
               <span class="stock-line-img">${p ? thumb(p.photo, p.name) : '<span class="shop-thumb shop-noimg" aria-hidden="true">🌿</span>'}</span>
               <label class="form-row stock-line-pick"><span>編號／商品</span><select class="input" data-k="id" data-i="${i}"><option value="">（選商品）</option>${products.map((x) => `<option value="${esc(x.id)}"${x.id === r.id ? ' selected' : ''}>${esc(x.code || '—')}　${esc(x.name)}（庫存 ${x.stock}）</option>`).join('')}</select></label>
             </div>
+            ${p && p.options ? `<label class="form-row"><span>${esc(p.options.label)}</span><select class="input" data-k="option" data-i="${i}"><option value="">（選${esc(p.options.label)}）</option>${p.options.options.map((o) => `<option value="${esc(o.name)}"${o.name === r.option ? ' selected' : ''}>${esc(o.name)}（庫存 ${variantStock(p, o.name)}）</option>`).join('')}</select></label>` : ''}
             <div class="stock-line-grid">
               <label class="form-row"><span>成本價</span><input class="input" data-k="cost" data-i="${i}" inputmode="numeric" maxlength="6" value="${esc(r.cost)}" placeholder="元"></label>
               <label class="form-row"><span>售價</span><input class="input" data-k="price" data-i="${i}" inputmode="numeric" maxlength="6" value="${esc(r.price)}" placeholder="元"></label>
@@ -184,12 +195,13 @@
         r[x.dataset.k] = x.value;
         if (x.dataset.k === 'method' && isIn) draw();
         if (x.dataset.k === 'id') {
-          // 選了商品：帶入商品現在的成本、售價
+          // 選了商品：帶入商品現在的成本、售價（有規格的選了規格再帶）
           const p = products.find((y) => y.id === x.value);
-          r.cost = p && p.cost !== null && p.cost !== undefined ? String(p.cost) : '';
-          r.price = p ? String(p.price) : '';
+          r.option = p && p.options && p.options.options.length === 1 ? p.options.options[0].name : '';
+          setPrices(r, p);
           draw();
         }
+        if (x.dataset.k === 'option') { setPrices(r, products.find((y) => y.id === r.id)); draw(); }
       }));
       f.querySelectorAll('[data-del]').forEach((x) => x.addEventListener('click', () => { rows.splice(Number(x.dataset.del), 1); draw(); }));
       f.querySelector('[data-add-row]').addEventListener('click', () => { rows.push(blank()); draw(); const sel = body.querySelectorAll('[data-k="id"]'); sel[sel.length - 1].focus(); });
@@ -212,6 +224,57 @@
       });
     };
     draw();
+  }
+
+  /** 修改一筆手動的進出紀錄（記錯時）：日期、規格、數量、方式、單價、金額、備註 */
+  function editRecord(r, st, guard, after) {
+    const p = st.products.find((x) => x.id === r.productId);
+    const isIn = r.type === '進';
+    const sale = !isIn && r.method === '售出';
+    const methods = isIn ? st.inMethods : st.outMethods;
+    const m = Modal.open(`
+      <form class="modal-form admin-form" novalidate>
+        <h2 class="modal-title">修改${isIn ? '進貨' : '出貨'}紀錄</h2>
+        <p class="modal-note">${esc((r.code ? r.code + ' ' : '') + (p ? p.name : r.name))}</p>
+        <label class="form-row"><span>日期</span><input class="input" type="date" name="date" max="${esc(st.today)}" value="${esc(r.date)}"></label>
+        ${p && p.options ? `<label class="form-row"><span>${esc(p.options.label)}</span><select class="input" name="option">${r.option ? '' : '<option value="">（未分規格）</option>'}${p.options.options.map((o) => `<option value="${esc(o.name)}"${o.name === r.option ? ' selected' : ''}>${esc(o.name)}</option>`).join('')}</select></label>` : ''}
+        <div class="shop-two">
+          <label class="form-row"><span>數量</span><input class="input" name="qty" inputmode="numeric" maxlength="5" value="${esc(r.qty)}"></label>
+          <label class="form-row"><span>${isIn ? '進貨方式' : '出貨方式'}</span><select class="input" name="method">${methods.map((x) => `<option${x === r.method ? ' selected' : ''}>${esc(x)}</option>`).join('')}</select></label>
+        </div>
+        <div class="shop-two">
+          <label class="form-row"><span>${sale ? '售價' : '成本價'}（單價）</span><input class="input" name="unit" inputmode="numeric" maxlength="6" value="${esc(sale ? (r.price === null ? '' : r.price) : (r.cost === null ? '' : r.cost))}"></label>
+          <label class="form-row"><span>金額（空白＝數量×單價）</span><input class="input" name="amount" inputmode="numeric" maxlength="7" value="" placeholder="${esc(r.amount)}"></label>
+        </div>
+        <label class="form-row"><span>備註</span><input class="input" name="note" maxlength="100" value="${esc(r.note)}"></label>
+        <div class="form-error" data-error hidden></div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-block btn-primary">存檔</button>
+          <button type="button" class="btn btn-block" data-close>返回</button>
+        </div>
+      </form>`);
+    const f = m.el.querySelector('form');
+    const box = f.querySelector('[data-error]');
+    m.el.querySelector('[data-close]').addEventListener('click', () => m.close());
+    f.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      Busy.show('存檔中⋯');
+      try {
+        const unit = f.elements.unit.value.trim();
+        const method = f.elements.method.value;
+        const isSale = !isIn && method === '售出';
+        await Api.admin('adminShopStockUpdate', { id: r.id, record: { date: f.elements.date.value, option: f.elements.option ? f.elements.option.value : r.option, qty: f.elements.qty.value.trim(), method,
+          cost: isSale ? '' : unit, price: isSale ? unit : '', amount: f.elements.amount.value.trim(), note: f.elements.note.value } });
+        Busy.hide();
+        m.close();
+        after();
+      } catch (e) {
+        Busy.hide();
+        if (e.code === 'UNAUTHORIZED') { m.close(); guard(e); return; }
+        box.innerHTML = `<strong>${esc(e.message)}</strong>${(e.details || []).map((d) => '<br>' + esc(d.message)).join('')}`;
+        box.hidden = false;
+      }
+    });
   }
 
   /** 商品縮圖（點了放大）；沒照片顯示 🌿 */
@@ -249,7 +312,11 @@
     // 照片：第一張是封面（商品卡片），其他在商品頁左右滑；最多 6 張
     let photos = (v.photos && v.photos.length ? v.photos : [v.photo]).filter(Boolean);
     // 規格：{ label, options: [{ name, price }] }
-    const opt = { label: v.options ? v.options.label : '', rows: v.options ? v.options.options.map((o) => ({ name: o.name, price: o.price === null ? '' : String(o.price) })) : [] };
+    // 有規格：每個規格填售價、成本、數量（上面的價格、成本藏起來）；數量＝新增時初存、修改時改成這個數量（差多少記盤盈／盤虧）
+    const stockOf = (o) => { const x = (v.variants || []).find((y) => y.option === o); return x ? String(x.stock) : ''; };
+    const opt = { label: v.options ? v.options.label : '', rows: v.options ? v.options.options.map((o) => ({ name: o.name, was: o.name, price: o.price === null ? String(v.price) : String(o.price),
+      cost: o.cost !== null && o.cost !== undefined ? String(o.cost) : v.cost !== null && v.cost !== undefined ? String(v.cost) : '', stock: p ? stockOf(o.name) : '', stock0: p ? stockOf(o.name) : '' })) : [] };
+    const baseStock0 = p && !v.options ? String(v.stock || 0) : '';
     const m = Modal.open(`
       <form class="modal-form admin-form" novalidate>
         <h2 class="modal-title">${p ? '修改商品' : '新增商品'}</h2>
@@ -260,12 +327,16 @@
         <div class="shop-two">
           <label class="form-row"><span>名稱</span><input class="input" name="name" maxlength="40" value="${esc(v.name)}" placeholder="例：手工豆腐"></label>
         </div>
-        <div class="shop-two">
-          <label class="form-row"><span>價格（元）</span><input class="input" name="price" inputmode="numeric" maxlength="6" value="${esc(v.price)}" placeholder="例：60"></label>
-          <label class="form-row"><span>單位</span><input class="input" name="unit" maxlength="6" value="${esc(v.unit)}" placeholder="例：盒、罐、包"></label>
+        <div data-base-price>
+          <div class="shop-two">
+            <label class="form-row"><span>價格（元）</span><input class="input" name="price" inputmode="numeric" maxlength="6" value="${esc(v.price)}" placeholder="例：60"></label>
+            <label class="form-row"><span>成本（元，選填；只有後台看得到）</span><input class="input" name="cost" inputmode="numeric" maxlength="6" value="${esc(v.cost === null || v.cost === undefined ? '' : v.cost)}" placeholder="例：35" data-cost></label>
+          </div>
+          <p class="hint" data-margin></p>
+          <label class="form-row"><span>${p ? '目前庫存（改了會自動記盤盈／盤虧）' : '數量（選填；記成初存）'}</span><input class="input" name="stock" inputmode="numeric" maxlength="6" value="${esc(baseStock0)}" placeholder="例：20"></label>
         </div>
-        <label class="form-row"><span>成本（元，選填；只有後台看得到）</span><input class="input" name="cost" inputmode="numeric" maxlength="6" value="${esc(v.cost === null || v.cost === undefined ? '' : v.cost)}" placeholder="例：35" data-cost></label>
-        <p class="hint" data-margin></p>
+        <p class="hint" data-opt-note hidden>有規格：售價、成本、數量填在下面每個規格。</p>
+        <label class="form-row"><span>單位（選填）</span><input class="input" name="unit" maxlength="6" value="${esc(v.unit)}" placeholder="例：盒、罐、包"></label>
         <label class="form-row"><span>說明（選填）</span><textarea class="input textarea" name="description" rows="3" maxlength="300" placeholder="例：當天現做，冷藏 3 天">${esc(v.description)}</textarea></label>
         <div class="form-row"><span>照片（選填，最多 6 張；第一張是封面）</span>
           <div class="shop-photos-edit" data-photo-box></div>
@@ -275,7 +346,7 @@
           <label class="form-row"><span>規格名稱</span><input class="input" name="optLabel" maxlength="10" value="${esc(opt.label)}" placeholder="例：口味"></label>
           <div data-opt-rows></div>
           <button type="button" class="btn btn-small" data-opt-add>＋ 加一個選項</button>
-          <p class="hint">有填選項的話，大家下單要選一個。價格空白＝照上面的價格；限量、每人最多照商品算（各選項加總）。</p>
+          <p class="hint">有填選項的話，大家下單要選一個；每個選項的庫存分開算。${p ? '數量＝目前庫存，改了會自動記盤盈／盤虧。' : '數量會記成初存。'}限量、每人最多照商品算（各選項加總）。</p>
         </fieldset>
         <label class="form-row"><span>排序（小的在前）</span><input class="input" name="order" inputmode="numeric" maxlength="4" value="${esc(v.order || 0)}"></label>
         ${p ? `<label class="check"><input type="checkbox" name="active"${v.active ? ' checked' : ''}> 啟用（取消勾選＝停用）</label>` : ''}
@@ -315,16 +386,35 @@
       f.querySelector('[data-photo-add]').hidden = photos.length >= 6;
     };
     drawPhoto();
-    // 規格選項：名稱＋價格（空白＝商品價格）
+    // 規格選項：名稱、售價、成本、數量
     const drawOpts = () => {
       const box2 = f.querySelector('[data-opt-rows]');
-      box2.innerHTML = opt.rows.map((r, i) => `<div class="shop-opt-row"><input class="input" data-opt-name="${i}" maxlength="20" value="${esc(r.name)}" placeholder="例：荔枝"><input class="input" data-opt-price="${i}" inputmode="numeric" maxlength="6" value="${esc(r.price)}" placeholder="價格（選填）"><button type="button" class="shop-photo-del" data-opt-del="${i}" aria-label="刪除這個選項">×</button></div>`).join('');
-      box2.querySelectorAll('[data-opt-name]').forEach((x) => x.addEventListener('input', () => { opt.rows[Number(x.dataset.optName)].name = x.value; }));
-      box2.querySelectorAll('[data-opt-price]').forEach((x) => x.addEventListener('input', () => { opt.rows[Number(x.dataset.optPrice)].price = x.value; }));
-      box2.querySelectorAll('[data-opt-del]').forEach((b) => b.addEventListener('click', () => { opt.rows.splice(Number(b.dataset.optDel), 1); drawOpts(); }));
+      box2.innerHTML = opt.rows.map((r, i) => `<div class="shop-opt-card">
+        <div class="shop-opt-top"><input class="input" data-opt="name" data-i="${i}" maxlength="20" value="${esc(r.name)}" placeholder="例：甘梅" aria-label="選項名稱"><button type="button" class="shop-photo-del" data-opt-del="${i}" aria-label="刪除這個選項">×</button></div>
+        <div class="shop-opt-nums">
+          <label><span>售價</span><input class="input" data-opt="price" data-i="${i}" inputmode="numeric" maxlength="6" value="${esc(r.price)}" placeholder="元"></label>
+          <label><span>成本</span><input class="input" data-opt="cost" data-i="${i}" inputmode="numeric" maxlength="6" value="${esc(r.cost)}" placeholder="元"></label>
+          <label><span>${p && r.was ? '庫存' : '數量'}</span><input class="input" data-opt="stock" data-i="${i}" inputmode="numeric" maxlength="6" value="${esc(r.stock)}" placeholder="0"></label>
+        </div></div>`).join('');
+      box2.querySelectorAll('[data-opt]').forEach((x) => x.addEventListener('input', () => { opt.rows[Number(x.dataset.i)][x.dataset.opt] = x.value; if (x.dataset.opt === 'name') syncBase(); }));
+      box2.querySelectorAll('[data-opt-del]').forEach((b) => b.addEventListener('click', () => { opt.rows.splice(Number(b.dataset.optDel), 1); drawOpts(); syncBase(); }));
+    };
+    // 有規格時藏起上面的價格、成本、數量
+    const syncBase = () => {
+      const has = opt.rows.some((r) => r.name.trim());
+      f.querySelector('[data-base-price]').hidden = has;
+      f.querySelector('[data-opt-note]').hidden = !has;
     };
     drawOpts();
-    f.querySelector('[data-opt-add]').addEventListener('click', () => { opt.rows.push({ name: '', price: '' }); drawOpts(); const last = f.querySelectorAll('[data-opt-name]'); last[last.length - 1].focus(); });
+    syncBase();
+    f.querySelector('[data-opt-add]').addEventListener('click', () => {
+      // 新選項先帶上面（或前一個選項）的售價、成本
+      const prev = opt.rows[opt.rows.length - 1];
+      opt.rows.push({ name: '', was: '', price: prev ? prev.price : f.elements.price.value.trim(), cost: prev ? prev.cost : f.elements.cost.value.trim(), stock: '', stock0: '' });
+      drawOpts();
+      const last = f.querySelectorAll('[data-opt="name"]');
+      last[last.length - 1].focus();
+    });
     // 一份賺多少：價格、成本都填了才算
     const drawMargin = () => {
       const price = Number(f.elements.price.value.trim());
@@ -361,9 +451,10 @@
       Busy.show('存檔中⋯');
       try {
         await Api.admin('adminShopSaveProduct', { product: {
-          id: p ? p.id : '', code: f.elements.code.value.trim(), category: f.elements.category.value.trim(), name: f.elements.name.value, price: f.elements.price.value.trim(), cost: f.elements.cost.value.trim(), unit: f.elements.unit.value,
+          id: p ? p.id : '', code: f.elements.code.value.trim(), category: f.elements.category.value.trim(), name: f.elements.name.value, unit: f.elements.unit.value,
+          ...(opt.rows.some((r) => r.name.trim()) ? { price: '', cost: '' } : { price: f.elements.price.value.trim(), cost: f.elements.cost.value.trim(), stock: f.elements.stock.value.trim() !== baseStock0 ? f.elements.stock.value.trim() : '' }),
           description: f.elements.description.value, photo: photos[0] || '', photos: photos.slice(1), order: f.elements.order.value.trim(), active: f.elements.active ? f.elements.active.checked : true,
-          options: { label: f.elements.optLabel.value.trim(), options: opt.rows.filter((r) => r.name.trim()).map((r) => ({ name: r.name.trim(), price: r.price.trim() })) }
+          options: { label: f.elements.optLabel.value.trim(), options: opt.rows.filter((r) => r.name.trim()).map((r) => ({ name: r.name.trim(), was: r.was || '', price: String(r.price).trim(), cost: String(r.cost).trim(), stock: String(r.stock).trim() !== r.stock0 ? String(r.stock).trim() : '' })) }
         } });
         Busy.hide();
         m.close();

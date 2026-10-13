@@ -2751,3 +2751,18 @@ body.is-sub .homepage-link { display: none; }
 .ledger-badge { font-size: .85rem; }
 .ledger-kinds { margin-bottom: 8px; }
 @media (max-width: 520px) { .ledger-actions { grid-template-columns: 1fr 1fr 1fr; } .ledger-table { font-size: .85rem; } .ledger-table th, .ledger-table td { padding: 7px 6px; } }
+/* 有表單的對話框點外面不關，輕輕晃一下提示要按「返回」 */
+.modal-box.is-nudge { animation: modal-nudge .3s ease; }
+@keyframes modal-nudge { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+@media (prefers-reduced-motion: reduce) { .modal-box.is-nudge { animation: none; } }
+/* 分規格：商品表單每個規格一張小卡（名稱、售價、成本、數量）；庫存列表各規格的數量 */
+.shop-opt-card { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; margin-bottom: 10px; background: var(--card); }
+.shop-opt-top { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.shop-opt-top .input { flex: 1; }
+.shop-opt-nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.shop-opt-nums label { display: flex; flex-direction: column; gap: 4px; font-size: .85rem; color: var(--muted); }
+.stock-variants { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 4px; }
+.stock-variant { font-size: .82rem; padding: 1px 8px; border-radius: 999px; background: var(--paper-2); color: var(--muted); }
+.stock-variant b { color: var(--ink, inherit); }
+.stock-variant.is-low b { color: var(--berry); }
+.stock-rec-acts { display: flex; flex-direction: column; gap: 6px; flex: none; }

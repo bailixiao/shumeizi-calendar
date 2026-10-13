@@ -261,11 +261,12 @@ test('規格、多張照片：商品有口味，每個口味可以有自己的�
   const ice = ok(call('adminShopSaveProduct', { product: { name: '冰淇淋', price: 25, unit: '杯', photo: 'F-a1', photos: ['F-a2', 'F-a3'],
     options: { label: '口味', options: [{ name: '荔枝', price: '' }, { name: '芒果', price: '30' }] } } })).product;
   assert.deepEqual(ice.photos, ['F-a1', 'F-a2', 'F-a3']);
-  assert.deepEqual(ice.options, { label: '口味', options: [{ name: '荔枝', price: null }, { name: '芒果', price: 30 }] });
+  assert.deepEqual(ice.options, { label: '口味', options: [{ name: '荔枝', price: null, cost: null }, { name: '芒果', price: 30, cost: null }] }); // 成本只給後台
   const gid = ok(call('adminShopSaveGroup', { group: { name: '冰品團', deadline: '2026-10-15 22:00', pickups: [ids[0]], items: [{ id: ice.id, limit: '5', perPerson: '3' }] } })).id;
   const g = ok(env.get({ action: 'getShop' })).groups.find((x) => x.id === gid);
   assert.equal(g.items[0].photos.length, 3);
   assert.equal(g.items[0].options.label, '口味');
+  assert.equal(JSON.stringify(g.items[0].options).includes('cost'), false, '大家看不到成本');
   const post = (body) => env.post(Object.assign({ action: 'shopOrder', groupId: gid, pickupId: ids[0], pay: '現場', source: '官網' }, body));
   assert.match(JSON.stringify(post({ name: '測試甲', items: [{ id: ice.id, qty: 1 }] }).error), /請選口味/);
   assert.match(JSON.stringify(post({ name: '測試甲', items: [{ id: ice.id, option: '荔枝', qty: 2 }, { id: ice.id, option: '芒果', qty: 2 }] }).error), /每人最多 3/);
@@ -544,4 +545,52 @@ test('植素園記帳 Google 試算表：系統記帳的列（帳戶增減、來
   assert.ok(subjects.some((s) => s[0] === '進貨' && s[1] === '成本'));
   assert.ok(subjects.some((s) => s[0] === '存提款' && s[1] === '移轉'));
   assert.equal(ok(call('adminShop', {})).ledgerUrl, '');
+});
+
+test('分規格的庫存：商品表單每個口味填售價、成本、數量（新增＝初存、修改＝盤盈盤虧）；進出貨選口味；改名跟著改；取貨照口味售出；報表、出攤分口味；修改進出紀錄', () => {
+  const { env, call, ok, ids, order, gid } = setup();
+  // 新增：價格空白＝第一個口味的；數量＝初存
+  const snack = ok(call('adminShopSaveProduct', { product: { name: '鍋巴', unit: '包', options: { label: '口味', options: [
+    { name: '甘梅', price: '130', cost: '90', stock: '10' }, { name: '芥末', price: '130', cost: '95', stock: '5' }] } } })).product;
+  assert.equal(snack.price, 130);
+  let st = ok(call('adminShopStock', {}));
+  let p = st.products.find((x) => x.id === snack.id);
+  assert.equal(p.stock, 15);
+  assert.deepEqual(p.variants, [{ option: '甘梅', stock: 10 }, { option: '芥末', stock: 5 }]);
+  assert.ok(st.records.filter((r) => r.productId === snack.id).every((r) => r.method === '初存'));
+  // 進出貨要選口味
+  assert.match(JSON.stringify(call('adminShopStockMove', { type: 'in', rows: [{ id: snack.id, qty: 3, method: '買進' }] }).error), /請選口味/);
+  ok(call('adminShopStockMove', { type: 'in', rows: [{ id: snack.id, option: '芥末', qty: 5, cost: 85, method: '買進' }] }));
+  // 修改：甘梅改名「梅子」、數量改 8（盤虧 2）
+  ok(call('adminShopSaveProduct', { product: { id: snack.id, name: '鍋巴', unit: '包', options: { label: '口味', options: [
+    { name: '梅子', was: '甘梅', price: '130', cost: '90', stock: '8' }, { name: '芥末', price: '135', cost: '85' }] } } }));
+  st = ok(call('adminShopStock', {}));
+  p = st.products.find((x) => x.id === snack.id);
+  assert.deepEqual(p.variants, [{ option: '梅子', stock: 8 }, { option: '芥末', stock: 10 }]);
+  assert.ok(st.records.some((r) => r.name === '鍋巴（梅子）' && r.method === '盤虧' && r.qty === 2));
+  // 團購取貨：照口味售出
+  const g = ok(call('adminShopGroup', { id: gid })).group;
+  ok(call('adminShopSaveGroup', { group: { id: gid, name: g.name, deadline: g.deadline, pickups: g.pickupIds, payInfo: g.payInfo, items: g.itemSettings.concat([{ id: snack.id }]) } }));
+  const o = ok(order({ name: '測試甲', source: '官網', items: [{ id: snack.id, option: '芥末', qty: 2 }] })).order;
+  ok(call('adminShopOrderSet', { orderId: o.id, picked: true }));
+  p = ok(call('adminShopStock', {})).products.find((x) => x.id === snack.id);
+  assert.deepEqual(p.variants.map((v) => v.stock), [8, 8]);
+  // 報表分口味一列
+  const rep = ok(call('adminShopStockReport', { from: '2026-01-01', to: '2026-12-31' }));
+  assert.deepEqual(rep.rows.filter((r) => r.id === snack.id).map((r) => [r.name, r.end.qty]), [['鍋巴（梅子）', 8], ['鍋巴（芥末）', 8]]);
+  // 出攤：分口味一列，現場賣梅子 3
+  const stall = ok(call('adminShopStall', { dutyId: ids[0] }));
+  assert.deepEqual(stall.rows.filter((r) => r.id === snack.id).map((r) => [r.option, r.before, r.pre]), [['梅子', 8, 0], ['芥末', 10, 2]]);
+  ok(call('adminShopStallSave', { dutyId: ids[0], rows: [{ id: snack.id, option: '梅子', onsite: 3 }] }));
+  assert.equal(ok(call('adminShopStock', {})).products.find((x) => x.id === snack.id).variants[0].stock, 5);
+  // 修改進出紀錄：買進 5 改成 6、換日期；訂單自動的不能改
+  st = ok(call('adminShopStock', {}));
+  const buy = st.records.find((r) => r.productId === snack.id && r.method === '買進');
+  assert.equal(call('adminShopStockUpdate', { id: buy.id, record: { qty: 0, method: '買進' } }).error.code, 'VALIDATION');
+  const u = ok(call('adminShopStockUpdate', { id: buy.id, record: { date: '2026-09-30', option: '芥末', qty: 6, method: '買進', cost: 85, note: '多一包' } })).record;
+  assert.deepEqual([u.date, u.qty, u.amount, u.note], ['2026-09-30', 6, 510, '多一包']);
+  assert.equal(ok(call('adminShopStock', {})).products.find((x) => x.id === snack.id).variants[1].stock, 9);
+  const auto = ok(call('adminShopStock', {})).records.find((r) => r.orderId);
+  assert.equal(call('adminShopStockUpdate', { id: auto.id, record: { qty: 1 } }).error.code, 'FORBIDDEN');
+  assert.equal(env.post({ action: 'adminShopStockUpdate', id: buy.id }).ok, false);
 });

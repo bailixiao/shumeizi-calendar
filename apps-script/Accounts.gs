@@ -38,7 +38,7 @@ function accountRows_() {
 
 /** 操作紀錄後面加的註記：總管理者「（管理者）」，其他帳號「（帳號名稱）」 */
 function adminTag_() {
-  if (!ADMIN_SESSION_ || ADMIN_SESSION_.role === SUPER_ACCOUNT) return '（管理者）';
+  if (!ADMIN_SESSION_ || ADMIN_SESSION_.account === SUPER_ACCOUNT) return '（管理者）'; // 另外建的總管理者帳號寫帳號名稱
   return '（' + ADMIN_SESSION_.account + '）';
 }
 
@@ -82,7 +82,7 @@ var ADMIN_CATEGORY_ACTIONS = ['adminCancel', 'adminReschedule', 'adminRestore', 
   'adminDeleteDuty', 'adminSetAttendance', 'adminAddAttendee', 'adminDraftFromImages', 'adminUpdateStatsSheet', 'adminSetTeachers', 'adminSaveGoals', 'adminVenueDecide', 'adminPushSave', 'adminPushDelete', 'adminAutoPushSave', 'adminRollcallLink', 'adminImportAttendance', 'adminSetMemberExtra', 'adminSplitSignup', 'adminUpdateMeal'];
 
 // 團購的寫入：總管理者與植素（植素園工作坊）帳號（規格 0.6）
-var SHOP_ADMIN_ACTIONS = ['adminShopSaveProduct', 'adminShopSaveGroup', 'adminShopDeleteGroup', 'adminShopOrder', 'adminShopOrderSet', 'adminShopStockMove', 'adminShopStockDelete', 'adminShopDeleteProduct', 'adminShopStallSave', 'adminShopStockImport', 'adminShopLedgerSave', 'adminShopLedgerDelete', 'adminShopLedgerTransfer', 'adminShopLedgerOpening', 'adminShopSavePromo', 'adminShopDeletePromo'];
+var SHOP_ADMIN_ACTIONS = ['adminShopSaveProduct', 'adminShopSaveGroup', 'adminShopDeleteGroup', 'adminShopOrder', 'adminShopOrderSet', 'adminShopStockMove', 'adminShopStockDelete', 'adminShopStockUpdate', 'adminShopDeleteProduct', 'adminShopStallSave', 'adminShopStockImport', 'adminShopLedgerSave', 'adminShopLedgerDelete', 'adminShopLedgerTransfer', 'adminShopLedgerOpening', 'adminShopSavePromo', 'adminShopDeletePromo'];
 
 // 成員、分組的編輯動作，與可以編輯的帳號（總管理者另外全部可以）
 var PEOPLE_EDIT_ACTIONS = ['adminSaveMember', 'adminDeleteMember', 'adminMemberCandidates', 'adminAddMembers', 'adminMergeNames', 'adminClearCandidates',
@@ -210,7 +210,7 @@ function accountToJson_(r) {
 }
 
 function adminAccounts_() {
-  return { accounts: sortedAccountRows_().map(accountToJson_), roles: ROLES.slice(1) };
+  return { accounts: sortedAccountRows_().map(accountToJson_), roles: ROLES.slice() }; // 可以另外建「總管理者」角色的帳號（全部權限）
 }
 
 /**
@@ -246,7 +246,7 @@ function adminSaveAccount_(body) {
   if (!account) errors.push('請填帳號');
   if (account === SUPER_ACCOUNT) errors.push('「總管理者」是保留的名稱，請換一個');
   if (account && !/^[^\s]{2,20}$/.test(account)) errors.push('帳號要 2～20 個字，不能有空白');
-  if (ROLES.indexOf(a.role) <= 0) errors.push('請選角色（勤務、道務、教育、唯讀或場管）');
+  if (ROLES.indexOf(a.role) < 0) errors.push('請選角色');
   var password = String(a.password || '');
   if (password && password.length < PASSWORD_MIN) errors.push('密碼至少 ' + PASSWORD_MIN + ' 個字');
   return withSignupLock_(function () {

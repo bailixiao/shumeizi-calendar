@@ -62,7 +62,7 @@ const server = http.createServer((req, res) => {
     res.end(`window.APP_CONFIG = { API_URL: '/api' };`);
     return;
   }
-  const file = path.join(root, urlPath === '/' ? 'index.html' : urlPath);
+  const file = path.join(root, urlPath.endsWith('/') ? urlPath + 'index.html' : urlPath); // 資料夾（例：/home/）＝裡面的 index.html，和 GitHub Pages 一樣
   if (!file.startsWith(root)) {
     res.writeHead(403).end();
     return;

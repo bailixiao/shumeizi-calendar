@@ -223,7 +223,7 @@
     const S = window.SITE;
     document.title = S.name;
     const t = document.querySelector('meta[name="apple-mobile-web-app-title"]');
-    if (t) t.setAttribute('content', S.name);
+    if (t) t.setAttribute('content', S.shortName || S.name); // 主畫面圖示下面的名稱
     document.querySelectorAll('[data-site]').forEach((el) => { if (S[el.dataset.site]) el.textContent = S[el.dataset.site]; });
     // data-site-tpl：整段文字的範本，{venue} 這類換成設定（只換文字，不拆開元素，排版不變）
     document.querySelectorAll('[data-site-tpl]').forEach((el) => { el.textContent = el.dataset.siteTpl.replace(/\{(\w+)\}/g, (m, k) => S[k] || ''); });

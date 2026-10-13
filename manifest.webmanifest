@@ -1,9 +1,9 @@
 {
-  "name": "書槑子青年坊行事曆",
-  "short_name": "書槑子行事曆",
-  "description": "書槑子青年坊的活動行事曆與報名",
+  "name": "書槑子青年坊",
+  "short_name": "書槑子青年坊",
+  "description": "書槑子青年坊：官網、活動行事曆與報名、植素園團購",
   "lang": "zh-Hant-TW",
-  "start_url": "./",
+  "start_url": "home/",
   "scope": "./",
   "display": "standalone",
   "background_color": "#fbf8f0",

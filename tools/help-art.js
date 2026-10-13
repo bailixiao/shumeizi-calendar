@@ -49,7 +49,7 @@ function site(top, h) {
     rows.push(`<rect x="28" y="${y}" width="304" height="50" rx="10" fill="#ffffff" stroke="#e7dfcb"/><rect x="40" y="${y + 12}" width="${120 + (i % 2) * 40}" height="10" rx="5" fill="#57514a"/><rect x="40" y="${y + 30}" width="90" height="8" rx="4" fill="#bdb4a5"/><rect x="262" y="${y + 16}" width="56" height="20" rx="10" fill="#eef2d4"/>`);
   }
   return `<rect x="12" y="${top}" width="336" height="${h}" fill="#fbf8f0"/>
-    ${text(28, top + 38, '書槑子行事曆', { size: 20, bold: true, fill: '#2a2724' })}
+    ${text(28, top + 38, '書槑子青年坊', { size: 20, bold: true, fill: '#2a2724' })}
     <rect x="28" y="${top + 50}" width="304" height="1" fill="#ddd4c3"/>
     ${rows.join('')}`;
 }
@@ -110,7 +110,7 @@ const sheetRows = ['拷貝', '加入閱讀列表', '加入書籤', '加入喜好
 files['home-ios-2.svg'] = phone(`
   <rect x="12" y="12" width="336" height="616" fill="#8e8e93" opacity=".55"/>
   <rect x="12" y="96" width="336" height="540" rx="18" fill="#f2f2f7"/>
-  ${appIcon(52, 140, 0.7)}${text(80, 136, '書槑子行事曆', { size: 15, bold: true })}${text(80, 156, 'bailixiao.github.io　選項 ›', { size: 12, fill: '#8e8e93' })}
+  ${appIcon(52, 140, 0.7)}${text(80, 136, '書槑子青年坊', { size: 15, bold: true })}${text(80, 156, 'bailixiao.github.io　選項 ›', { size: 12, fill: '#8e8e93' })}
   <circle cx="318" cy="134" r="13" fill="#e3e3e8"/>${text(318, 139, '✕', { size: 13, anchor: 'middle', fill: '#666' })}
   ${['AirDrop', '訊息', 'LINE', '郵件'].map((n, i) => `<circle cx="${60 + i * 80}" cy="206" r="26" fill="${['#1c8cff', '#34c759', '#06c755', '#1c8cff'][i]}"/>${text(60 + i * 80, 250, n, { size: 12, anchor: 'middle' })}`).join('')}
   <rect x="24" y="270" width="312" height="${sheetRows.length * 40}" rx="12" fill="#fff"/>
@@ -124,7 +124,7 @@ files['home-ios-3.svg'] = phone(`
   <rect x="12" y="52" width="336" height="576" fill="#f2f2f7"/>
   ${text(34, 92, '取消', { size: 16, fill: '#0a7aff' })}${text(180, 92, '加入主畫面', { size: 16, bold: true, anchor: 'middle' })}${text(326, 92, '加入', { size: 16, fill: '#0a7aff', bold: true, anchor: 'end' })}
   <rect x="24" y="118" width="312" height="96" rx="12" fill="#fff"/>
-  ${appIcon(72, 166, 0.95)}${text(112, 160, '書槑子行事曆', { size: 16 })}<rect x="112" y="168" width="208" height="1" fill="#e5e5ea"/>${text(112, 192, 'bailixiao.github.io/shumeizi-calendar', { size: 12, fill: '#8e8e93' })}
+  ${appIcon(72, 166, 0.95)}${text(112, 160, '書槑子青年坊', { size: 16 })}<rect x="112" y="168" width="208" height="1" fill="#e5e5ea"/>${text(112, 192, 'bailixiao.github.io/shumeizi-calendar', { size: 12, fill: '#8e8e93' })}
   <rect x="24" y="232" width="312" height="46" rx="12" fill="#fff"/>${text(40, 261, '以網頁 App 打開', { size: 15 })}<rect x="278" y="244" width="46" height="24" rx="12" fill="#34c759"/><circle cx="312" cy="256" r="10" fill="#fff"/>
   ${text(180, 300, '（有這一行的話，保持打開）', { size: 12, fill: '#8e8e93', anchor: 'middle' })}
   ${mark(305, 86, 28, { label: '點「加入」', lx: 284, ly: 150 })}`);
@@ -135,7 +135,7 @@ files['home-ios-4.svg'] = phone(`
   <rect x="12" y="12" width="336" height="616" fill="#6d8fb8"/>
   ${homeApps.map((c, i) => `<rect x="${36 + (i % 4) * 76}" y="${78 + Math.floor(i / 4) * 92}" width="56" height="56" rx="13" fill="${c}"/>`).join('')}
   ${appIcon(36 + 3 * 76 + 28, 78 + 2 * 92 + 28, 1.08)}
-  ${text(36 + 3 * 76 + 28, 78 + 2 * 92 + 76, '書槑子行事曆', { size: 11, fill: '#fff', anchor: 'middle', bold: true })}
+  ${text(36 + 3 * 76 + 28, 78 + 2 * 92 + 76, '書槑子青年坊', { size: 11, fill: '#fff', anchor: 'middle', bold: true })}
   ${mark(36 + 3 * 76 + 28, 78 + 2 * 92 + 28, 40, { label: '以後點這個打開', lx: 180, ly: 430 })}`, { bg: '#6d8fb8' });
 
 // iOS 26：下面只有網址和「⋯」
@@ -162,7 +162,7 @@ files['home-ipad-1.svg'] = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0
   ${chevron(44, 44, -1)}${chevron(78, 44, 1, '#b8b8bd')}
   <rect x="190" y="26" width="260" height="34" rx="10" fill="#fff" stroke="#d1d1d6"/>${text(320, 49, '🔒 bailixiao.github.io', { size: 14, anchor: 'middle', fill: '#333' })}
   ${shareIcon(520, 44)}<path d="M556 36 v16 M548 44 h16" stroke="#0a7aff" stroke-width="2.4"/>${tabsIcon(598, 44)}
-  ${text(40, 110, '書槑子行事曆', { size: 22, bold: true, fill: '#2a2724' })}
+  ${text(40, 110, '書槑子青年坊', { size: 22, bold: true, fill: '#2a2724' })}
   ${[0, 1, 2].map((i) => `<rect x="40" y="${130 + i * 70}" width="560" height="56" rx="10" fill="#ffffff" stroke="#e7dfcb"/>`).join('')}
   ${mark(520, 42, 24, { label: '點右上角的「分享」', lx: 440, ly: 120 })}
 </svg>`;
@@ -199,7 +199,7 @@ files['home-android-3.svg'] = phone(`${site(52, 576)}
   <rect x="12" y="12" width="336" height="616" fill="#000" opacity=".35"/>
   <rect x="36" y="220" width="288" height="210" rx="22" fill="#fff"/>
   ${text(60, 262, '安裝應用程式', { size: 19, bold: true })}
-  ${appIcon(84, 316, 0.8)}${text(120, 312, '書槑子行事曆', { size: 16 })}${text(120, 334, 'bailixiao.github.io', { size: 12, fill: '#777' })}
+  ${appIcon(84, 316, 0.8)}${text(120, 312, '書槑子青年坊', { size: 16 })}${text(120, 334, 'bailixiao.github.io', { size: 12, fill: '#777' })}
   ${text(206, 400, '取消', { size: 16, fill: '#1a73e8', anchor: 'middle' })}${text(286, 400, '安裝', { size: 16, fill: '#1a73e8', bold: true, anchor: 'middle' })}
   ${text(180, 456, '有的手機寫「新增」，意思一樣', { size: 13, fill: '#fff', anchor: 'middle', bold: true })}
   ${mark(286, 394, 26, { label: '點「安裝」或「新增」', lx: 200, ly: 180 })}`, { android: true });
@@ -227,7 +227,7 @@ files['home-samsung-2.svg'] = phone(`${site(52, 576)}
 // LINE 裡面
 files['home-line-1.svg'] = phone(`
   <rect x="12" y="52" width="336" height="56" fill="#ffffff"/>
-  ${text(34, 88, '✕', { size: 20, fill: '#333' })}${text(170, 78, '書槑子行事曆', { size: 15, bold: true, anchor: 'middle' })}${text(170, 98, 'bailixiao.github.io', { size: 11, fill: '#888', anchor: 'middle' })}
+  ${text(34, 88, '✕', { size: 20, fill: '#333' })}${text(170, 78, '書槑子青年坊', { size: 15, bold: true, anchor: 'middle' })}${text(170, 98, 'bailixiao.github.io', { size: 11, fill: '#888', anchor: 'middle' })}
   ${shareIcon(282, 82, '#333', 0.8)}${dotsV(324, 82, '#333')}
   ${site(108, 520)}
   ${mark(324, 82, 20, { label: '點右上角「⋮」或「⋯」', lx: 240, ly: 156 })}`);

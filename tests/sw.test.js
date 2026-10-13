@@ -89,12 +89,12 @@ test('快取名稱帶網站路徑：清舊快取只清自己的，不清同網�
     registration: { scope: 'https://example.test/shumeizi-calendar/' }, clients: { claim() {} }
   };
   const caches = {
-    keys: async () => ['shumeizi-v4', 'shumeizi:/shumeizi-calendar/:v5', 'shumeizi:/shumeizi-calendar/:v6', 'duty-calendar-v2', 'duty-calendar:/duty-calendar/:v3'],
+    keys: async () => ['shumeizi-v4', 'shumeizi:/shumeizi-calendar/:v5', 'shumeizi:/shumeizi-calendar/:v6', 'shumeizi:/shumeizi-calendar/:v7', 'duty-calendar-v2', 'duty-calendar:/duty-calendar/:v3'],
     delete: async (k) => { deleted.push(k); return true; }
   };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8'), { self, caches, URL, console, importScripts() {} });
   let p;
   listeners.activate({ waitUntil: (x) => { p = x; } });
   await p;
-  assert.deepStrictEqual(deleted.sort(), ['shumeizi-v4', 'shumeizi:/shumeizi-calendar/:v5']);
+  assert.deepStrictEqual(deleted.sort(), ['shumeizi-v4', 'shumeizi:/shumeizi-calendar/:v5', 'shumeizi:/shumeizi-calendar/:v6']);
 });

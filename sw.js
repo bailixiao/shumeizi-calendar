@@ -9,7 +9,7 @@
 // 同一個網域（bailixiao.github.io）底下有好幾個網站（教全區行事曆等），手機裡的快取是共用的：
 // 快取名稱帶上這個網站的路徑，清舊快取時只清自己的，不會清掉別的網站的（和教全區的 sw.js 同樣做法）。
 const PREFIX = 'shumeizi:' + new URL('./', self.location).pathname + ':';
-const CACHE = PREFIX + 'v6'; // v6：換正式標誌（2026/10/14）
+const CACHE = PREFIX + 'v7'; // v7：App 裡多了官網頁面（home/），每一頁分開存（2026/10/14）
 const LEGACY = ['shumeizi-v1', 'shumeizi-v2', 'shumeizi-v3', 'shumeizi-v4']; // 改名前的舊快取（只有書槑子用過）
 const CDN_HOSTS = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
@@ -43,7 +43,7 @@ self.addEventListener('fetch', (ev) => {
 
 async function networkFirst(req) {
   const cache = await caches.open(CACHE);
-  const key = new URL('./', self.location).href; // 網頁本身只存一份（不分 #／?）
+  const key = pageKey(req.url); // 每一頁存一份（不分 #／?）：行事曆、App 裡的官網各頁分開，不會互相蓋掉
   try {
     // 每次打開都跟伺服器確認有沒有新版（不用瀏覽器 HTTP 快取的舊網頁，GitHub Pages 會讓它留 10 分鐘）
     const res = await withTimeout(fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }), 3000);
@@ -54,6 +54,14 @@ async function networkFirst(req) {
     if (cached) return cached;
     return fetch(req);
   }
+}
+
+// 網頁的快取名稱：去掉 ?／#，結尾的 index.html 當成資料夾（./ 和 ./index.html 是同一頁）
+function pageKey(href) {
+  const u = new URL(href);
+  u.search = ''; u.hash = '';
+  u.pathname = u.pathname.replace(/index\.html$/, '');
+  return u.href;
 }
 
 async function cacheFirst(req, versionedUrl) {

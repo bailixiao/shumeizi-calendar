@@ -11,6 +11,11 @@ var LS = { help: '使用說明', setting: '設定', manual: '手動記帳', syst
 var LS_ACCOUNT_TABS = ['(1) 零用金', '(2) 銀行存款', '(3) 應收帳款', '(4) 應付帳款'];
 var LS_SECTIONS = ['收入', '其他收入', '成本', '費用', '其他損失', '移轉'];
 
+/** 讀分頁；還沒有這個分頁（還沒同步過）就當作空的 */
+function lsRead_(def) {
+  return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(def.name) ? readTable_(def) : [];
+}
+
 /** 來源代號 → 給人看的 */
 function ledgerSourceLabel_(s) {
   s = String(s || '');
@@ -56,6 +61,7 @@ function lsDate_(s) {
  */
 function setupLedgerSheet() {
   syncKey_(); // 先確認同步密鑰（密碼不對會說明怎麼改）
+  syncFromWorker(); // 先把 Cloudflare 的資料（含收支記帳、庫存紀錄）同步到試算表
   var url = ledgerSheetSync_(true);
   Logger.log('植素園記帳：' + url);
   return url;
@@ -68,7 +74,7 @@ function ledgerSheetSync_(strict) {
     var ss = null;
     var id = props.getProperty('LEDGER_SHEET_ID');
     if (id) { try { ss = SpreadsheetApp.openById(id); } catch (e) { ss = null; } }
-    var rows = readTable_(SHEETS.SHOP_LEDGER);
+    var rows = lsRead_(SHEETS.SHOP_LEDGER);
     if (!ss) {
       ss = ledgerSheetCreate_(rows);
       props.setProperty('LEDGER_SHEET_ID', ss.getId());
@@ -100,11 +106,11 @@ function ledgerSheetWriteSystem_(ss, rows) {
     sys.getRange(2, 1, data.length, 1).setNumberFormat('yyyy/mm/dd');
     sys.getRange(2, 5, data.length, 1).setNumberFormat('#,##0');
   }
-  var records = readTable_(SHEETS.SHOP_STOCK);
+  var records = lsRead_(SHEETS.SHOP_STOCK);
   var thisYear = Number(todayString_().slice(0, 4));
   var first = thisYear;
   rows.concat(records).forEach(function (r) { var y = Number(String(r['日期'] || '').slice(0, 4)); if (y >= 2000 && y < first) first = y; });
-  var inv = ledgerSheetStockRows_(records, readTable_(SHEETS.SHOP_PRODUCTS), first, thisYear);
+  var inv = ledgerSheetStockRows_(records, lsRead_(SHEETS.SHOP_PRODUCTS), first, thisYear);
   var st = ss.getSheetByName(LS.stock);
   if (st.getLastRow() > 1) st.getRange(2, 1, st.getLastRow() - 1, 4).clearContent();
   st.getRange(2, 1, inv.length, 4).setValues(inv);

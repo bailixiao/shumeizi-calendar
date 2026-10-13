@@ -10,7 +10,7 @@
  */
 
 var WORKER_URL = 'https://shumeizi-api.duty-calendar-worker.workers.dev/';
-var SYNC_SKIP_PROPS = ['BACKUP_FOLDER_ID', 'BACKUP_LAST', 'MIGRATED', 'NEW_ADMIN_PASSWORD', 'SYNC_KEY', 'ADMIN_CURRENT_TOKEN', 'LEDGER_SHEET_ID'];
+var SYNC_SKIP_PROPS = ['BACKUP_FOLDER_ID', 'BACKUP_LAST', 'MIGRATED', 'NEW_ADMIN_PASSWORD', 'SYNC_KEY', 'ADMIN_CURRENT_TOKEN', 'LEDGER_SHEET_ID', 'LEDGER_HELP_VERSION'];
 
 function syncSheetDefs_() {
   // 帳號只存在 Cloudflare（含密碼雜湊），不在兩邊之間複製，避免覆蓋

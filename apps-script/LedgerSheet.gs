@@ -78,6 +78,7 @@ function ledgerSheetSync_(strict) {
     if (!ss) {
       ss = ledgerSheetCreate_(rows);
       props.setProperty('LEDGER_SHEET_ID', ss.getId());
+      props.deleteProperty('LEDGER_HELP_VERSION'); // 新的一份：使用說明的新段落也要加
     }
     var url = ss.getUrl();
     if (props.getProperty('LEDGER_SHEET_URL') !== url) {
@@ -85,6 +86,7 @@ function ledgerSheetSync_(strict) {
       props.setProperty('LEDGER_SHEET_URL', url);
     }
     ledgerSheetWriteSystem_(ss, rows);
+    ledgerSheetHelpMore_(ss);
     props.deleteProperty('LEDGER_SHEET_ERROR');
     return url;
   } catch (e) {
@@ -115,6 +117,39 @@ function ledgerSheetWriteSystem_(ss, rows) {
   if (st.getLastRow() > 1) st.getRange(2, 1, st.getLastRow() - 1, 4).clearContent();
   st.getRange(2, 1, inv.length, 4).setValues(inv);
   st.getRange(2, 2, inv.length, 3).setNumberFormat('#,##0');
+}
+
+// 使用說明後來加的段落（版本號：加過的不再加；往下接在最後面，不蓋掉原本的）
+var LS_HELP_VERSION = 1;
+var LS_HELP_MORE = [
+  ['【哪些會自動連動】（2026/10/13 加）'],
+  ['● 後台 → 這份試算表（每 10 分鐘一次，寫在「系統記帳」）：'],
+  ['　・團購訂單打勾「已付款」＝銷貨收入（付現記零用金、轉帳記銀行存款）'],
+  ['　・已取貨、還沒付款＝應收帳款'],
+  ['　・出攤銷售統計表存檔＝那天現場營業額，記零用金'],
+  ['　・「商品增加」的買進＝進貨（記在選的零用金／銀行存款／還沒付＝應付帳款）'],
+  ['　・存貨金額（期初、期末）寫在「系統存貨」，來自後台的進銷存報表'],
+  ['● 後台改了這裡也會跟著改：取消打勾「已付款」、取消訂單、修改或刪除進貨紀錄，下一次同步那一筆就會改掉或拿掉。'],
+  ['● 這份試算表裡面：在「手動記帳」打一筆，(1)～(7) 的公式馬上重算。'],
+  [''],
+  ['【不會連動的】'],
+  ['● 這份試算表 → 後台：在這裡打的「手動記帳」只存在這裡，後台看不到（後台沒有記帳畫面了）。'],
+  ['● 「系統記帳」「系統存貨」不要手動改：每 10 分鐘會整頁重寫，改了會被蓋掉。'],
+  ['● 自動記的帳戶不對（例：現場收的現金後來存進銀行）：在「手動記帳」記兩筆移轉，零用金 -金額、銀行存款 +金額，科目選「存提款」。'],
+  ['● 上線（2026/10/13）前就打勾「已付款」的訂單、之前記的進貨不會補記：要的話把那張訂單「已付款」取消再勾回去，或直接在「手動記帳」補記。']
+];
+
+/** 使用說明加新的段落（接在最後面，空一列；同一版只加一次） */
+function ledgerSheetHelpMore_(ss) {
+  var props = PropertiesService.getScriptProperties();
+  if (Number(props.getProperty('LEDGER_HELP_VERSION') || 0) >= LS_HELP_VERSION) return;
+  var help = ss.getSheetByName(LS.help);
+  if (!help) return;
+  var start = help.getLastRow() + 2;
+  help.getRange(start, 1, LS_HELP_MORE.length, 1).setValues(LS_HELP_MORE).setWrap(true);
+  help.getRange(start, 1).setFontWeight('bold');
+  help.getRange(start + LS_HELP_MORE.map(function (r) { return r[0]; }).indexOf('【不會連動的】'), 1).setFontWeight('bold');
+  props.setProperty('LEDGER_HELP_VERSION', String(LS_HELP_VERSION));
 }
 
 /** 建立「植素園記帳」：分頁、表頭、公式（之後系統只重寫系統記帳、系統存貨） */

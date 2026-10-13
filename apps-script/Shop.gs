@@ -190,7 +190,8 @@ function shopValidate_(ctx, input) {
   g.items.forEach(function (gi) {
     var qty = perItem[gi.id];
     if (!qty) return;
-    if (gi.perPerson !== null && qty > gi.perPerson) errors.push({ message: '「' + gi.name + '」每人最多 ' + gi.perPerson + ' ' + (gi.unit || '份') });
+    var others = (ctx.person && ctx.person[gi.id]) || 0; // 同一個人其他訂單的
+    if (gi.perPerson !== null && qty + others > gi.perPerson) errors.push({ message: '「' + gi.name + '」每人最多 ' + gi.perPerson + ' ' + (gi.unit || '份') + (others ? '（你另一張訂單已經有 ' + others + '）' : '') });
     if (gi.stockMode) { // 照庫存：每個規格各自不能超過還能賣的
       (gi.options ? gi.options.options : [{ name: '', left: gi.left }]).forEach(function (o) {
         var q = perOpt[gi.id + '|' + o.name] || 0;
@@ -253,9 +254,16 @@ function shopOrder_(body, opts) {
     if (!g) throw new ApiError_('NOT_FOUND', '找不到這次團購，可能已經刪除了');
     var products = readTable_(SHEETS.SHOP_PRODUCTS);
     var orders = readTable_(SHEETS.SHOP_ORDERS);
-    var existing = admin && body.orderId
-      ? findById_(orders, '訂單ID', body.orderId)
-      : orders.filter(function (o) { return o['團購ID'] === g['團購ID'] && o['狀態'] !== '已取消' && normalizeName_(o['姓名']) === who.name; })[0] || null;
+    // 這個人在這次團購的有效訂單（2026/10/13 起可以不只一張：付款方式不同就分開）
+    var mine = orders.filter(function (o) { return o['團購ID'] === g['團購ID'] && o['狀態'] !== '已取消' && normalizeName_(o['姓名']) === who.name; });
+    var existing;
+    if (admin && body.orderId) existing = findById_(orders, '訂單ID', body.orderId);
+    else if (body.orderId) { // 我的訂單改數量：指定哪一張
+      existing = mine.filter(function (o) { return o['訂單ID'] === body.orderId; })[0];
+      if (!existing) throw new ApiError_('NOT_FOUND', '找不到這張訂單（名字要和下單時一樣）');
+    } else if (body.mode === 'add') { // 購物車結帳：加進付款方式一樣、還沒取貨的那張；沒有就另外開一張
+      existing = mine.filter(function (o) { return o['付款方式'] === body.pay && o['已取貨'] !== '是'; })[0] || null;
+    } else existing = mine[0] || null;
     if (existing && existing['狀態'] === '已取消') existing = null;
     if (existing && existing['已取貨'] === '是' && !admin) throw new ApiError_('FORBIDDEN', '這張訂單已經取貨了，要改請找小編');
     var view = shopGroupView_(g, products, orders, { exceptOrderId: existing ? existing['訂單ID'] : '' });
@@ -272,7 +280,9 @@ function shopOrder_(body, opts) {
       items = order.map(function (k) { return merged[k]; });
     }
     var input = { pickupId: body.pickupId || (existing && body.mode === 'add' && !body.pickupId ? existing['取貨活動ID'] : ''), items: items, pay: body.pay, last5: body.last5 ? String(body.last5).trim() : '' };
-    var errors = shopValidate_({ group: view, sold: shopSold_(orders, g['團購ID'], existing ? existing['訂單ID'] : ''), now: shopNowMinute_(), admin: admin }, input);
+    var person = {}; // 這個人其他有效訂單已經訂的（每人最多要加起來算）
+    mine.forEach(function (o) { if (existing && o['訂單ID'] === existing['訂單ID']) return; shopJson_(o['品項'], []).forEach(function (l) { person[l.id] = (person[l.id] || 0) + (Number(l.qty) || 0); }); });
+    var errors = shopValidate_({ group: view, sold: shopSold_(orders, g['團購ID'], existing ? existing['訂單ID'] : ''), now: shopNowMinute_(), admin: admin, person: person }, input);
     if (errors.length) throw new ApiError_('VALIDATION', '訂單沒有送出，請看下面的說明', errors);
 
     var lines = [];

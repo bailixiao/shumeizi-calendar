@@ -2788,3 +2788,4 @@ body.is-sub .homepage-link { display: none; }
 .shop-last5-row { display: flex; gap: 8px; }
 .shop-last5-row .input { max-width: 10em; }
 .shop-last5-inline .muted { margin: 6px 0 0; font-size: .88rem; }
+.stock-variant i { font-style: normal; margin-left: 4px; color: var(--accent); }

@@ -144,14 +144,18 @@ function adminShopStock_() {
   }
   var records = readTable_(SHEETS.SHOP_STOCK);
   var levels = stockLevels_(records);
+  // 訂單預留：還沒取貨的有效訂單（取貨打勾才從庫存扣）；可賣＝庫存－預留
+  var avail = shopStockAvail_('');
+  var reservedOf = function (k) { return (levels[k] || 0) - (avail[k] || 0); };
   return {
     products: products.map(function (p) {
       var o = shopProductOut_(p);
       var id = p['商品ID'];
       o.stock = stockProductTotal_(levels, id);
       // 各規格的庫存（以前沒分規格記的＝option ''，顯示「未分規格」）
-      o.variants = o.options ? o.options.options.map(function (x) { return { option: x.name, stock: levels[stockKeyOf_(id, x.name)] || 0 }; }) : null;
-      if (o.variants && levels[id]) o.variants.push({ option: '', stock: levels[id] });
+      o.variants = o.options ? o.options.options.map(function (x) { var k = stockKeyOf_(id, x.name); return { option: x.name, stock: levels[k] || 0, reserved: reservedOf(k) }; }) : null;
+      if (o.variants && (levels[id] || reservedOf(id))) o.variants.push({ option: '', stock: levels[id] || 0, reserved: reservedOf(id) });
+      o.reserved = Object.keys(avail).concat(Object.keys(levels)).filter(function (k, i, a) { return a.indexOf(k) === i && (k === id || k.indexOf(id + '|') === 0); }).reduce(function (n, k) { return n + reservedOf(k); }, 0);
       return o;
     })
       .sort(function (a, b) { return String(a.code).localeCompare(String(b.code), 'zh-Hant', { numeric: true }) || (a.name < b.name ? -1 : 1); }),

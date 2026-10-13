@@ -389,7 +389,8 @@
           <h2><span class="step">${n()}</span>你的名字</h2>
           <input class="input" data-name maxlength="20" autocomplete="name" placeholder="例：王小明" value="${esc(form.name)}"${closed ? ' disabled' : ''}>
           <div class="suggestions" data-suggestions></div>
-          ${form.existing ? `<div class="notice shop-existing"><p>✏️ <strong>${esc(form.name)}</strong> 這次團購已經有一張訂單（${form.existing.items.map((x) => esc(x.name) + '×' + x.qty).join('、')}），這次的東西會<strong>加進原本那張</strong>。</p></div>` : ''}
+          ${form.existing ? `<div class="notice shop-existing"><p>✏️ <strong>${esc(form.name)}</strong> 這次團購已經有一張${esc(form.existing.pay === '轉帳' ? '轉帳' : '付現')}的訂單（${form.existing.items.map((x) => esc(x.name) + '×' + x.qty).join('、')}），這次的東西會<strong>加進原本那張</strong>。</p></div>`
+            : (form.mineHere || []).length ? `<div class="notice shop-existing"><p>🧾 <strong>${esc(form.name)}</strong> 原本那張是${esc(form.mineHere[0].pay === '轉帳' ? '轉帳' : '付現')}，這次選${esc(form.pay === '轉帳' ? '轉帳' : '付現')}，會<strong>另外開一張訂單</strong>（付款分開對帳）。</p></div>` : ''}
           ${sourceHtml()}
         </section>
         <section class="shop-step">
@@ -425,7 +426,7 @@
     f.querySelectorAll('[data-cart-minus]').forEach((b) => b.addEventListener('click', () => setQty(Number(b.dataset.cartMinus), -1)));
     f.querySelectorAll('[data-cart-del]').forEach((b) => b.addEventListener('click', () => setQty(Number(b.dataset.cartDel), null)));
     f.querySelectorAll('input[name=pickup]').forEach((r) => r.addEventListener('change', () => { form.pickupId = r.value; redraw(); }));
-    f.querySelectorAll('input[name=pay]').forEach((r) => r.addEventListener('change', () => { form.pay = r.value; redraw(); }));
+    f.querySelectorAll('input[name=pay]').forEach((r) => r.addEventListener('change', () => { form.pay = r.value; syncExisting(); redraw(); }));
     f.querySelectorAll('[data-src]').forEach((r) => r.addEventListener('change', () => { form.source = r.value; redraw(); const x = root.querySelector('[data-referrer], [data-source-note]'); if (x) x.focus(); }));
     const ref = f.querySelector('[data-referrer]');
     if (ref) ref.addEventListener('input', () => { form.referrer = ref.value; });
@@ -441,6 +442,7 @@
       form.name = nameInput.value.trim();
       form.known = undefined;
       form.existing = null;
+      form.mineHere = [];
       clearTimeout(timer);
       timer = setTimeout(() => suggest(form.name), 300);
     });
@@ -478,16 +480,24 @@
       ]);
       if (t !== token || form.name.replace(/[\s　]+/g, '') !== name) return;
       if (members) form.known = members.members.some((m) => m.name === name || m.alias === name);
-      const o = mine && mine.orders.find((x) => x.groupId === g.id);
-      form.existing = o || null;
+      // 這次團購還沒取貨的訂單（付款方式不同會分開成兩張）
+      form.mineHere = mine ? mine.orders.filter((x) => x.groupId === g.id && !x.picked && x.status !== '已取消') : [];
+      const o = form.mineHere[0];
       if (o) {
         form.known = true;
         if (o.pickupId) form.pickupId = o.pickupId;
         form.pay = o.pay;
-        form.last5 = o.last5 || '';
       }
+      syncExisting();
       if (root.querySelector('.shop-order-form')) { const y = window.scrollY; renderCart(g, now); window.scrollTo(0, y); }
     } catch (e) { /* 查不到就照一般下單，伺服器會再檢查 */ }
+  }
+
+  /** 付款方式一樣的那張＝這次會加進去的；末五碼帶那張的 */
+  function syncExisting() {
+    const list = form.mineHere || [];
+    form.existing = list.find((x) => x.pay === form.pay) || null;
+    if (form.existing) form.last5 = form.existing.last5 || form.last5;
   }
 
   function problem(g) {
@@ -518,6 +528,7 @@
       saveName(name);
       saveCart(g.id, []);
       shopCache = null;
+      form.mineHere = [res.order].concat((form.mineHere || []).filter((x) => x.id !== res.order.id));
       form.existing = res.order;
       form.known = true;
       done(g, res);
@@ -710,7 +721,7 @@
       m.el.setAttribute('data-locked', '');
       Busy.show('存檔中⋯');
       try {
-        await Api.shopOrder({ groupId: o.groupId, name: ordersState.data.name, pickupId: o.pickupId, pay: o.pay, last5: o.last5,
+        await Api.shopOrder({ groupId: o.groupId, orderId: o.id, name: ordersState.data.name, pickupId: o.pickupId, pay: o.pay, last5: o.last5,
           items: o.items.map((it, i) => ({ id: it.id, option: it.option || '', qty: qty[i] })) });
         Busy.hide();
         m.close();

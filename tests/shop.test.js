@@ -562,7 +562,7 @@ test('分規格的庫存：商品表單每個口味填售價、成本、數量�
   let st = ok(call('adminShopStock', {}));
   let p = st.products.find((x) => x.id === snack.id);
   assert.equal(p.stock, 15);
-  assert.deepEqual(p.variants, [{ option: '甘梅', stock: 10 }, { option: '芥末', stock: 5 }]);
+  assert.deepEqual(p.variants.map(({ option, stock }) => ({ option, stock })), [{ option: '甘梅', stock: 10 }, { option: '芥末', stock: 5 }]);
   assert.ok(st.records.filter((r) => r.productId === snack.id).every((r) => r.method === '初存'));
   // 進出貨要選口味
   assert.match(JSON.stringify(call('adminShopStockMove', { type: 'in', rows: [{ id: snack.id, qty: 3, method: '買進' }] }).error), /請選口味/);
@@ -572,7 +572,7 @@ test('分規格的庫存：商品表單每個口味填售價、成本、數量�
     { name: '梅子', was: '甘梅', price: '130', cost: '90', stock: '8' }, { name: '芥末', price: '135', cost: '85' }] } } }));
   st = ok(call('adminShopStock', {}));
   p = st.products.find((x) => x.id === snack.id);
-  assert.deepEqual(p.variants, [{ option: '梅子', stock: 8 }, { option: '芥末', stock: 10 }]);
+  assert.deepEqual(p.variants.map(({ option, stock }) => ({ option, stock })), [{ option: '梅子', stock: 8 }, { option: '芥末', stock: 10 }]);
   assert.ok(st.records.some((r) => r.name === '鍋巴（梅子）' && r.method === '盤虧' && r.qty === 2));
   // 團購取貨：照口味售出
   const g = ok(call('adminShopGroup', { id: gid })).group;
@@ -637,4 +637,38 @@ test('限量照庫存：能賣的＝庫存－還沒取貨的訂單，每個口�
   assert.equal(item().left, 4);
   // 開團存檔：限量照庫存存成 stock
   assert.equal(ok(call('adminShopGroup', { id: gid })).group.itemSettings.find((x) => x.id === snack.id).limit, 'stock');
+});
+
+test('同一個人付款方式不同就分成兩張：付現的加進付現那張、轉帳另外一張；每人最多兩張加起來算；我的訂單改數量指定哪一張', () => {
+  const { env, ok, tofu, jam, order } = setup();
+  const add = (body) => order(Object.assign({ name: '王小明', mode: 'add' }, body));
+  const a = ok(add({ source: '官網', items: [{ id: tofu.id, qty: 1 }], pay: '現場' }));
+  const b = ok(add({ items: [{ id: tofu.id, qty: 2 }], pay: '轉帳', last5: '12345' }));
+  assert.notEqual(b.order.id, a.order.id, '轉帳另外一張');
+  assert.equal(b.merged, false);
+  const c = ok(add({ items: [{ id: tofu.id, qty: 1 }], pay: '現場' }));
+  assert.equal(c.order.id, a.order.id, '付現的加進付現那張');
+  assert.equal(c.order.items[0].qty, 2);
+  const mine = ok(env.post({ action: 'shopMyOrders', name: '王小明', all: true })).orders;
+  assert.deepEqual(mine.map((o) => o.pay).sort(), ['現場', '轉帳']);
+  assert.equal(mine.find((o) => o.pay === '轉帳').total, 120);
+  // 每人最多 2 罐果醬：付現 1＋轉帳 2 就超過
+  ok(add({ items: [{ id: jam.id, qty: 1 }], pay: '現場' }));
+  assert.match(JSON.stringify(add({ items: [{ id: jam.id, qty: 2 }], pay: '轉帳' }).error), /每人最多 2.*另一張訂單已經有 1/);
+  // 我的訂單改數量：指定轉帳那張
+  const r = ok(order({ name: '王小明', orderId: b.order.id, items: [{ id: tofu.id, qty: 3 }], pay: '轉帳' }));
+  assert.equal(r.order.id, b.order.id);
+  assert.equal(r.order.total, 180);
+  assert.equal(order({ name: '測試甲', source: '官網', orderId: b.order.id, items: [{ id: tofu.id, qty: 1 }], pay: '轉帳' }).error.code, 'NOT_FOUND', '別人的不能改');
+});
+
+test('庫存頁顯示訂單預留、可賣（還沒取貨的訂單）', () => {
+  const { call, ok, tofu, order } = setup();
+  ok(call('adminShopStockMove', { type: 'in', rows: [{ id: tofu.id, qty: 10, cost: 30, method: '買進' }] }));
+  const a = ok(order({ name: '王小明', source: '官網', items: [{ id: tofu.id, qty: 3 }] })).order;
+  let p = ok(call('adminShopStock', {})).products.find((x) => x.id === tofu.id);
+  assert.deepEqual([p.stock, p.reserved], [10, 3]);
+  ok(call('adminShopOrderSet', { orderId: a.id, picked: true }));
+  p = ok(call('adminShopStock', {})).products.find((x) => x.id === tofu.id);
+  assert.deepEqual([p.stock, p.reserved], [7, 0], '取貨：從庫存扣，不再預留');
 });

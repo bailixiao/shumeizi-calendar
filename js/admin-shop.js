@@ -60,7 +60,7 @@
           <span class="stock-code">${esc(p.code || '—')}${p.category ? `<span class="stock-cat">${esc(p.category)}</span>` : ''}</span>
           <strong>${esc(p.name)}</strong>
           <small>${p.options ? `${esc(p.options.label)} ${p.options.options.length} 種` : `成本 ${p.cost !== null && p.cost !== undefined ? money(p.cost) : '—'}・售價 ${money(p.price)}`}${p.active ? '' : '・已停用'}</small>
-          ${p.variants ? `<span class="stock-variants">${p.variants.map((x) => `<span class="stock-variant${x.stock <= 0 ? ' is-low' : ''}">${esc(x.option || '未分規格')} <b>${x.stock}</b></span>`).join('')}</span>` : ''}
+          ${p.variants ? `<span class="stock-variants">${p.variants.map((x) => `<span class="stock-variant${x.stock - (x.reserved || 0) <= 0 ? ' is-low' : ''}">${esc(x.option || '未分規格')} <b>${x.stock}</b>${x.reserved ? `<i>預留 ${x.reserved}・可賣 ${x.stock - x.reserved}</i>` : ''}</span>`).join('')}</span>` : p.reserved ? `<span class="stock-variants"><span class="stock-variant${p.stock - p.reserved <= 0 ? ' is-low' : ''}">訂單預留 <b>${p.reserved}</b><i>可賣 ${p.stock - p.reserved}</i></span></span>` : ''}
         </button>
         <span class="stock-qty${p.stock <= 0 ? ' is-low' : ''}"><b>${p.stock}</b><small>${esc(p.unit || '份')}</small></span>
       </li>`).join('')}</ul>` : '<p class="panel-empty">還沒有商品，按上面「🆕 新增商品」。</p>';
@@ -97,7 +97,7 @@
           <a class="btn stock-tool" href="#/admin/shop/promos"><span class="stock-tool-icon" aria-hidden="true">🏷️</span><span>買多優惠</span></a>
           ${edit ? '<a class="btn stock-tool" href="#/admin/shop/import"><span class="stock-tool-icon" aria-hidden="true">📥</span><span>匯入 Excel</span></a>' : ''}
         </div>
-        <p class="hint">目前庫存＝進貨－出貨。點商品可以修改（名稱、照片、規格、編號、分類）；停用的商品不能再加進新的團購。</p>`}`;
+        <p class="hint">目前庫存＝進貨－出貨（團購訂單打勾「已取貨」才扣）；還沒取貨的訂單算「預留」，可賣＝庫存－預留（開團選「限量照庫存」就照這個數字賣）。點商品可以修改（名稱、照片、規格、編號、分類）；停用的商品不能再加進新的團購。</p>`}`;
     flash = '';
     bindZoom(body);
     body.querySelectorAll('input[name=shoptab]').forEach((r) => r.addEventListener('change', () => { state.tab = r.value; renderList(body, guard, data, false); }));

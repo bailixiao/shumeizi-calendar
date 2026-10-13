@@ -124,6 +124,8 @@ function shopGroupView_(g, products, orders, opts) {
     id: g['團購ID'], name: g['名稱'], description: g['說明'] || '', deadline: g['截止時間'], status: g['狀態'] || '開放',
     closed: g['狀態'] === '結束' || (g['截止時間'] && now > g['截止時間']),
     pickups: shopPickups_(g), items: items, hasPayInfo: !!g['付款說明'],
+    // 轉帳資訊：購物車選轉帳就顯示（2026/10/13 使用者要的；原本只在下單後顯示）。賣貨便的不用
+    transferInfo: g['賣場連結'] ? '' : g['付款說明'] || '',
     link: g['賣場連結'] || '', cover: g['封面'] || '', // 賣場連結：賣貨便（有填＝到賣貨便下單）；封面：封面照片
     promos: g['賣場連結'] ? [] : promosForItems_(items) // 買多優惠（Promo.gs）
   };

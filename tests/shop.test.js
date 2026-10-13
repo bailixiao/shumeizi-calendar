@@ -35,7 +35,8 @@ test('開團後大家看得到：商品、價格（這次的價格）、剩幾�
   assert.equal(g.closed, false);
   assert.equal(g.pickups.length, 2);
   assert.deepEqual(g.items.map((x) => [x.id, x.price, x.left]), [[tofu.id, 60, null], [jam.id, 120, 5]]);
-  assert.equal(g.payInfo, undefined, '公開資料不帶付款說明');
+  assert.equal(g.payInfo, undefined);
+  assert.equal(g.transferInfo, '轉帳：測試銀行 000-000000', '購物車選轉帳就顯示轉帳資訊（2026/10/13）');
   assert.equal(g.hasPayInfo, true);
 });
 

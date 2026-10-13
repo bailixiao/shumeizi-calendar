@@ -396,7 +396,7 @@
           <h2><span class="step">${n()}</span>怎麼付款</h2>
           <div class="segmented">${[['現場', g.pickups.length ? '💵 取貨時付現' : '💵 付現'], ['轉帳', '🏦 轉帳']].map(([v, l]) => `<label class="segment${form.pay === v ? ' is-checked' : ''}"><input type="radio" name="pay" value="${v}"${form.pay === v ? ' checked' : ''}${closed ? ' disabled' : ''}>${l}</label>`).join('')}</div>
           ${form.pay === '轉帳' ? `<label class="form-row shop-last5"><span>轉帳後五碼（還沒轉可以先空著，之後在「我的訂單」補）</span><input class="input" data-last5 inputmode="numeric" maxlength="5" value="${esc(form.last5)}" placeholder="例：12345"></label>
-            <p class="hint">${g.hasPayInfo ? '送出訂單後會顯示轉帳帳號。' : '轉帳帳號請問小編。'}</p>` : ''}
+            ${g.transferInfo ? `<div class="notice shop-payinfo"><p><strong>🏦 轉帳資訊</strong></p><p>${esc(g.transferInfo).replace(/\n/g, '<br>')}</p><p class="muted">轉好後填上面的末五碼，小編才對得到帳；還沒轉可以先送出，之後在「我的訂單」補。</p></div>` : '<p class="hint">轉帳帳號請問小編。</p>'}` : ''}
         </section>
         <div class="form-error" data-error role="alert" hidden></div>
         <div class="shop-total-bar">

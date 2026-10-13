@@ -28,7 +28,8 @@ function createEnv(fixedNow, opts) {
             });
             return proxy;
           },
-          setNumberFormats(f) { sheet.formats = f; return proxy; }
+          setNumberFormats(f) { sheet.formats = f; return proxy; },
+          clearContent() { for (let i = 0; i < numRows && row - 1 + i < data.length; i++) { const r = data[row - 1 + i]; for (let j = 0; j < numCols; j++) if (r && col - 1 + j < r.length) r[col - 1 + j] = ''; } return proxy; }
         };
         // 字型、顏色等格式設定：測試不檢查，一律回傳自己方便串接
         const proxy = new Proxy(range, { get: (t, k) => (k in t ? t[k] : () => proxy) });
@@ -36,7 +37,11 @@ function createEnv(fixedNow, opts) {
       }
     };
     // 欄寬、凍結列等：測試不檢查
-    ['setColumnWidth', 'setColumnWidths', 'setFrozenRows', 'clearConditionalFormatRules'].forEach((k) => { sheet[k] = () => sheet; });
+    ['setColumnWidth', 'setColumnWidths', 'setFrozenRows', 'clearConditionalFormatRules', 'insertColumnsAfter', 'insertRowsAfter'].forEach((k) => { sheet[k] = () => sheet; });
+    // 同步（Sync.gs）用：最大欄、列數
+    sheet.getMaxColumns = () => Math.max(1, ...data.map((r) => r.length));
+    sheet.getMaxRows = () => Math.max(1, data.length);
+    sheet.getLastColumn = () => Math.max(0, ...data.map((r) => r.length));
     sheets[name] = sheet;
     return sheet;
   }
@@ -50,10 +55,10 @@ function createEnv(fixedNow, opts) {
   });
   const env = {
     SpreadsheetApp: {
-      getActiveSpreadsheet: () => ({ getSheetByName: (n) => sheets[n] || null }),
+      getActiveSpreadsheet: () => ({ getSheetByName: (n) => sheets[n] || null, insertSheet: (n) => makeSheet(n) }),
       flush() {}
     },
-    LockService: { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) },
+    LockService: { getScriptLock: () => ({ tryLock: () => true, waitLock() {}, releaseLock() {} }) },
     Utilities: {
       sleep() {},
       DigestAlgorithm: { SHA_256: 'sha256' },

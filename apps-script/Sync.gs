@@ -124,7 +124,7 @@ function syncFromWorkerLocked_() {
 function writeWorkerSheets_(sheets) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   Object.keys(sheets).forEach(function (name) {
-    var rows = data.sheets[name];
+    var rows = sheets[name];
     var sh = ss.getSheetByName(name) || ss.insertSheet(name);
     var width = rows.reduce(function (w, r) { return Math.max(w, r.length); }, 1);
     var padded = rows.map(function (r) { var c = r.slice(); while (c.length < width) c.push(''); return c; });

@@ -66,6 +66,9 @@ a { color: var(--accent); }
 }
 
 .app-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-family: var(--serif);
   font-weight: 700;
   font-size: 1.25rem;
@@ -2155,6 +2158,11 @@ html.text-l { font-size: 112.5%; }
 html.text-xl { font-size: 125%; }
 .text-size-btn { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); min-height: 40px; min-width: 52px; padding: 0 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--ink); font: inherit; font-weight: 700; font-size: 1rem; cursor: pointer; }
 .app-header { position: relative; }
+/* 頁首「回首頁」（官網），在 A＋ 左邊；窄手機只留 🏠 */
+.home-btn { position: absolute; right: 72px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 40px; min-width: 44px; padding: 0 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--ink); font-weight: 700; font-size: 1rem; text-decoration: none; }
+.home-btn[hidden] { display: none; }
+body.splash-on .home-btn { visibility: hidden; }
+@media (max-width: 520px) { .home-btn-text { display: none; } .home-btn { padding: 0; } }
 body.splash-on .text-size-btn { visibility: hidden; }
 .push-auto { border-color: #c58a1b; }
 .push-auto-days { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 8px 0; }
@@ -2480,8 +2488,6 @@ span.shop-thumb { cursor: default; }
 .shop-stats .shop-profit { grid-column: 1 / -1; }
 .shop-stats .shop-profit .stat-hint { white-space: normal; }
 /* 官網按鈕（行事曆最下面） */
-.app-footer .homepage-link { text-decoration: none; display: flex; align-items: center; justify-content: center; margin: 4px 0 14px; font-size: 1rem; font-weight: 700; color: var(--teal); border-color: var(--olive); background: var(--card); }
-body.is-sub .homepage-link { display: none; }
 
 /* ===== 團購改版（像愛+1）：商城格子、商品頁、購物車、我的訂單、下方分頁列 ===== */
 .shop-page { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
@@ -2801,3 +2807,7 @@ body.is-sub .homepage-link { display: none; }
 .year-check small { display: block; color: var(--muted); margin-top: 2px; }
 .year-check.is-warn { border-color: var(--accent); background: var(--accent-soft); }
 .year-bal td .input { width: 8em; }
+
+/* 頁首標題左邊的書槑子標誌（2026/10/14） */
+.app-logo { width: 36px; height: 36px; flex: none; object-fit: contain; mix-blend-mode: multiply; }
+@media (max-width: 380px) { .app-logo { width: 30px; height: 30px; } .app-title { gap: 6px; } }

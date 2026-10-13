@@ -40,7 +40,8 @@ const jobs = [
   [path.join(ROOT, 'icons', 'icon-192.png'), { size: 192, crop: 'full', pad: 0.92, round: true, bg: '#ffffff' }],
   [path.join(ROOT, 'icons', 'icon-maskable-512.png'), { size: 512, crop: 'full', pad: 0.72, round: false, bg: '#ffffff' }],
   [path.join(ROOT, 'icons', 'apple-touch-icon.png'), { size: 180, crop: 'full', pad: 0.86, round: false, bg: '#ffffff' }],
-  [path.join(ROOT, 'icons', 'favicon-32.png'), { size: 32, crop: 'head', pad: 1, round: false, bg: 'transparent' }]
+  [path.join(ROOT, 'icons', 'favicon-32.png'), { size: 32, crop: 'head', pad: 1, round: false, bg: 'transparent' }],
+  [path.join(ROOT, 'icons', 'logo-head.png'), { size: 96, crop: 'head', pad: 1, round: false, bg: 'transparent' }] // 頁首標題左邊的小標誌
 ];
 if (SITE_IMG) {
   jobs.push([path.join(SITE_IMG, 'logo.png'), { size: 600, crop: 'full', pad: 1, round: false, bg: 'transparent' }]);

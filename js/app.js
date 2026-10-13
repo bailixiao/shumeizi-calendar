@@ -135,7 +135,7 @@
       const bg = splash.querySelector('.splash-bg');
       const logo = splash.querySelector('.splash-logo');
       const title = splash.querySelector('[data-splash-title]');
-      const header = document.querySelector('.app-title');
+      const header = document.querySelector('.app-title [data-site="name"]') || document.querySelector('.app-title'); // 落在名稱上（左邊有標誌）
       const chars = [...SITE_NAME];
       title.innerHTML = chars.map((c) => `<span>${c}</span>`).join('');
       // 等字型載入再量寬度（最多 0.3 秒，這段時間畫面只是底色），名稱才會剛好置中、落點剛好對齊頁首
@@ -227,9 +227,9 @@
     document.querySelectorAll('[data-site]').forEach((el) => { if (S[el.dataset.site]) el.textContent = S[el.dataset.site]; });
     // data-site-tpl：整段文字的範本，{venue} 這類換成設定（只換文字，不拆開元素，排版不變）
     document.querySelectorAll('[data-site-tpl]').forEach((el) => { el.textContent = el.dataset.siteTpl.replace(/\{(\w+)\}/g, (m, k) => S[k] || ''); });
-    // 官網按鈕（行事曆最下面）：有設定 SITE.homepage 才顯示
-    const home = document.getElementById('homepage-link');
-    if (home && S.homepage) { home.href = S.homepage; home.hidden = false; }
+    // 頁首「回首頁」：首頁就是官網（2026/10/14）
+    const homeBtn = document.getElementById('home-btn');
+    if (homeBtn && S.homepage) { homeBtn.href = S.homepage; homeBtn.hidden = false; }
     document.querySelectorAll('[data-site-cat]').forEach((el) => { el.textContent = Fmt.catLabel(el.dataset.siteCat); });
     document.querySelectorAll('[data-feature]').forEach((el) => { if (S.features && S.features[el.dataset.feature] === false) el.hidden = true; });
   }

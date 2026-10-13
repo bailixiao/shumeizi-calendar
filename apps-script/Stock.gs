@@ -234,7 +234,7 @@ function stockForOrder_(o, picked) {
     shopJson_(o['品項'], []).forEach(function (l) {
       var q = Number(l.qty) || 0;
       qty[l.id] = (qty[l.id] || 0) + q;
-      amount[l.id] = (amount[l.id] || 0) + q * (Number(l.price) || 0);
+      amount[l.id] = (amount[l.id] || 0) + q * (Number(l.price) || 0) - (Number(l.discount) || 0); // 扣掉分攤的買多優惠
     });
     var now = nowString_();
     var batch = newId_('K');

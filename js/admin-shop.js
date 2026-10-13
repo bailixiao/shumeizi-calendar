@@ -28,6 +28,7 @@
     if (stall) return AdminStock.stall(body, guard, stall[1] ? decodeURIComponent(stall[1]) : '');
     if (/^shop\/import/.test(sub)) return AdminStock.importPage(body, guard);
     if (/^shop\/ledger/.test(sub)) return AdminStock.ledger(body, guard);
+    if (/^shop\/promos/.test(sub)) return AdminStock.promos(body, guard);
     const m = String(sub || '').match(/^shop\/(new|edit\/([^?]+)|g\/([^?]+))(?:\?from=(.+))?/);
     if (m && m[1] === 'new') return showForm(body, guard, '', m[4] ? decodeURIComponent(m[4]) : '');
     if (m && m[2]) return showForm(body, guard, decodeURIComponent(m[2]), '');
@@ -92,6 +93,7 @@
           <a class="btn stock-tool" href="#/admin/shop/report"><span class="stock-tool-icon" aria-hidden="true">📊</span><span>進銷存報表</span></a>
           <a class="btn stock-tool" href="#/admin/shop/stall"><span class="stock-tool-icon" aria-hidden="true">🧾</span><span>出攤銷售統計</span></a>
           <a class="btn stock-tool" href="#/admin/shop/ledger"><span class="stock-tool-icon" aria-hidden="true">💰</span><span>記帳</span></a>
+          <a class="btn stock-tool" href="#/admin/shop/promos"><span class="stock-tool-icon" aria-hidden="true">🏷️</span><span>買多優惠</span></a>
           ${edit ? '<a class="btn stock-tool" href="#/admin/shop/import"><span class="stock-tool-icon" aria-hidden="true">📥</span><span>匯入 Excel</span></a>' : ''}
         </div>
         <p class="hint">目前庫存＝進貨－出貨。點商品可以修改（名稱、照片、規格、編號、分類）；停用的商品不能再加進新的團購。</p>`}`;
@@ -575,6 +577,7 @@
           <li class="shop-order${o.status === '已取消' ? ' is-cancelled' : o.picked ? ' is-picked' : ''}">
             <div class="shop-order-head"><strong>${esc(o.name)}</strong><span>${money(o.total)}</span></div>
             <p>${esc(itemsText(o.items))}</p>
+            ${(o.discounts || []).length ? `<p class="shop-order-promo">${o.discounts.map((x) => `🏷️ ${esc(x.name)} －${money(x.discount)}`).join('、')}</p>` : ''}
             <p class="muted">${o.pay === '轉帳' ? `轉帳${o.last5 ? '・末五碼 ' + esc(o.last5) : '・還沒填末五碼'}` : '取貨付現'}${o.note ? '・' + esc(o.note) : ''}${o.status === '已取消' ? '・已取消' : ''}</p>
             ${o.status === '已取消' ? (edit ? `<button type="button" class="btn btn-small" data-restore="${esc(o.id)}">恢復這張訂單</button>` : '') : `
             <div class="shop-order-actions">

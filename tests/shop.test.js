@@ -438,3 +438,49 @@ test('記帳：收入、支出、類別小計；淨利＝毛利＋收入－支�
   assert.equal(ok(call('adminShopLedger', { from: '2026-10-01', to: '2026-10-31' })).expense, 300);
   assert.equal(env.post({ action: 'adminShopLedger' }).ok, false);
 });
+
+test('買多優惠：算法（貴的先算進優惠、混用幾段、比原價貴就不用）', () => {
+  const { env } = setup();
+  const best = env.fn('promoBest_');
+  const t = [{ qty: 3, price: 100 }];
+  assert.deepEqual(best([50, 50, 50, 50], t), { pay: 150, normal: 200, units: 3 });
+  assert.deepEqual(best([50, 50], t), { pay: 100, normal: 100, units: 0 });
+  assert.equal(best(Array(7).fill(50), [{ qty: 3, price: 100 }, { qty: 6, price: 190 }]).pay, 240); // 6 件 190＋1 件 50
+  assert.equal(best([60, 50, 30, 30], t).pay, 130); // 60+50+30 算進優惠，剩 30
+  assert.equal(best([20, 20, 20], t).pay, 60); // 優惠比原價貴：不用
+});
+
+test('買多優惠：一包 50 三包 100、不同口味混搭、不同商品任選；下單伺服器重算、分攤到品項、售出金額扣掉', () => {
+  const { env, call, ok, tofu, jam, gid, order } = setup();
+  const bag = ok(call('adminShopSaveProduct', { product: { name: '豆干', price: '50', unit: '包', options: { label: '口味', options: [{ name: '原味' }, { name: '辣味' }] } } })).product;
+  const dry = ok(call('adminShopSaveProduct', { product: { name: '豆皮', price: '50', unit: '包' } })).product;
+  const g = ok(call('adminShopGroup', { id: gid })).group;
+  ok(call('adminShopSaveGroup', { group: { id: gid, name: g.name, deadline: g.deadline, pickups: g.pickupIds, payInfo: g.payInfo,
+    items: g.itemSettings.concat([{ id: bag.id }, { id: dry.id }]) } }));
+  // 檢查
+  assert.equal(call('adminShopSavePromo', { promo: { productIds: [], tiers: [{ qty: 3, price: 100 }] } }).error.code, 'VALIDATION');
+  assert.equal(call('adminShopSavePromo', { promo: { productIds: [bag.id], tiers: [{ qty: 1, price: 40 }] } }).error.code, 'VALIDATION');
+  const p = ok(call('adminShopSavePromo', { promo: { productIds: [bag.id, dry.id], tiers: [{ qty: 3, price: 100 }] } })).promos;
+  assert.equal(p[0].label, '任選 3 件 100 元');
+  assert.match(JSON.stringify(call('adminShopSavePromo', { promo: { productIds: [dry.id], tiers: [{ qty: 2, price: 90 }] } }).error), /只能有一個優惠/);
+  // 大家看得到這次的優惠
+  const shop = ok(env.get({ action: 'getShop' })).groups[0];
+  assert.deepEqual(shop.promos.map((x) => [x.name, x.productIds.length]), [['任選 3 件 100 元', 2]]);
+  // 下單：原味 2＋辣味 1＋豆皮 1＋豆腐 1＝4 包優惠商品 → 100＋50；豆腐 60 不算
+  const o = ok(order({ name: '王小明', source: '官方 LINE', items: [{ id: bag.id, option: '原味', qty: 2 }, { id: bag.id, option: '辣味', qty: 1 }, { id: dry.id, qty: 1 }, { id: tofu.id, qty: 1 }] })).order;
+  assert.equal(o.total, 150 + 60);
+  assert.deepEqual(o.discounts.map((d) => [d.name, d.discount]), [['任選 3 件 100 元', 50]]);
+  assert.equal(o.items.reduce((n, it) => n + (it.discount || 0), 0), 50);
+  // 取貨 → 售出金額加起來＝訂單金額
+  ok(call('adminShopOrderSet', { orderId: o.id, picked: true }));
+  const sold = env.sheets['庫存紀錄'].data.slice(1).filter((r) => r[3] === '售出');
+  assert.equal(sold.reduce((n, r) => n + Number(r[13]), 0), 210);
+  // 停用優惠就照原價
+  ok(call('adminShopSavePromo', { promo: { id: p[0].id, productIds: [bag.id, dry.id], tiers: [{ qty: 3, price: 100 }], active: false } }));
+  const o2 = ok(order({ name: '測試甲', source: '官方 LINE', items: [{ id: bag.id, option: '原味', qty: 3 }] })).order;
+  assert.equal(o2.total, 150);
+  assert.deepEqual(o2.discounts, []);
+  ok(call('adminShopDeletePromo', { id: p[0].id }));
+  assert.equal(ok(call('adminShop', {})).promos.length, 0);
+  void jam;
+});

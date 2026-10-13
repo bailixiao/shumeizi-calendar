@@ -374,5 +374,89 @@ window.AdminStock = (function () {
     });
   }
 
-  return { report, stall, importPage, ledger };
+  // ---------- 🏷️ 買多優惠（#/admin/shop/promos；規格 0.6「買多優惠」） ----------
+
+  async function promos(body, guard, flash) {
+    body.innerHTML = '<p class="panel-empty">載入中⋯</p>';
+    let d;
+    try { d = await Api.admin('adminShop', {}, true); } catch (e) { guard(e, body); return; }
+    const edit = canEdit();
+    const nameOf = (id) => (d.products.find((p) => p.id === id) || {}).name || '（商品已刪除）';
+    body.innerHTML = `
+      ${back}
+      <h2 class="section-title">🏷️ 買多優惠</h2>
+      <p class="hint">例：一包 50 元、三包 100 元；或豆干、豆皮任選 3 件 100 元。同一個優惠的商品（不同口味也算）放一起數件數，購物車會自動算最划算的，湊不滿的照原價。</p>
+      ${flash || ''}
+      ${edit ? '<div class="admin-actions"><button type="button" class="btn btn-primary" data-new>＋ 新增優惠</button></div>' : ''}
+      ${d.promos.length ? `<ul class="promo-list">${d.promos.map((p) => `
+        <li class="promo-item${p.active ? '' : ' is-off'}">
+          <button type="button" class="promo-main" data-edit="${esc(p.id)}"${edit ? '' : ' disabled'}>
+            <strong>🏷️ ${esc(p.label)}</strong>
+            <span>${p.tiers.map((t) => t.qty + ' 件 ' + money(t.price) + ' 元').join('・')}</span>
+            <small>${p.productIds.map((id) => esc(nameOf(id))).join('、')}${p.active ? '' : '・已停用'}</small>
+          </button>
+        </li>`).join('')}</ul>` : '<p class="panel-empty">還沒有優惠。</p>'}`;
+    const again = (msg) => { AdminPage.clearMemo(); promos(body, guard, msg ? AdminPage.notice('success', msg) : ''); };
+    const nb = body.querySelector('[data-new]');
+    if (nb) nb.addEventListener('click', () => promoForm(null, d, guard, again));
+    body.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => promoForm(d.promos.find((p) => p.id === b.dataset.edit), d, guard, again)));
+  }
+
+  function promoForm(p, d, guard, after) {
+    const tiers = p ? p.tiers.slice() : [{ qty: '', price: '' }];
+    const picked = new Set(p ? p.productIds : []);
+    const products = d.products.filter((x) => x.active || picked.has(x.id));
+    const tierRow = (t, i) => `<div class="promo-tier" data-tier="${i}"><input class="input" name="qty" inputmode="numeric" placeholder="3" value="${esc(t.qty)}" aria-label="件數"><span>件</span><input class="input" name="price" inputmode="numeric" placeholder="100" value="${esc(t.price)}" aria-label="總價"><span>元</span><button type="button" class="btn btn-small btn-quiet-danger" data-tier-del="${i}" aria-label="拿掉這段">✕</button></div>`;
+    const m = Modal.open(`
+      <h2 class="modal-title">${p ? '修改優惠' : '新增優惠'}</h2>
+      <form class="admin-form" novalidate>
+        <div class="form-row"><span>哪些商品（勾好幾樣＝任選一起算）</span>
+          <div class="promo-products">${products.map((x) => `<label class="de-check"><input type="checkbox" name="pid" value="${esc(x.id)}"${picked.has(x.id) ? ' checked' : ''}> ${esc(x.code ? x.code + ' ' : '')}${esc(x.name)}<small>　${money(x.price)} 元${x.unit ? '／' + esc(x.unit) : ''}</small></label>`).join('') || '<p class="muted">還沒有商品</p>'}</div></div>
+        <div class="form-row"><span>價格（幾件多少元，可以好幾段）</span><div data-tiers>${tiers.map(tierRow).join('')}</div>
+          <button type="button" class="btn btn-small" data-tier-add>＋ 再加一段</button></div>
+        <label class="form-row"><span>名稱（選填，空白自動寫「任選 3 件 100 元」）</span><input class="input" name="name" maxlength="30" value="${esc(p ? p.name : '')}" placeholder="例：豆干豆皮任選 3 包 100"></label>
+        ${p ? `<label class="de-check"><input type="checkbox" name="active"${p.active ? ' checked' : ''}> 啟用中（取消勾選＝暫停這個優惠）</label>` : ''}
+        <div class="form-error" data-error hidden></div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-block btn-primary">存檔</button>
+          ${p ? '<button type="button" class="btn btn-block btn-quiet-danger" data-del>刪除這個優惠</button>' : ''}
+          <button type="button" class="btn btn-block" data-close>返回</button>
+        </div>
+      </form>`);
+    const f = m.el.querySelector('form');
+    const box = m.el.querySelector('[data-tiers]');
+    const err = m.el.querySelector('[data-error]');
+    const read = () => [...box.querySelectorAll('[data-tier]')].map((r) => ({ qty: r.querySelector('[name=qty]').value.trim(), price: r.querySelector('[name=price]').value.trim() }));
+    const drawTiers = (list) => {
+      box.innerHTML = list.map(tierRow).join('');
+      box.querySelectorAll('[data-tier-del]').forEach((b) => b.addEventListener('click', () => { const l = read(); l.splice(Number(b.dataset.tierDel), 1); drawTiers(l.length ? l : [{ qty: '', price: '' }]); }));
+    };
+    drawTiers(tiers);
+    m.el.querySelector('[data-tier-add]').addEventListener('click', () => { const l = read(); if (l.length < 5) drawTiers(l.concat([{ qty: '', price: '' }])); });
+    m.el.querySelector('[data-close]').addEventListener('click', () => m.close());
+    const showErr = (e) => { err.innerHTML = `<strong>${esc(e.message || '存檔失敗')}</strong>${(e.details || []).map((x) => '<br>' + esc(x.message)).join('')}`; err.hidden = false; };
+    const del = m.el.querySelector('[data-del]');
+    if (del) del.addEventListener('click', async () => {
+      if (!(await Confirm.open({ title: '刪除這個優惠？', rows: [['優惠', p.label]], note: '已經下的訂單不會變。只是暫時不用的話，取消勾選「啟用中」就好。', confirmText: '刪除', danger: true }))) return;
+      Busy.show('刪除中⋯');
+      try { await Api.admin('adminShopDeletePromo', { id: p.id }); Busy.hide(); m.close(); after('已刪除優惠'); } catch (e) { Busy.hide(); if (e.code === 'UNAUTHORIZED') { m.close(); guard(e); return; } showErr(e); }
+    });
+    f.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      Busy.show('存檔中⋯');
+      try {
+        await Api.admin('adminShopSavePromo', { promo: { id: p ? p.id : '', name: f.elements.name.value.trim(),
+          productIds: [...f.querySelectorAll('input[name=pid]:checked')].map((x) => x.value), tiers: read(), active: f.elements.active ? f.elements.active.checked : true } });
+        Busy.hide();
+        m.close();
+        after(p ? '已儲存優惠' : '已新增優惠，購物車會自動算');
+      } catch (e) {
+        Busy.hide();
+        if (e.code === 'UNAUTHORIZED') { m.close(); guard(e); return; }
+        showErr(e);
+      }
+    });
+  }
+
+  return { report, stall, importPage, ledger, promos };
 })();

@@ -96,7 +96,8 @@ function shopGroupView_(g, products, orders, opts) {
     id: g['團購ID'], name: g['名稱'], description: g['說明'] || '', deadline: g['截止時間'], status: g['狀態'] || '開放',
     closed: g['狀態'] === '結束' || (g['截止時間'] && now > g['截止時間']),
     pickups: shopPickups_(g), items: items, hasPayInfo: !!g['付款說明'],
-    link: g['賣場連結'] || '', cover: g['封面'] || '' // 賣場連結：賣貨便（有填＝到賣貨便下單）；封面：封面照片
+    link: g['賣場連結'] || '', cover: g['封面'] || '', // 賣場連結：賣貨便（有填＝到賣貨便下單）；封面：封面照片
+    promos: g['賣場連結'] ? [] : promosForItems_(items) // 買多優惠（Promo.gs）
   };
   if (opts && opts.admin) {
     out.payInfo = g['付款說明'] || '';
@@ -172,7 +173,7 @@ function shopValidate_(ctx, input) {
 function shopOrderOut_(o, group, withPay) {
   var out = {
     id: o['訂單ID'], groupId: o['團購ID'], name: o['姓名'], pickupId: o['取貨活動ID'], pickupDate: o['取貨日期'],
-    items: shopJson_(o['品項'], []), total: Number(o['金額']) || 0, pay: o['付款方式'], last5: o['末五碼'] || '',
+    items: shopJson_(o['品項'], []), total: Number(o['金額']) || 0, discounts: shopJson_(o['優惠'], []), pay: o['付款方式'], last5: o['末五碼'] || '',
     paid: o['已付款'] === '是', picked: o['已取貨'] === '是', status: o['狀態'] || '有效', note: o['備註'] || '',
     createdAt: o['建立時間'], updatedAt: o['更新時間']
   };
@@ -245,17 +246,20 @@ function shopOrder_(body, opts) {
       var price = opt && opt.price !== null ? opt.price : gi.price;
       // name＝顯示用（商品（規格））；base、option 分開記，後台備貨分規格算
       lines.push({ id: gi.id, name: gi.name + (opt ? '（' + opt.name + '）' : ''), base: gi.name, option: opt ? opt.name : '', qty: qty, price: price, unit: gi.unit, photo: gi.photo });
-      total += qty * price;
     });
+    // 買多優惠：伺服器重算，分攤到每一行（進銷存的售出金額要扣掉）
+    var promo = promoApply_(lines, view.promos);
+    lines.forEach(function (l, i) { if (promo.lineDiscounts[i]) l.discount = promo.lineDiscounts[i]; });
+    total = promo.total;
     var pickup = view.pickups.filter(function (p) { return p.id === input.pickupId; })[0];
     var now = nowString_();
     var values = {
       // 沒有設取貨場次的團購（2026/10/10）：取貨活動、日期空白
-      '姓名': who.name, '取貨活動ID': pickup ? pickup.id : '', '取貨日期': pickup ? pickup.date : '', '品項': JSON.stringify(lines), '金額': String(total),
+      '姓名': who.name, '取貨活動ID': pickup ? pickup.id : '', '取貨日期': pickup ? pickup.date : '', '品項': JSON.stringify(lines), '金額': String(total), '優惠': promo.discounts.length ? JSON.stringify(promo.discounts) : '',
       '付款方式': input.pay, '末五碼': input.pay === '轉帳' ? (input.last5 || (existing ? existing['末五碼'] : '') || '') : '', '更新時間': now
     };
     if (admin && body.note !== undefined) values['備註'] = cleanText_(body.note).slice(0, 100);
-    var summary = who.name + '｜' + g['名稱'] + '｜' + lines.map(function (l) { return l.name + '×' + l.qty; }).join('、') + '｜' + total + ' 元｜' + (pickup ? pickup.date + ' ' + pickup.name + '｜' : '') + input.pay;
+    var summary = who.name + '｜' + g['名稱'] + '｜' + lines.map(function (l) { return l.name + '×' + l.qty; }).join('、') + '｜' + total + ' 元' + (promo.discounts.length ? '（優惠 -' + (promo.discounts.reduce(function (n, d) { return n + d.discount; }, 0)) + '）' : '') + '｜' + (pickup ? pickup.date + ' ' + pickup.name + '｜' : '') + input.pay;
     var row;
     if (existing) {
       var before = rowSnapshot_(SHEETS.SHOP_ORDERS, existing);
@@ -358,7 +362,7 @@ function adminShop_() {
     .filter(function (d) { return d['勤務ID'] && d['開始日'] >= today && d['開始日'] <= until; })
     .map(function (d) { return { id: d['勤務ID'], name: d['名稱'], date: d['開始日'], startTime: d['開始時間'] || '', location: d['地點'] || '', category: dutyCategory_(d), nature: d['性質'] }; })
     .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
-  return { products: products, groups: groups, duties: duties };
+  return { products: products, groups: groups, duties: duties, promos: adminShopPromos_() };
 }
 
 /** body = { id }：一次團購的全部（含付款說明、所有訂單、備貨清單、總覽） */

@@ -49,7 +49,59 @@
     }).filter((l) => l && l.qty > 0);
   }
   const cartCount = (g) => cartLines(g).reduce((n, l) => n + l.qty, 0);
-  const cartTotal = (g) => cartLines(g).reduce((n, l) => n + l.qty * l.price, 0);
+  const cartTotal = (g) => promoApply(cartLines(g), g.promos).total;
+
+  // ---------- 買多優惠（和 apps-script/Promo.gs 同一個算法；下單時伺服器會重算） ----------
+
+  /** 一個優惠最少要付多少：prices＝每一件的單價；回傳 { pay, normal, units（算進優惠的件數） } */
+  function promoBest(prices, tiers) {
+    const u = prices.map(Number).sort((a, b) => b - a); // 貴的先算進優惠
+    const n = u.length;
+    const best = [0];
+    for (let k = 1; k <= n; k++) {
+      let b = null;
+      tiers.forEach((t) => { if (t.qty <= k && best[k - t.qty] !== null) { const c = best[k - t.qty] + t.price; if (b === null || c < b) b = c; } });
+      best.push(b);
+    }
+    const suffix = [];
+    suffix[n] = 0;
+    for (let i = n - 1; i >= 0; i--) suffix[i] = suffix[i + 1] + u[i];
+    const out = { pay: suffix[0], normal: suffix[0], units: 0 };
+    for (let j = 1; j <= n; j++) if (best[j] !== null && best[j] + suffix[j] < out.pay) { out.pay = best[j] + suffix[j]; out.units = j; }
+    return out;
+  }
+
+  /** 購物車套用優惠：{ total, subtotal, discounts: [{ name, discount }], hints: ['再 1 件就能用「3 件 100 元」'] } */
+  function promoApply(lines, promos) {
+    const subtotal = lines.reduce((n, l) => n + l.qty * l.price, 0);
+    const out = { subtotal, total: subtotal, discounts: [], hints: [] };
+    (promos || []).forEach((p) => {
+      const prices = [];
+      lines.forEach((l) => { if (p.productIds.includes(l.id)) for (let q = 0; q < l.qty; q++) prices.push(l.price); });
+      if (!prices.length) return;
+      const r = promoBest(prices, p.tiers);
+      const off = r.normal - r.pay;
+      if (off > 0) { out.discounts.push({ name: p.name, discount: off }); out.total -= off; }
+      // 差幾件可以多湊一組
+      const rest = prices.length - r.units;
+      const need = p.tiers.map((t) => t.qty - rest).filter((k) => k > 0);
+      if (rest && need.length) out.hints.push(`再 ${Math.min.apply(null, need)} 件就能多用「${p.name}」`);
+    });
+    return out;
+  }
+  /** 這個商品的優惠（沒有＝null） */
+  const promoOf = (g, id) => (g.promos || []).find((p) => p.productIds.includes(id)) || null;
+  /** 優惠標籤；showWith：任選的寫和哪些商品一起湊 */
+  function promoTag(g, it, showWith) {
+    const p = promoOf(g, it.id);
+    if (!p) return '';
+    const others = showWith ? p.productIds.filter((id) => id !== it.id).map((id) => (g.items.find((x) => x.id === id) || {}).name).filter(Boolean) : [];
+    return `<span class="shop-promo-tag">🏷️ ${esc(p.name)}</span>${others.length ? `<span class="shop-promo-with">和 ${others.map(esc).join('、')} 一起算</span>` : ''}`;
+  }
+  /** 購物車、訂單的優惠明細 */
+  function promoRows(discounts) {
+    return (discounts || []).map((d) => `<p class="shop-promo-row"><span>🏷️ ${esc(d.name)}</span><b>－${money(d.discount)}</b></p>`).join('');
+  }
   /** 這個商品在購物車裡（各規格加總） */
   const inCart = (g, id) => cartOf(g.id).filter((l) => l.id === id).reduce((n, l) => n + (Number(l.qty) || 0), 0);
 
@@ -210,6 +262,7 @@
           <span class="shop-tile-img">${it.photo ? `<img src="${esc(photoUrl(it.photo))}" alt="" loading="lazy">` : '<span class="shop-noimg" aria-hidden="true">🌿</span>'}${soldOut ? '<span class="shop-tile-flag">已售完</span>' : it.left !== null && it.left <= 5 ? `<span class="shop-tile-flag is-few">剩 ${it.left}</span>` : ''}</span>
           <span class="shop-tile-name">${esc(it.name)}</span>
           <span class="shop-tile-price">${priceText(it)}${it.unit ? `<small>／${esc(it.unit)}</small>` : ''}</span>
+          ${promoOf(g, it.id) ? `<span class="shop-tile-promo">${promoTag(g, it)}</span>` : ''}
           <span class="shop-tile-meta">已售出 ${it.sold}${it.options ? `・${it.options.options.length} 種${esc(it.options.label)}` : ''}</span>
         </a></li>`;
       }).join('')}</ul>
@@ -238,6 +291,7 @@
       </div>` : '<div class="shop-gallery shop-gallery-empty" aria-hidden="true">🌿</div>'}
       <h1 class="shop-product-name">${esc(it.name)}</h1>
       <p class="shop-product-price">${money(price)}${it.unit ? `<small>／${esc(it.unit)}</small>` : ''}</p>
+      ${promoOf(g, it.id) ? `<p class="shop-product-promo">${promoTag(g, it, true)}</p>` : ''}
       <p class="shop-product-meta">已售出 ${it.sold}${it.left !== null ? `・${soldOut ? '已售完' : '剩 ' + it.left + ' ' + esc(it.unit || '份')}` : ''}${it.perPerson !== null ? `・每人最多 ${it.perPerson}` : ''}</p>
       ${deadlineLine(g, now)}
       ${it.description ? `<p class="shop-desc">${Fmt.linkText(it.description)}</p>` : ''}
@@ -321,6 +375,7 @@
               </div>
             </li>`;
           }).join('')}</ul>
+          ${(() => { const pr = promoApply(lines, g.promos); return pr.discounts.length || pr.hints.length ? `<div class="shop-promo-box">${pr.discounts.length ? `<p class="shop-promo-row is-sub"><span>商品小計</span><span>${money(pr.subtotal)}</span></p>${promoRows(pr.discounts)}` : ''}${pr.hints.map((h) => `<p class="shop-promo-hint">💡 ${esc(h)}</p>`).join('')}</div>` : ''; })()}
         </section>
         ${g.pickups.length ? `<section class="shop-step">
           <h2><span class="step">${n()}</span>在哪一場取貨</h2>
@@ -482,6 +537,7 @@
       <div class="notice notice-success notice-big" role="status">
         <p><strong>✅ ${res.merged ? '加進你原本的訂單了！' : res.updated ? '訂單更新好了！' : '訂好了！'}</strong></p>
         <p>${esc(o.name)}：${o.items.map((it) => esc(it.name) + ' × ' + it.qty).join('、')}</p>
+        ${(o.discounts || []).map((d) => `<p>🏷️ ${esc(d.name)}：省 ${money(d.discount)}</p>`).join('')}
         <p>💰 共 <strong>${money(o.total)}</strong>（${o.pay === '轉帳' ? '轉帳' : p ? '取貨時付現' : '付現'}）</p>
         ${p ? `<p>📦 ${esc(pickupText(p))} 取貨</p>` : ''}
         ${p ? `<div class="addcal-row">${AddCal.button({ name: '取團購：' + g.name, location: p.location, start: p.date, end: p.date, startTime: p.startTime, endTime: p.endTime || '', dutyId: p.id, date: p.date }, '加到手機行事曆（取貨那天）')}</div>` : ''}
@@ -563,6 +619,7 @@
             <div class="shop-ocard-items">${o.items.map((it) => `<p><span>${esc(it.name)}</span><span>${money(it.price)} × ${it.qty}</span></p>`).join('')}</div>
           </div>
           <p class="shop-ocard-meta">${o.pickup ? '📦 ' + esc(pickupText(o.pickup)) + ' 取貨・' : ''}${o.pay === '轉帳' ? `轉帳${o.last5 ? '（末五碼 ' + esc(o.last5) + '）' : '・還沒填末五碼'}` : '付現'}${o.paid ? '・✅ 已付款' : ''}</p>
+          ${(o.discounts || []).length ? `<div class="shop-ocard-promo">${promoRows(o.discounts)}</div>` : ''}
           <p class="shop-ocard-total">應付總額 <b>${money(o.total)}</b></p>
           ${o.pay === '轉帳' && o.payInfo && !o.paid ? `<p class="shop-payinfo-small">🏦 ${esc(o.payInfo).replace(/\n/g, '<br>')}</p>` : ''}
           ${o.picked ? '' : `<div class="shop-order-actions">
@@ -609,7 +666,7 @@
         <p class="modal-note">${esc(o.groupName)}</p>
         <ul class="shop-cart">${o.items.map((it, i) => `<li class="shop-cart-row"><div class="shop-cart-body"><strong>${esc(it.name)}</strong><span class="shop-cart-price">${money(it.price)}</span>
           <div class="shop-stepper shop-stepper-sm"><button type="button" class="btn shop-step-btn" data-m="${i}" aria-label="少一個">－</button><span class="shop-step-n" data-n="${i}">${it.qty}</span><button type="button" class="btn shop-step-btn" data-p="${i}" aria-label="多一個">＋</button></div></div></li>`).join('')}</ul>
-        <p class="hint">要加別的商品，到商城加入購物車再結帳，會加進這張。</p>
+        <p class="hint">要加別的商品，到商城加入購物車再結帳，會加進這張。${(o.discounts || []).length ? '買多優惠會照新的數量重算。' : ''}</p>
         <div class="form-error" data-error hidden></div>
         <div class="modal-actions"><button type="submit" class="btn btn-block btn-primary">存檔</button><button type="button" class="btn btn-block" data-close>返回</button></div>
       </form>`);

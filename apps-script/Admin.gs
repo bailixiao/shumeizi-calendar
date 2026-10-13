@@ -351,6 +351,8 @@ function adminRun_(body) {
     case 'adminShopStockImport': return adminShopStockImport_(body);
     case 'adminShopLedger': return adminShopLedger_(body);
     case 'adminShopLedgerSave': return adminShopLedgerSave_(body);
+    case 'adminShopSavePromo': return adminShopSavePromo_(body);
+    case 'adminShopDeletePromo': return adminShopDeletePromo_(body);
     case 'adminShopLedgerDelete': return adminShopLedgerDelete_(body);
     case 'adminMergeMembers': return adminMergeMembers_(body);
     case 'adminImportMembers': return adminImportMembers_(body);

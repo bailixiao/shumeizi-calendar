@@ -69,9 +69,11 @@ async function seedDemo(call, get) {
     items: [{ id: tofu, price: '', limit: '', perPerson: '' }, { id: jam, price: '', limit: '10', perPerson: '2' }, { id: bread, price: '', limit: '', perPerson: '' }]
   } });
   if (!g.ok) throw new Error('示範團購建立失敗：' + JSON.stringify(g.error));
+  // 買多優惠：饅頭 3 包 200 元
+  await admin('adminShopSavePromo', { promo: { productIds: [bread], tiers: [{ qty: 3, price: 200 }] } });
   const order = (name, pickup, items, pay) => call({ action: 'shopOrder', groupId: g.data.id, name, pickupId: pickup, items, pay: pay || '現場' });
   await order('測試甲', pickups[0], [{ id: tofu, qty: 2 }, { id: jam, option: '桑葚', qty: 1 }], '轉帳');
-  await order('王小明', pickups[0], [{ id: bread, qty: 1 }]);
+  await order('王小明', pickups[0], [{ id: bread, qty: 3 }]);
   await order('測試乙', pickups[1], [{ id: jam, option: '鳳梨', qty: 2 }, { id: tofu, qty: 1 }]);
   // 待確認的新朋友保留成正式成員（名字提示才找得到）
   const members = (await admin('adminMembers', {})).data.members.filter((m) => m.pending);

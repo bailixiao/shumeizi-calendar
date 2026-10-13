@@ -137,30 +137,31 @@ const SUB = {
   '04': ['沒看到的話，滑到最下面點「編輯動作⋯」打開它', '有的手機寫「安裝應用程式」，哪一個都可以'],
   '05': ['名字已經幫你填好了', '有的手機會再問一次，按「新增」'],
   '06': '以後都從這個圖示打開，就像一般的 App 一樣 📲',
-  '07': '今天起一個月的活動，一天一天列出來',
-  '08': '志工排班還缺人的會列在這裡，點進去就能報名',
-  '09': '點日期，下面會列出那天的活動，點你想去的',
-  '10': '志工排班有好幾個項目，先選一個（灰色的是額滿）',
-  '11': '打一兩個字，跳出名字就點它；沒有就打完整名字按「加入」',
-  '12': '只有第一次要選；朋友介紹的話，填一下介紹人',
-  '13': '靈魂健身房、槑青韜課館、植素園工作坊不用選項目',
-  '14': '有一起吃飯的活動才會出現；有選項的話每組選一個，有特別需求寫在備註',
-  '15': '想揪朋友？名字一個一個加進來就好',
-  '16': '名字都加好了，按這裡送出',
-  '17': '可以按「加到手機行事曆」，前一天會提醒你',
-  '18': '在行事曆最上面',
-  '19': '打你的名字，點跳出來的名字就會查',
-  '20': '「改吃飯」可以改吃不吃、選的餐點、備註；活動當天（含）之後就不能自己改，請跟小編說',
-  '21': '看一下資料對不對，按「確定取消」才會取消',
-  '22': '有活動時，前一天晚上 8 點、當天早上 7 點提醒你',
-  '23': '開好後，下面可以填「我是誰」，只提醒你報名的',
-  '24': '一定要按「允許」才收得到喔',
-  '25': '點一下就打開活動 😊',
-  '26': '在行事曆最上面；沒有開放中的團購時不會出現',
-  '27': '照片下面有價格、已經賣了幾份；有寫「剩 N」的是限量',
-  '28': '照片可以左右滑；有口味、大小的要先選一個',
-  '29': '下面「🛒 購物車」的數字是放了幾件；轉帳的送出後會看到帳號',
-  '30': '在下面「📋 我的訂單」可以改數量、取消、補轉帳末五碼'
+  '07': '活動、報名、團購都在行事曆裡；行事曆右上角按「🏠 回到主頁」就回官網',
+  '08': '今天起一個月的活動，一天一天列出來',
+  '09': '志工排班還缺人的會列在這裡，點進去就能報名',
+  '10': '點日期，下面會列出那天的活動，點你想去的',
+  '11': '志工排班有好幾個項目，先選一個（灰色的是額滿）',
+  '12': '打一兩個字，跳出名字就點它；沒有就打完整名字按「加入」',
+  '13': '只有第一次要選；朋友介紹的話，填一下介紹人',
+  '14': '靈魂健身房、槑青韜課館、植素園工作坊不用選項目',
+  '15': '有一起吃飯的活動才會出現；有選項的話每組選一個，有特別需求寫在備註',
+  '16': '想揪朋友？名字一個一個加進來就好',
+  '17': '名字都加好了，按這裡送出',
+  '18': '可以按「加到手機行事曆」，前一天會提醒你',
+  '19': '在行事曆最上面',
+  '20': '打你的名字，點跳出來的名字就會查',
+  '21': '「改吃飯」可以改吃不吃、選的餐點、備註；活動當天（含）之後就不能自己改，請跟小編說',
+  '22': '看一下資料對不對，按「確定取消」才會取消',
+  '23': '有活動時，前一天晚上 8 點、當天早上 7 點提醒你',
+  '24': '開好後，下面可以填「我是誰」，只提醒你報名的',
+  '25': '一定要按「允許」才收得到喔',
+  '26': '點一下就打開活動 😊',
+  '27': '在行事曆最上面；沒有開放中的團購時不會出現',
+  '28': '照片下面有價格、已經賣了幾份；有寫「剩 N」的是限量',
+  '29': '照片可以左右滑；有口味、大小的要先選一個',
+  '30': '下面「🛒 購物車」的數字是放了幾件；轉帳的送出後會看到帳號',
+  '31': '在下面「📋 我的訂單」可以改數量、取消、補轉帳末五碼'
 };
 const sub = (n, dev) => { const s = SUB[n]; return Array.isArray(s) ? s[dev === 'ios' ? 0 : 1] : (s || ''); };
 // target：CSS 選擇器字串，或「$(」開頭的一段程式（直接放進頁面裡算）
@@ -168,10 +169,10 @@ const frame = (n, dev, target) => `window.__frame({ n: ${Number(n)}, title: ${JS
 
 // 手機問允許、收到通知（畫在頁面上的示意畫面）
 const PERMISSION = {
-  ios: `<div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:2147482990;display:flex;align-items:center;justify-content:center"><div id="tut-dlg" style="width:270px;background:rgba(242,242,247,.97);border-radius:14px;text-align:center;font-family:-apple-system,'PingFang TC','Noto Sans TC',sans-serif;overflow:hidden"><div style="padding:18px 16px 14px"><b style="font-size:17px">「書槑子行事曆」想要傳送通知</b><p style="margin:6px 0 0;font-size:13px;color:#333">通知可能包括提示、聲音和圖像標記。</p></div><div style="display:flex;border-top:1px solid #c6c6c8"><span style="flex:1;padding:11px;color:#0a7aff;font-size:17px;border-right:1px solid #c6c6c8">不允許</span><span id="tut-allow" style="flex:1;padding:11px;color:#0a7aff;font-size:17px;font-weight:600">允許</span></div></div></div>`,
+  ios: `<div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:2147482990;display:flex;align-items:center;justify-content:center"><div id="tut-dlg" style="width:270px;background:rgba(242,242,247,.97);border-radius:14px;text-align:center;font-family:-apple-system,'PingFang TC','Noto Sans TC',sans-serif;overflow:hidden"><div style="padding:18px 16px 14px"><b style="font-size:17px">「書槑子青年坊」想要傳送通知</b><p style="margin:6px 0 0;font-size:13px;color:#333">通知可能包括提示、聲音和圖像標記。</p></div><div style="display:flex;border-top:1px solid #c6c6c8"><span style="flex:1;padding:11px;color:#0a7aff;font-size:17px;border-right:1px solid #c6c6c8">不允許</span><span id="tut-allow" style="flex:1;padding:11px;color:#0a7aff;font-size:17px;font-weight:600">允許</span></div></div></div>`,
   android: `<div style="position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:2147482990"><div id="tut-dlg" style="position:absolute;left:12px;right:12px;bottom:24px;background:#fff;border-radius:24px;padding:22px 20px 14px;font-family:Roboto,'Noto Sans TC',sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.3)"><b style="font-size:18px">要允許「bailixiao.github.io」傳送通知嗎？</b><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:22px"><span style="padding:10px 16px;color:#0b57d0;font-weight:600">封鎖</span><span id="tut-allow" style="padding:10px 18px;color:#fff;background:#0b57d0;border-radius:20px;font-weight:600">允許</span></div></div></div>`
 };
-const NOTICE = (dev) => `<div style="position:fixed;inset:0;background:linear-gradient(#5b7c8a,#2f4b57);z-index:2147482990;font-family:-apple-system,Roboto,'Noto Sans TC',sans-serif"><div style="text-align:center;color:#fff;margin-top:${dev === 'ios' ? 190 : 170}px;font-size:${dev === 'ios' ? 64 : 52}px;font-weight:300">19:00</div><div id="tut-note" style="margin:30px 12px 0;background:rgba(255,255,255,.92);border-radius:${dev === 'ios' ? 20 : 26}px;padding:14px 16px;display:flex;gap:12px"><img src="icons/icon-192.png" style="width:38px;height:38px;border-radius:9px"><div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;font-size:13px;color:#666"><span>書槑子行事曆</span><span>現在</span></div><b style="display:block;font-size:15px;margin-top:2px">🌱 明天的活動提醒</b><div style="font-size:14px;color:#222;line-height:1.45">🧡 19:30 槑子的靈魂健身房（竹北）　已報 3 人<br>到時候見 😊</div></div></div></div>`;
+const NOTICE = (dev) => `<div style="position:fixed;inset:0;background:linear-gradient(#5b7c8a,#2f4b57);z-index:2147482990;font-family:-apple-system,Roboto,'Noto Sans TC',sans-serif"><div style="text-align:center;color:#fff;margin-top:${dev === 'ios' ? 190 : 170}px;font-size:${dev === 'ios' ? 64 : 52}px;font-weight:300">19:00</div><div id="tut-note" style="margin:30px 12px 0;background:rgba(255,255,255,.92);border-radius:${dev === 'ios' ? 20 : 26}px;padding:14px 16px;display:flex;gap:12px"><img src="icons/icon-192.png" style="width:38px;height:38px;border-radius:9px"><div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;font-size:13px;color:#666"><span>書槑子青年坊</span><span>現在</span></div><b style="display:block;font-size:15px;margin-top:2px">🌱 明天的活動提醒</b><div style="font-size:14px;color:#222;line-height:1.45">🧡 19:30 槑子的靈魂健身房（竹北）　已報 3 人<br>到時候見 😊</div></div></div></div>`;
 
 async function main() {
   const { proc, ws } = await launch();
@@ -195,93 +196,107 @@ async function main() {
         await shoot(c, n, dev);
       }
       await go(c);
-      await run(c, `document.body.insertAdjacentHTML('beforeend', ${JSON.stringify(PERMISSION[dev])}); ${frame('24', dev, '#tut-allow')}`);
-      await shoot(c, '24', dev);
-      await go(c);
-      await run(c, `document.body.insertAdjacentHTML('beforeend', ${JSON.stringify(NOTICE(dev))}); ${frame('25', dev, '#tut-note')}`);
+      await run(c, `document.body.insertAdjacentHTML('beforeend', ${JSON.stringify(PERMISSION[dev])}); ${frame('25', dev, '#tut-allow')}`);
       await shoot(c, '25', dev);
+      await go(c);
+      await run(c, `document.body.insertAdjacentHTML('beforeend', ${JSON.stringify(NOTICE(dev))}); ${frame('26', dev, '#tut-note')}`);
+      await shoot(c, '26', dev);
     }
     await c.send('Emulation.setUserAgentOverride', { userAgent: UA.android });
 
+    // ---------- 打開是官網（App 版 home/），按行事曆報名 ----------
+    await c.send('Page.navigate', { url: BASE + 'home/' });
+    await sleep(2500);
+    // 官網的標題列固定在最上面，會被教學的標題蓋住：先把標題列往下移到教學標題下面，再圈「行事曆報名」
+    await run(c, `${frame('07', '', null)}
+      const hh = document.querySelector('.tut-x').getBoundingClientRect().height + 10;
+      document.body.style.paddingTop = hh + 'px'; document.querySelector('.site-header').style.top = hh + 'px'; window.scrollTo(0, 0); await W(200);
+      const r = document.querySelector('.btn-cal').getBoundingClientRect();
+      const box = document.createElement('div'); box.className = 'tut-x';
+      box.style.cssText = 'position:fixed;z-index:2147482999;border:4px solid #e0262b;border-radius:16px;box-shadow:0 0 0 3px rgba(255,255,255,.8);pointer-events:none;left:' + (r.left - 6) + 'px;top:' + (r.top - 6) + 'px;width:' + (r.width + 12) + 'px;height:' + (r.height + 12) + 'px';
+      document.body.appendChild(box);`);
+    await sleep(300);
+    await shoot(c, '07');
+
     // ---------- 報名活動 ----------
     await go(c);
-    await run(c, `$('[data-view=recent]').click(); await W(800); ${frame('07', '', '[data-view=recent]')}`);
-    await shoot(c, '07');
-    await run(c, `${frame('08', '', '.recent-alert')}`);
+    await run(c, `$('[data-view=recent]').click(); await W(800); ${frame('08', '', '[data-view=recent]')}`);
     await shoot(c, '08');
+    await run(c, `${frame('09', '', '.recent-alert')}`);
+    await shoot(c, '09');
     await run(c, `$('[data-view=month]').click(); await W(800); window.scrollTo(0, 0);`);
     const p = await run(c, `const el = document.querySelector('.fc-daygrid-day[data-date="${SUN}"]'); el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 };`);
     for (const t of ['mouseMoved', 'mousePressed', 'mouseReleased']) await c.send('Input.dispatchMouseEvent', { type: t, x: p.x, y: p.y, button: 'left', clickCount: 1 });
     await sleep(900);
-    await run(c, `${frame('09', '', '#day-panel')}`);
-    await shoot(c, '09');
+    await run(c, `${frame('10', '', '#day-panel')}`);
+    await shoot(c, '10');
 
     const ids = await run(c, `const g = async (d) => (await (await fetch('/api?action=getEvents&from=' + d + '&to=' + d)).json()).data.duties;
       const a = await g('${SUN}'); const b = await g('${GYM}');
       return { vol: a.find((x) => x.name === '植素園出攤志工').id, gym: b.find((x) => x.name.includes('靈魂健身房')).id };`);
     await go(c, '#/duty/' + encodeURIComponent(ids.vol) + '?date=' + SUN + '&go=signup');
     await sleep(800);
-    await run(c, `const r = document.querySelector('[data-positions] input'); r.click(); await W(300); ${frame('10', '', '[data-positions]')}`);
-    await shoot(c, '10');
-    await run(c, `type($('[data-name-input]'), '測試'); await W(2500); ${frame('11', '', "$('[data-name-input]').closest('fieldset')")}`);
+    await run(c, `const r = document.querySelector('[data-positions] input'); r.click(); await W(300); ${frame('11', '', '[data-positions]')}`);
     await shoot(c, '11');
-    await run(c, `type($('[data-name-input]'), ''); await W(200); await addName('測試戊', '朋友介紹', '測試甲'); ${frame('12', '', '.name-item')}`);
+    await run(c, `type($('[data-name-input]'), '測試'); await W(2500); ${frame('12', '', "$('[data-name-input]').closest('fieldset')")}`);
     await shoot(c, '12');
+    await run(c, `type($('[data-name-input]'), ''); await W(200); await addName('測試戊', '朋友介紹', '測試甲'); ${frame('13', '', '.name-item')}`);
+    await shoot(c, '13');
 
     await go(c, '#/duty/' + encodeURIComponent(ids.gym) + '?date=' + GYM + '&go=signup');
     await sleep(800);
-    await run(c, `${frame('13', '', '.signup-form')}`);
-    await shoot(c, '13');
-    await run(c, `await addName('測試戊', '官方 LINE'); const m = $('[data-meal]'); if (!m.checked) m.click(); await W(300); const pk = (g, o) => { const r = document.querySelector('input[data-meal-group="' + g + '"][value="' + o + '"]'); if (r) r.click(); }; pk('主餐', '素便當'); await W(200); pk('飲料', '紅茶'); await W(300); ${frame('14', '', '.meal-row')}`);
+    await run(c, `${frame('14', '', '.signup-form')}`);
     await shoot(c, '14');
-    await run(c, `await addName('測試己', '朋友介紹', '測試戊'); ${frame('15', '', '[data-names]')}`);
+    await run(c, `await addName('測試戊', '官方 LINE'); const m = $('[data-meal]'); if (!m.checked) m.click(); await W(300); const pk = (g, o) => { const r = document.querySelector('input[data-meal-group="' + g + '"][value="' + o + '"]'); if (r) r.click(); }; pk('主餐', '素便當'); await W(200); pk('飲料', '紅茶'); await W(300); ${frame('15', '', '.meal-row')}`);
     await shoot(c, '15');
-    await run(c, `${frame('16', '', '[data-submit]')}`);
+    await run(c, `await addName('測試己', '朋友介紹', '測試戊'); ${frame('16', '', '[data-names]')}`);
     await shoot(c, '16');
-    await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); $('[data-submit]').click(); for (let i = 0; i < 30 && !$('.notice-success'); i++) await W(500); if (!$('.notice-success')) throw new Error('報名沒有成功：' + (($('[data-error]') || {}).textContent || '')); await W(500); ${frame('17', '', '.notice-success')}`);
+    await run(c, `${frame('17', '', '[data-submit]')}`);
     await shoot(c, '17');
+    await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); $('[data-submit]').click(); for (let i = 0; i < 30 && !$('.notice-success'); i++) await W(500); if (!$('.notice-success')) throw new Error('報名沒有成功：' + (($('[data-error]') || {}).textContent || '')); await W(500); ${frame('18', '', '.notice-success')}`);
+    await shoot(c, '18');
 
     // ---------- 查我的報名、取消、改期 ----------
     await go(c);
-    await run(c, `${frame('18', '', '.mine-link')}`);
-    await shoot(c, '18');
-    await go(c, '#/mine');
-    await run(c, `type($('#mine-name'), '測試甲'); await W(2500); ${frame('19', '', "$('#mine-name').closest('form').parentElement")}`);
+    await run(c, `${frame('19', '', '.mine-link')}`);
     await shoot(c, '19');
-    await run(c, `$('#mine-name').closest('form').requestSubmit(); await W(3000); ${frame('20', '', '.mine-actions')}`);
+    await go(c, '#/mine');
+    await run(c, `type($('#mine-name'), '測試甲'); await W(2500); ${frame('20', '', "$('#mine-name').closest('form').parentElement")}`);
     await shoot(c, '20');
-    await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); document.querySelector('[data-cancel]').click(); await W(1200); ${frame('21', '', '.modal-box')}`);
+    await run(c, `$('#mine-name').closest('form').requestSubmit(); await W(3000); ${frame('21', '', '.mine-actions')}`);
     await shoot(c, '21');
+    await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); document.querySelector('[data-cancel]').click(); await W(1200); ${frame('22', '', '.modal-box')}`);
+    await shoot(c, '22');
 
     // ---------- 開啟手機提醒 ----------
     await go(c);
-    await run(c, `${frame('22', '', '#push-open')}`);
-    await shoot(c, '22');
-    await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); PushPage.openPanel(); await W(1500); ${frame('23', '', '[data-on]')}`);
+    await run(c, `${frame('23', '', '#push-open')}`);
     await shoot(c, '23');
+    await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); PushPage.openPanel(); await W(1500); ${frame('24', '', '[data-on]')}`);
+    await shoot(c, '24');
 
     // ---------- 團購 ----------
     await go(c);
     await sleep(1500);
-    await run(c, `${frame('26', '', '#shop-link')}`);
-    await shoot(c, '26');
+    await run(c, `${frame('27', '', '#shop-link')}`);
+    await shoot(c, '27');
     await go(c, '#/shop');
     await sleep(1500);
-    await run(c, `${frame('27', '', '.shop-grid')}`);
-    await shoot(c, '27');
+    await run(c, `${frame('28', '', '.shop-grid')}`);
+    await shoot(c, '28');
     // 商品頁：手工果醬（有口味），選桑葚、加入購物車
     await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); document.querySelectorAll('.shop-tile')[1].click(); await W(1500);
-      document.querySelector('input[data-opt][value="桑葚"]').click(); await W(400); ${frame('28', '', '.shop-opt')}`);
-    await shoot(c, '28');
+      document.querySelector('input[data-opt][value="桑葚"]').click(); await W(400); ${frame('29', '', '.shop-opt')}`);
+    await shoot(c, '29');
     await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); $('[data-add]').click(); await W(500);
       document.querySelector('.shop-tab[href$="/cart"]').click(); await W(1500);
       const pk = document.querySelector('input[name=pickup]'); if (pk) { pk.click(); await W(400); }
       const n = $('[data-name]'); type(n, '測試庚'); n.dispatchEvent(new Event('change', { bubbles: true })); await W(2500);
       const s = document.querySelector('input[data-src][value="官方 LINE"]'); if (s) { s.click(); await W(300); }
-      ${frame('29', '', '.shop-total-bar')}`);
-    await shoot(c, '29');
-    await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); $('form.shop-order-form').requestSubmit(); for (let i = 0; i < 30 && !$('.notice-success'); i++) await W(500); if (!$('.notice-success')) throw new Error('團購沒有送出：' + (($('[data-error]') || {}).textContent || '')); ${frame('30', '', '.notice-success')}`);
+      ${frame('30', '', '.shop-total-bar')}`);
     await shoot(c, '30');
+    await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); $('form.shop-order-form').requestSubmit(); for (let i = 0; i < 30 && !$('.notice-success'); i++) await W(500); if (!$('.notice-success')) throw new Error('團購沒有送出：' + (($('[data-error]') || {}).textContent || '')); ${frame('31', '', '.notice-success')}`);
+    await shoot(c, '31');
   } finally {
     c.close();
     proc.kill();

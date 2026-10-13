@@ -223,7 +223,7 @@
     root.innerHTML = `
       <form class="admin-login" novalidate>
         <div class="login-head">
-          <img class="login-logo" src="icons/icon-192.png" alt="" width="72" height="72">
+          <img class="login-logo" src="icons/icon-192.png?v=20261014" alt="" width="72" height="72">
           <h1 class="login-title">管理後台</h1>
           <p class="login-sub">選擇帳號、輸入密碼後登入</p>
         </div>

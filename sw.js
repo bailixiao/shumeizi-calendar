@@ -9,7 +9,7 @@
 // 同一個網域（bailixiao.github.io）底下有好幾個網站（教全區行事曆等），手機裡的快取是共用的：
 // 快取名稱帶上這個網站的路徑，清舊快取時只清自己的，不會清掉別的網站的（和教全區的 sw.js 同樣做法）。
 const PREFIX = 'shumeizi:' + new URL('./', self.location).pathname + ':';
-const CACHE = PREFIX + 'v5';
+const CACHE = PREFIX + 'v6'; // v6：換正式標誌（2026/10/14）
 const LEGACY = ['shumeizi-v1', 'shumeizi-v2', 'shumeizi-v3', 'shumeizi-v4']; // 改名前的舊快取（只有書槑子用過）
 const CDN_HOSTS = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
@@ -200,8 +200,8 @@ async function buildNotification() {
 self.addEventListener('push', (ev) => {
   ev.waitUntil(buildNotification().then((n) => self.registration.showNotification(n.title, {
     body: n.body,
-    icon: 'icons/icon-192.png',
-    badge: 'icons/favicon-32.png',
+    icon: 'icons/icon-192.png?v=20261014',
+    badge: 'icons/favicon-32.png?v=20261014',
     tag: n.tag || 'duty-reminder',
     renotify: true,
     data: { url: n.url, plan: n.plan || '', dev: n.dev || '' }

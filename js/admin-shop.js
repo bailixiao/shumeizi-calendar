@@ -2,7 +2,7 @@
 //   #/admin/shop            團購列表＋商品庫
 //   #/admin/shop/new        開團（?from=ID：另存成新團購）
 //   #/admin/shop/edit/ID    修改團購
-//   #/admin/shop/g/ID       一次團購：總覽、📦 備貨清單、✅ 取貨名單（打勾已取貨、已付款）、幫人下單
+//   #/admin/shop/g/ID       一次團購：總覽、📦 備貨清單、✅ 取貨名單（打勾訂單已確認、已付款）、幫人下單
 // 規則都在伺服器（apps-script/Shop.gs），這裡只是畫面。
 (function () {
   'use strict';
@@ -678,7 +678,7 @@
         <a class="btn" href="${esc(g.link)}" target="_blank" rel="noopener">打開賣場 ↗</a>
       </section>` : `
       <div class="stat-cards shop-stats">
-        <div class="stat-card"><span class="stat-label">訂單</span><span class="stat-num">${s.orders}</span><span class="stat-hint">已取貨 ${s.picked} 張</span></div>
+        <div class="stat-card"><span class="stat-label">訂單</span><span class="stat-num">${s.orders}</span><span class="stat-hint">已確認 ${s.picked} 張</span></div>
         <div class="stat-card"><span class="stat-label">總金額</span><span class="stat-num">${Number(s.total).toLocaleString('zh-TW')}</span><span class="stat-hint">已付 ${money(s.paid)}<br>未付 ${money(s.unpaid)}</span></div>
         <div class="stat-card shop-profit"><span class="stat-label">毛利</span><span class="stat-num">${Number(s.profit).toLocaleString('zh-TW')}</span><span class="stat-hint">成本 ${money(s.cost)}${s.total ? `・毛利率 ${Math.round(s.profit / s.total * 100)}%` : ''}${s.costMissing && s.costMissing.length ? `<br>⚠️ 沒填成本：${esc(s.costMissing.join('、'))}` : ''}</span></div>
       </div>
@@ -706,7 +706,7 @@
             <p class="muted">${o.pay === '轉帳' ? `轉帳${o.last5 ? '・末五碼 ' + esc(o.last5) : '・還沒填末五碼'}` : '取貨付現'}${o.note ? '・' + esc(o.note) : ''}${o.status === '已取消' ? '・已取消' : ''}</p>
             ${o.status === '已取消' ? (edit ? `<button type="button" class="btn btn-small" data-restore="${esc(o.id)}">恢復這張訂單</button>` : '') : `
             <div class="shop-order-actions">
-              <label class="check"><input type="checkbox" data-picked="${esc(o.id)}"${o.picked ? ' checked' : ''}${edit ? '' : ' disabled'}> 已取貨</label>
+              <label class="check"><input type="checkbox" data-picked="${esc(o.id)}"${o.picked ? ' checked' : ''}${edit ? '' : ' disabled'}> 訂單已確認</label>
               <label class="check"><input type="checkbox" data-paid="${esc(o.id)}"${o.paid ? ' checked' : ''}${edit ? '' : ' disabled'}> 已付款</label>
               ${edit ? `<button type="button" class="btn btn-small" data-edit-order="${esc(o.id)}">改單</button><button type="button" class="btn btn-small" data-note="${esc(o.id)}">備註</button><button type="button" class="btn btn-small btn-quiet-danger" data-cancel="${esc(o.id)}">取消</button>` : ''}
             </div>`}

@@ -229,3 +229,38 @@ test('記帳即時更新：動到收支記帳就通知 Google 端（帶同步密
     globalThis.fetch = realFetch;
   }
 });
+
+test('年度結帳（Cloudflare）：只有總管理者；對帳檢查帶 Google 試算表的數字；結帳後鎖住、解除', async () => {
+  const googleEnv = createEnv(OCT_1);
+  const sheets = Object.fromEntries(Object.entries(googleEnv.sheets).map(([n, s]) => [n, s.data]));
+  const store = createMemoryStore();
+  const app = createApp(store, { now: () => OCT_1, ledgerPushUrl: 'https://gas.test/exec', defer: () => {} });
+  const sent = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    const b = JSON.parse(init.body);
+    sent.push(b.action);
+    if (b.action === 'yearCheck') return new Response(JSON.stringify({ ok: true, data: { balances: { 零用金: 100 }, bs: { diff: 0 } } }));
+    if (b.action === 'yearClose') return new Response(JSON.stringify({ ok: true, data: { archive: { pdf: 'https://drive.test/pdf' }, next: { year: 2027, url: 'https://docs.test/116' } } }));
+    return new Response(JSON.stringify({ ok: true, data: {} }));
+  };
+  try {
+    const call = async (payload) => { const r = await app.handle(new Request('https://w.test/', { method: 'POST', body: JSON.stringify(payload) })); store.persist(); return r.json(); };
+    await call({ action: 'import', sheets, props: { ADMIN_PASSWORD: 'test-pass' } });
+    await call({ action: 'setSyncKey', password: 'test-pass', key: 'k'.repeat(40) });
+    const tok = (await call({ action: 'adminLogin', password: 'test-pass' })).data.token;
+    const chk = await call({ action: 'adminYearCheck', token: tok, year: 2026 });
+    assert.equal(chk.ok, true, JSON.stringify(chk.error));
+    assert.deepEqual([chk.data.sheet.balances.零用金, chk.data.locked], [100, '']);
+    const done = await call({ action: 'adminYearClose', token: tok, year: 2026 });
+    assert.equal(done.ok, true, JSON.stringify(done.error));
+    assert.equal(store.getProp('LEDGER_LOCKED_UNTIL'), '2026-12-31');
+    assert.equal((await call({ action: 'adminYearClose', token: tok, year: 2026 })).error.code, 'BAD_REQUEST', '結過的不能再結');
+    assert.equal((await call({ action: 'adminYearUnlock', token: tok, year: 2026 })).ok, true);
+    assert.equal(store.getProp('LEDGER_LOCKED_UNTIL'), '2025-12-31');
+    assert.deepEqual(sent, ['yearCheck', 'yearClose', 'yearUnlock']);
+    assert.equal((await call({ action: 'adminYearCheck', year: 2026 })).ok, false, '要登入');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

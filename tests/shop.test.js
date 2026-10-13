@@ -721,3 +721,26 @@ test('盤點：列出帳上數量、填實際的，差的記盤盈盤虧（平�
   assert.equal(ok(call('adminShopStock', {})).products.find((p) => p.id === tofu.id).stock, 9);
   assert.equal(env.post({ action: 'adminShopStockCount', date: '2026-10-01' }).ok, false);
 });
+
+test('年度結帳：對帳檢查（還沒付款、確認、取貨的訂單、庫存負的、盤點）；結帳鎖住後那一年的進出貨、訂單不能動，今年的可以', () => {
+  const { env, call, ok, tofu, order } = setup();
+  ok(call('adminShopStockMove', { type: 'in', rows: [{ id: tofu.id, qty: 1, cost: 30, method: '買進', date: '2026-09-01' }] }));
+  const a = ok(order({ name: '王小明', source: '官網', items: [{ id: tofu.id, qty: 2 }] })).order;
+  let c = env.fn('yearCloseChecks_')(2026);
+  assert.deepEqual([c.unpaid.count, c.unpaid.amount, c.unconfirmed.count, c.unpicked.count], [1, 120, 1, 1]);
+  assert.deepEqual(c.negative, [{ name: '手工豆腐', qty: -1 }]);
+  assert.equal(c.count.yearEnd, false);
+  // 結帳鎖到 2025 年底：2026 照常；鎖到 2026：擋下
+  env.fn('PropertiesService').getScriptProperties().setProperty('LEDGER_LOCKED_UNTIL', '2025-12-31');
+  ok(call('adminShopStockMove', { type: 'in', rows: [{ id: tofu.id, qty: 5, cost: 30, method: '買進', date: '2026-09-02' }] }));
+  assert.equal(call('adminShopStockMove', { type: 'in', rows: [{ id: tofu.id, qty: 5, cost: 30, method: '買進', date: '2025-12-31' }] }).error.code, 'LOCKED_YEAR');
+  env.fn('PropertiesService').getScriptProperties().setProperty('LEDGER_LOCKED_UNTIL', '2026-12-31');
+  assert.match(JSON.stringify(call('adminShopStockMove', { type: 'in', rows: [{ id: tofu.id, qty: 1, method: '買進' }] }).error), /115 年已經結帳/);
+  assert.equal(call('adminShopOrderSet', { orderId: a.id, cancel: true }).error.code, 'LOCKED_YEAR');
+  assert.equal(call('adminShopOrderSet', { orderId: a.id, paid: true }).error.code, 'LOCKED_YEAR');
+  assert.equal(env.post({ action: 'shopCancel', orderId: a.id, name: '王小明' }).error.code, 'LOCKED_YEAR');
+  ok(call('adminShopOrderSet', { orderId: a.id, confirmed: true })); // 確認、備註可以
+  const rec = ok(call('adminShopStock', {})).records.find((r) => r.method === '買進');
+  assert.equal(call('adminShopStockDelete', { id: rec.id }).error.code, 'LOCKED_YEAR');
+  assert.equal(call('adminShopStockCountSave', { date: '2026-10-01', rows: [{ id: tofu.id, actual: 3 }] }).error.code, 'LOCKED_YEAR');
+});

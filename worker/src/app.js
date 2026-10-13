@@ -122,9 +122,55 @@ export function createApp(store, opts) {
     return { id };
   };
 
+  /** 叫 Google 那邊（Apps Script 網頁應用程式，同記帳即時更新的網址），用同步密鑰 */
+  async function callGas(payload) {
+    const url = opts && opts.ledgerPushUrl;
+    const key = store.getProp('SYNC_KEY');
+    if (!url || !key) throw new gs.ApiError_('CONFIG', '還沒設定和 Google 試算表的連線（同步密鑰、網頁應用程式網址）');
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ key }, payload)), redirect: 'follow' });
+    let j;
+    try { j = JSON.parse(await res.text()); } catch (e) { throw new gs.ApiError_('GAS', 'Google 試算表那邊沒有回應，請稍後再試'); }
+    if (!j.ok) throw new gs.ApiError_(j.error && j.error.code || 'GAS', 'Google 試算表：' + (j.error && j.error.message || '失敗'));
+    return j.data;
+  }
+  /** 年度結帳只有總管理者 */
+  function requireSuper(body) {
+    const who = gs.requireAdmin_(body);
+    if (who.role !== '總管理者') throw new gs.ApiError_('FORBIDDEN', '只有總管理者可以年度結帳');
+    return who;
+  }
+  const yearOf = (body) => {
+    const y = Number(body.year);
+    if (!(y >= 2020 && y <= Number(gs.todayString_().slice(0, 4)))) throw new gs.ApiError_('BAD_REQUEST', '年度不對');
+    return y;
+  };
+
   const asyncActions = {
     adminDraftFromImages: (body) => A.adminDraftFromImages(gs, body),
-    pushTest: (body) => A.pushTest(gs, body)
+    pushTest: (body) => A.pushTest(gs, body),
+    // 年度結帳（YearClose.gs）：對帳檢查＝這邊的訂單、庫存＋Google 試算表的帳戶餘額、資產負債表
+    adminYearCheck: async (body) => {
+      requireSuper(body);
+      const year = yearOf(body);
+      const out = gs.yearCloseChecks_(year);
+      try { out.sheet = await callGas({ action: 'yearCheck', year }); } catch (e) { out.sheetError = e.message || String(e); }
+      return out;
+    },
+    adminYearClose: async (body) => {
+      requireSuper(body);
+      const year = yearOf(body);
+      if (gs.ledgerLockedUntil_() >= year + '-12-31') throw new gs.ApiError_('BAD_REQUEST', (year - 1911) + ' 年已經結帳過了');
+      const res = await callGas({ action: 'yearClose', year });
+      gs.withSignupLock_(() => gs.yearCloseSetLock_(year, true));
+      return res;
+    },
+    adminYearUnlock: async (body) => {
+      requireSuper(body);
+      const year = yearOf(body);
+      await callGas({ action: 'yearUnlock', year });
+      gs.withSignupLock_(() => gs.yearCloseSetLock_(year, false));
+      return { locked: gs.ledgerLockedUntil_() };
+    }
   };
 
   async function handle(request) {

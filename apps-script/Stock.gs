@@ -197,6 +197,7 @@ function adminShopStockMove_(body) {
     if (names[0] === '') option = '';
     var vp = stockVariantPrice_(p, option);
     var date = r.date ? stockParseDate_(r.date) : today;
+    if (date) ledgerLockCheck_(date, '那一年的進出貨');
     if (!date) errors.push(label + '：日期不對');
     if (date > today) errors.push(label + '：日期不能是以後');
     var qty = r.qty === '' || r.qty === undefined || r.qty === null ? 0 : shopInt_(r.qty);
@@ -297,6 +298,8 @@ function adminShopStockUpdate_(body) {
     var r = findById_(readTable_(SHEETS.SHOP_STOCK), '紀錄ID', body.id);
     if (!r) throw new ApiError_('NOT_FOUND', '找不到這筆紀錄，可能已經刪掉了');
     if (r['訂單ID']) throw new ApiError_('FORBIDDEN', '這筆是團購訂單自動記的，請改那張訂單（改數量或取消）');
+    ledgerLockCheck_(stockDate_(r), '那一年的進出貨');
+    if (c.date) ledgerLockCheck_(stockParseDate_(c.date), '那一年的進出貨');
     var p = findById_(readTable_(SHEETS.SHOP_PRODUCTS), '商品ID', r['商品ID']);
     var errors = [];
     var methods = r['類型'] === '進' ? STOCK_IN_METHODS : STOCK_OUT_METHODS;
@@ -339,6 +342,7 @@ function adminShopStockDelete_(body) {
     var r = findById_(readTable_(SHEETS.SHOP_STOCK), '紀錄ID', body.id);
     if (!r) throw new ApiError_('NOT_FOUND', '找不到這筆紀錄，可能已經刪掉了');
     if (r['訂單ID']) throw new ApiError_('FORBIDDEN', '這筆是團購訂單自動記的，請改那張訂單（改數量或取消）');
+    ledgerLockCheck_(stockDate_(r), '那一年的進出貨');
     var p = findById_(readTable_(SHEETS.SHOP_PRODUCTS), '商品ID', r['商品ID']);
     getSheet_(SHEETS.SHOP_STOCK).deleteRow(r._row);
     writeDutyLog_('團購庫存刪除', (r['類型'] === '進' ? '進貨' : '出貨') + '｜' + (p ? p['名稱'] : r['商品ID']) + (r['規格'] ? '（' + r['規格'] + '）' : '') + '×' + r['數量'] + '（' + r['方式'] + '）' + adminTag_());
@@ -587,6 +591,7 @@ function adminShopStallSave_(body) {
   if (errors.length) throw new ApiError_('VALIDATION', '沒有存檔', errors.filter(function (m, i, a) { return a.indexOf(m) === i; }).map(function (m) { return { message: m }; }));
   return withSignupLock_(function () {
     var b = stockStallBase_(body.dutyId);
+    ledgerLockCheck_(b.date, '那一年的出攤統計');
     var products = readTable_(SHEETS.SHOP_PRODUCTS);
     stockDeleteRows_(b.parts.own);
     var now = nowString_();
@@ -678,6 +683,7 @@ function adminShopStockCountSave_(body) {
   var errors = [];
   if (!date) errors.push('盤點日不對');
   else if (date > today) errors.push('盤點日不能是以後');
+  if (date) ledgerLockCheck_(date, '那一年的盤點');
   var input = (Array.isArray(body.rows) ? body.rows : []).filter(function (r) { return r && r.id && r.actual !== '' && r.actual !== null && r.actual !== undefined; });
   input.forEach(function (r) { if (!/^\d{1,6}$/.test(String(r.actual).trim())) errors.push('實際數量請填 0 以上的整數'); });
   if (!input.length) errors.push('請至少填一樣的實際數量');

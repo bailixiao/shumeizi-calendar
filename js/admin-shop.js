@@ -30,6 +30,7 @@
     if (/^shop\/ledger/.test(sub)) return showLedger(body, guard);
     if (/^shop\/promos/.test(sub)) return AdminStock.promos(body, guard);
     if (/^shop\/count/.test(sub)) return AdminStock.count(body, guard);
+    if (/^shop\/year/.test(sub)) return AdminStock.yearClose(body, guard);
     const m = String(sub || '').match(/^shop\/(new|edit\/([^?]+)|g\/([^?]+))(?:\?from=(.+))?/);
     if (m && m[1] === 'new') return showForm(body, guard, '', m[4] ? decodeURIComponent(m[4]) : '');
     if (m && m[2]) return showForm(body, guard, decodeURIComponent(m[2]), '');
@@ -97,6 +98,7 @@
           <a class="btn stock-tool" href="${data.ledgerUrl ? esc(data.ledgerUrl) : '#/admin/shop/ledger'}"${data.ledgerUrl ? ' target="_blank" rel="noopener"' : ''}><span class="stock-tool-icon" aria-hidden="true">💰</span><span>記帳</span></a>
           <a class="btn stock-tool" href="#/admin/shop/promos"><span class="stock-tool-icon" aria-hidden="true">🏷️</span><span>買多優惠</span></a>
           <a class="btn stock-tool" href="#/admin/shop/count"><span class="stock-tool-icon" aria-hidden="true">📋</span><span>盤點</span></a>
+          ${Api.adminWho().role === '總管理者' ? '<a class="btn stock-tool" href="#/admin/shop/year"><span class="stock-tool-icon" aria-hidden="true">📕</span><span>年度結帳</span></a>' : ''}
           ${edit ? '<a class="btn stock-tool" href="#/admin/shop/import"><span class="stock-tool-icon" aria-hidden="true">📥</span><span>匯入 Excel</span></a>' : ''}
         </div>
         <p class="hint">目前庫存＝進貨－出貨（團購一下單就扣，取消會還回去；開團選「限量照庫存」就照這個數字賣）。點商品可以修改（名稱、照片、規格、編號、分類）；停用的商品不能再加進新的團購。</p>`}`;

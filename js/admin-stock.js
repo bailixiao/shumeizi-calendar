@@ -314,6 +314,88 @@ window.AdminStock = (function () {
     });
   }
 
+  // ---------- 📕 年度結帳（#/admin/shop/year；只有總管理者；年度結算 段 3） ----------
+
+  const yearState = { year: 0, check: null, actual: { 零用金: '', 銀行存款: '' }, done: null };
+
+  function yearClose(body, guard, flash) {
+    if (Api.adminWho().role !== '總管理者') { body.innerHTML = `${back}<p class="panel-empty">年度結帳只有總管理者可以做。</p>`; return; }
+    const thisYear = new Date().getFullYear();
+    if (!yearState.year) yearState.year = new Date().getMonth() >= 10 ? thisYear : thisYear - 1; // 11 月以後預設今年
+    const y = yearState.year;
+    const c = yearState.check;
+    const roc = y - 1911;
+    const ok = (good, text) => `<li class="year-check ${good ? 'is-ok' : 'is-warn'}"><span>${good ? '✅' : '⚠️'}</span><div>${text}</div></li>`;
+    const list = (arr) => arr.length ? `<small>${arr.slice(0, 8).map((o) => esc(o.name) + (o.total ? ' ' + money(o.total) + ' 元' : '')).join('、')}${arr.length > 8 ? ' ⋯' : ''}</small>` : '';
+    const sheet = c && c.sheet;
+    const bal = sheet ? sheet.balances : {};
+    const diffOf = (a) => yearState.actual[a] === '' ? null : Math.round((Number(yearState.actual[a]) - (bal[a] || 0)) * 100) / 100;
+    body.innerHTML = `
+      ${back}
+      <h2>📕 年度結帳</h2>
+      <p class="hint">年底照順序做：先「📋 盤點」（盤點日選 12/31）→ 這裡「1. 對帳檢查」→ 有問題的處理好 →「2. 結帳」。結帳後那一年的進出貨、訂單、記帳都鎖住，帳存成 Excel／PDF 封存，並開好下一年的植素園記帳（期初餘額自動帶過去）。</p>
+      ${flash || ''}
+      <div class="stock-range">
+        <label>年度 <select class="input" data-year>${[thisYear, thisYear - 1].map((v) => `<option value="${v}"${v === y ? ' selected' : ''}>${v - 1911} 年（${v}）</option>`).join('')}</select></label>
+        <button type="button" class="btn btn-primary" data-check>1. 對帳檢查</button>
+      </div>
+      ${c ? `
+        ${c.locked && c.locked >= y + '-12-31' ? `<div class="notice notice-success"><p><strong>✅ ${roc} 年已經結帳（鎖住）。</strong></p><p>要改那一年的帳，先解除結帳；改完要再結帳一次。</p><button type="button" class="btn btn-quiet-danger" data-unlock>解除 ${roc} 年結帳</button></div>` : ''}
+        <h3 class="year-h">對帳檢查（${roc} 年）</h3>
+        <ul class="year-checks">
+          ${ok(c.count.yearEnd, c.count.yearEnd ? '12/31 盤點過了' : `還沒做年底盤點（12/31）${c.count.last ? '；最近一次盤點 ' + esc(c.count.last) : ''}。<a href="#/admin/shop/count">去盤點 ›</a>`)}
+          ${ok(!c.unpaid.count, c.unpaid.count ? `還沒付款的訂單 ${c.unpaid.count} 張，共 ${money(c.unpaid.amount)} 元（年底沒收到的會算應收帳款）${list(c.unpaid.list)}` : '訂單都付款了')}
+          ${ok(!c.unconfirmed.count, c.unconfirmed.count ? `還沒確認的訂單 ${c.unconfirmed.count} 張${list(c.unconfirmed.list)}` : '訂單都確認了')}
+          ${ok(!c.unpicked.count, c.unpicked.count ? `還沒取貨的訂單 ${c.unpicked.count} 張${list(c.unpicked.list)}` : '訂單都取貨了')}
+          ${ok(!c.negative.length, c.negative.length ? `庫存是負的：${c.negative.map((x) => esc(x.name) + ' ' + x.qty).join('、')}（請盤點或補記進貨）` : '沒有庫存是負的')}
+          ${c.sheetError ? ok(false, '讀不到植素園記帳：' + esc(c.sheetError)) : ok(!sheet.bs.diff, sheet.bs.diff ? `資產負債表沒有平衡，差 ${money(sheet.bs.diff)} 元（請檢查期初餘額、手動記帳）` : `資產負債表平衡（資產 ${money(sheet.bs.assetTotal)} 元；本期結餘 ${money(sheet.bs.profit)} 元）`)}
+        </ul>
+        ${sheet ? `<h3 class="year-h">帳戶餘額對一下</h3>
+          <div class="stock-table-wrap"><table class="stock-table year-bal"><thead><tr><th>帳戶</th><th>帳上</th><th>實際</th><th>差</th></tr></thead><tbody>
+            ${['零用金', '銀行存款'].map((a) => `<tr><td class="name">${a}</td><td class="num">${money(bal[a] || 0)}</td><td><input class="input stall-in" inputmode="decimal" data-actual="${a}" value="${esc(yearState.actual[a])}" placeholder="${a === '零用金' ? '點一下現金' : '存摺餘額'}"></td><td class="num" data-bdiff="${a}">${diffOf(a) === null ? '' : diffOf(a) ? money(diffOf(a)) : '✅'}</td></tr>`).join('')}
+            ${['應收帳款', '應付帳款'].map((a) => `<tr><td class="name">${a}</td><td class="num">${money(bal[a] || 0)}</td><td colspan="2" class="muted">${a === '應收帳款' ? '別人還欠的' : '還欠別人的'}</td></tr>`).join('')}
+          </tbody></table></div>
+          <p class="hint">實際和帳上不一樣：到植素園記帳的「手動記帳」記一筆調整（例：零用金 -50、科目「其他損失」、摘要寫原因），再按一次對帳檢查。<a href="${esc(sheet.url)}" target="_blank" rel="noopener">打開 ${roc} 年植素園記帳 ›</a></p>` : ''}
+        ${!(c.locked && c.locked >= y + '-12-31') ? `<div class="admin-actions"><button type="button" class="btn btn-primary" data-close-year>2. 結帳 ${roc} 年</button></div>` : ''}` : '<p class="muted">按「1. 對帳檢查」開始（要讀植素園記帳，大約 10～30 秒）。</p>'}
+      ${yearState.done ? `<div class="notice notice-success"><p><strong>🎉 ${roc} 年結帳完成</strong></p>
+        <p>封存：<a href="${esc(yearState.done.archive.xlsx)}" target="_blank" rel="noopener">Excel</a>・<a href="${esc(yearState.done.archive.pdf)}" target="_blank" rel="noopener">PDF</a>・<a href="${esc(yearState.done.archive.folder)}" target="_blank" rel="noopener">封存資料夾</a></p>
+        <p>下一年：<a href="${esc(yearState.done.next.url)}" target="_blank" rel="noopener">${yearState.done.next.year - 1911} 年植素園記帳</a>（期初餘額已經帶過去）</p></div>` : ''}`;
+    body.querySelector('[data-year]').addEventListener('change', (ev) => { yearState.year = Number(ev.target.value); yearState.check = null; yearState.done = null; yearClose(body, guard); });
+    body.querySelector('[data-check]').addEventListener('click', async () => {
+      Busy.show('對帳檢查中⋯（讀植素園記帳）');
+      try { yearState.check = await Api.admin('adminYearCheck', { year: y }); Busy.hide(); yearClose(body, guard); } catch (e) { Busy.hide(); if (!guard(e)) yearClose(body, guard, AdminPage.notice('error', '對帳檢查失敗', e.message)); }
+    });
+    body.querySelectorAll('[data-actual]').forEach((x) => x.addEventListener('input', () => {
+      yearState.actual[x.dataset.actual] = x.value.trim();
+      const d = diffOf(x.dataset.actual);
+      body.querySelector(`[data-bdiff="${x.dataset.actual}"]`).textContent = d === null ? '' : d ? money(d) : '✅';
+    }));
+    const cb = body.querySelector('[data-close-year]');
+    if (cb) cb.addEventListener('click', async () => {
+      const warn = c && (c.unpaid.count || c.unconfirmed.count || c.unpicked.count || c.negative.length || !c.count.yearEnd || c.sheetError || (sheet && sheet.bs.diff));
+      if (!(await Confirm.open({ title: `結帳 ${roc} 年？`, rows: [['鎖住', `${roc} 年（含）以前的進出貨、訂單、記帳不能再改`], ['封存', '損益表、資產負債表、進銷存報表存成 Excel／PDF'], ['下一年', `開好 ${roc + 1} 年植素園記帳，帶入期初餘額`]], note: warn ? '⚠️ 對帳檢查還有沒處理好的項目，確定還是要結帳嗎？（之後可以解除結帳再改）' : '結帳要 1～2 分鐘，請不要關掉畫面。', confirmText: '結帳', danger: !!warn }))) return;
+      Busy.show('結帳中⋯（大約 1～2 分鐘）');
+      try {
+        yearState.done = await Api.admin('adminYearClose', { year: y });
+        yearState.check = Object.assign({}, yearState.check, { locked: y + '-12-31' });
+        Busy.hide();
+        yearClose(body, guard);
+      } catch (e) { Busy.hide(); if (!guard(e)) yearClose(body, guard, AdminPage.notice('error', '結帳沒有完成', e.message)); }
+    });
+    const ub = body.querySelector('[data-unlock]');
+    if (ub) ub.addEventListener('click', async () => {
+      if (!(await Confirm.open({ title: `解除 ${roc} 年結帳？`, rows: [['之後', '那一年的帳可以再改；改完記得再結帳一次']], confirmText: '解除結帳', danger: true }))) return;
+      Busy.show('解除中⋯');
+      try {
+        const r = await Api.admin('adminYearUnlock', { year: y });
+        yearState.check = Object.assign({}, yearState.check, { locked: r.locked });
+        yearState.done = null;
+        Busy.hide();
+        yearClose(body, guard, AdminPage.notice('success', `已解除 ${roc} 年結帳`, '改完記得再結帳一次'));
+      } catch (e) { Busy.hide(); if (!guard(e)) yearClose(body, guard, AdminPage.notice('error', '解除失敗', e.message)); }
+    });
+  }
+
   // ---------- 🏷️ 買多優惠（#/admin/shop/promos；規格 0.6「買多優惠」） ----------
 
   async function promos(body, guard, flash) {
@@ -398,5 +480,5 @@ window.AdminStock = (function () {
     });
   }
 
-  return { report, stall, importPage, promos, count, shrinkImage, downloadCsv };
+  return { report, stall, importPage, promos, count, yearClose, shrinkImage, downloadCsv };
 })();

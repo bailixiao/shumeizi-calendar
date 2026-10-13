@@ -268,6 +268,7 @@ function shopOrder_(body, opts) {
     if (existing && existing['狀態'] === '已取消') existing = null;
     if (existing && existing['已取貨'] === '是' && !admin) throw new ApiError_('FORBIDDEN', '這張訂單已經取貨了，要改請找小編');
     if (existing && existing['已確認'] === '是' && !admin) throw new ApiError_('FORBIDDEN', '這張訂單小編已經確認了，要改請找小編');
+    if (existing) ledgerLockCheck_(existing['建立時間'], '那一年的團購訂單');
     var view = shopGroupView_(g, products, orders, { exceptOrderId: existing ? existing['訂單ID'] : '' });
     var items = Array.isArray(body.items) ? body.items : [];
     if (body.mode === 'add' && existing) {
@@ -371,6 +372,7 @@ function shopCancel_(body) {
   return withSignupLock_(function () {
     var o = shopOwnOrder_(readTable_(SHEETS.SHOP_ORDERS), body);
     if (o['已確認'] === '是') throw new ApiError_('FORBIDDEN', '這張訂單小編已經確認了，要取消請找小編');
+    ledgerLockCheck_(o['建立時間'], '那一年的團購訂單');
     var g = findById_(readTable_(SHEETS.SHOP_GROUPS), '團購ID', o['團購ID']);
     if (g && g['截止時間'] && shopNowMinute_() > g['截止時間']) throw new ApiError_('FORBIDDEN', '已經過了截止時間，要取消請找小編');
     var before = rowSnapshot_(SHEETS.SHOP_ORDERS, o);
@@ -740,6 +742,7 @@ function adminShopOrderSet_(body) {
     if (body.note !== undefined) { ch['備註'] = cleanText_(body.note).slice(0, 100); what.push('備註'); }
     if (body.cancel !== undefined) { ch['狀態'] = body.cancel ? '已取消' : '有效'; what.push(body.cancel ? '取消' : '恢復'); }
     if (!what.length) throw new ApiError_('BAD_REQUEST', '沒有要改的');
+    if (body.cancel !== undefined || body.paid !== undefined || body.picked !== undefined) ledgerLockCheck_(o['建立時間'], '那一年的團購訂單');
     if (body.cancel === false) {
       // 恢復訂單：限量要夠
       var orders = readTable_(SHEETS.SHOP_ORDERS);

@@ -171,6 +171,8 @@ function adminShopLedgerSave_(body) {
   if (cleanText_(e.note).length > 200) errors.push('摘要太長（最多 200 字）');
   var old = e.id ? findById_(readTable_(SHEETS.SHOP_LEDGER), '紀錄ID', e.id) : null;
   if (e.id && !old) throw new ApiError_('NOT_FOUND', '找不到這筆，可能已經刪掉了');
+  if (old) ledgerLockCheck_(old['日期']);
+  if (e.date) ledgerLockCheck_(stockParseDate_(e.date));
   var values;
   if (old && (old['來源'] || old['類型'] === '移轉' || old['類型'] === '期初')) {
     // 自動記的、移轉、期初：只改帳戶（自動記的）、摘要、收據
@@ -286,6 +288,7 @@ function adminShopLedgerDelete_(body) {
     var r = findById_(rows, '紀錄ID', body.id);
     if (!r) throw new ApiError_('NOT_FOUND', '找不到這筆，可能已經刪掉了');
     if (r['來源']) throw new ApiError_('FORBIDDEN', '這筆是自動記的（團購訂單、出攤、進貨），請到原本的地方改');
+    ledgerLockCheck_(r['日期']);
     var list = r['批次ID'] ? rows.filter(function (x) { return x['批次ID'] === r['批次ID']; }) : [r];
     var before = rowSnapshot_(SHEETS.SHOP_LEDGER, r);
     ledgerDeleteRows_(list);

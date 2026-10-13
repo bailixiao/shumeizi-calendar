@@ -2770,3 +2770,13 @@ body.is-sub .homepage-link { display: none; }
 .stock-variant b { color: var(--ink, inherit); }
 .stock-variant.is-low b { color: var(--berry); }
 .stock-rec-acts { display: flex; flex-direction: column; gap: 6px; flex: none; }
+/* 生日：第一次報名的選填欄、後台本月壽星 */
+.source-bday { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; font-size: .92rem; color: var(--muted); }
+.source-bday .input { max-width: 14em; }
+.bday-box { margin-bottom: 12px; }
+.bday-list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 8px; }
+.bday-list li { display: inline-flex; align-items: baseline; gap: 6px; padding: 4px 12px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); }
+.bday-list li span { color: var(--muted); font-size: .9rem; }
+.bday-list li small { color: var(--muted); }
+.bday-list li.is-today { border-color: var(--accent); background: var(--accent-soft); }
+.bday-list li.is-past { opacity: .6; }

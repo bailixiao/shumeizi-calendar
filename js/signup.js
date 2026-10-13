@@ -238,6 +238,7 @@
           </div>
           ${e.source === '朋友介紹' ? `<input class="input source-extra" data-referrer="${i}" maxlength="20" value="${esc(e.referrer || '')}" placeholder="介紹人是誰？（名字）" aria-label="${esc(e.name)} 的介紹人">` : ''}
           ${e.source === '其他' ? `<input class="input source-extra" data-source-note="${i}" maxlength="50" value="${esc(e.sourceNote || '')}" placeholder="說一下在哪裡知道的（選填）" aria-label="${esc(e.name)} 在哪裡知道的">` : ''}
+          <label class="source-bday"><span>🎂 生日（選填）</span><input class="input" type="date" data-birthday="${i}" min="1900-01-01" max="${esc(Fmt.toDateStr(new Date()))}" value="${esc(e.birthday || '')}" aria-label="${esc(e.name)} 的生日（選填）"></label>
         </div>
       </div>`;
     }
@@ -515,7 +516,7 @@
         dates: Array.from(state.dates).sort(),
         entries: state.entries.map((e) => ({ name: e.name, temple: e.temple || '', identity: e.identity, accompany: e.accompany,
           meal: !!duty.meal && !!e.meal, mealChoice: duty.meal && e.meal ? e.mealChoice || {} : {}, mealNote: duty.meal && e.meal ? String(e.mealNote || '').trim() : '', source: e.known === false ? e.source || '' : '', referrer: e.known === false && e.source === '朋友介紹' ? normalize(e.referrer) : '',
-          sourceNote: e.known === false && e.source === '其他' ? normalize(e.sourceNote) : '', leader: !!duty.leaderTitle && !e.accompany && e.name === state.leader, note: duty.layout === '職司表' ? String(e.note || '').trim() : '', positionIds: duty.positions.filter((p) => e.positionIds.has(p.id)).map((p) => p.id) }))
+          sourceNote: e.known === false && e.source === '其他' ? normalize(e.sourceNote) : '', birthday: e.known === false ? e.birthday || '' : '', leader: !!duty.leaderTitle && !e.accompany && e.name === state.leader, note: duty.layout === '職司表' ? String(e.note || '').trim() : '', positionIds: duty.positions.filter((p) => e.positionIds.has(p.id)).map((p) => p.id) }))
       };
       // 每個人報的項目不一樣時，成功訊息逐人列出
       const same = payload.entries.every((e) => e.positionIds.join() === payload.entries[0].positionIds.join());
@@ -744,6 +745,7 @@
       if (t.dataset.entryNote !== undefined) state.entries[Number(t.dataset.entryNote)].note = t.value;
       if (t.dataset.referrer !== undefined) state.entries[Number(t.dataset.referrer)].referrer = t.value;
       if (t.dataset.sourceNote !== undefined) state.entries[Number(t.dataset.sourceNote)].sourceNote = t.value;
+      if (t.dataset.birthday !== undefined) state.entries[Number(t.dataset.birthday)].birthday = t.value;
       if (t.dataset.mealNote !== undefined) state.entries[Number(t.dataset.mealNote)].mealNote = t.value;
     });
     form.addEventListener('submit', submit);

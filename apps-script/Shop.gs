@@ -208,7 +208,7 @@ function shopOrder_(body, opts) {
   if (NAME_SEPARATORS_.test(who.name)) throw new ApiError_('VALIDATION', '訂單沒有送出，請看下面的說明', [{ message: '一張訂單填一個名字就好' }]);
   var linked = findById_(readTableCached_(SHEETS.SHOP_GROUPS), '團購ID', body.groupId);
   if (linked && linked['賣場連結']) throw new ApiError_('VALIDATION', '訂單沒有送出，請看下面的說明', [{ message: '這次團購請到賣貨便下單' }]);
-  var sources = newcomerSources_([{ name: who.name, source: body.source, referrer: body.referrer, sourceNote: body.sourceNote }]);
+  var sources = newcomerSources_([{ name: who.name, source: body.source, referrer: body.referrer, sourceNote: body.sourceNote, birthday: body.birthday }]);
   return withSignupLock_(function () {
     var groups = readTable_(SHEETS.SHOP_GROUPS);
     var g = findById_(groups, '團購ID', body.groupId);

@@ -20,7 +20,7 @@
   let root = null;
   let token = 0;
   // 結帳表單（換團購時清掉）
-  const form = { groupId: '', pickupId: '', pay: '現場', last5: '', name: '', known: undefined, source: '', referrer: '', sourceNote: '', existing: null };
+  const form = { groupId: '', pickupId: '', pay: '現場', last5: '', name: '', known: undefined, source: '', referrer: '', sourceNote: '', birthday: '', existing: null };
 
   const money = (n) => `${Number(n || 0).toLocaleString('zh-TW')} 元`;
   const pickupText = (p) => `${Fmt.shortDate(p.date)}${p.startTime ? ' ' + p.startTime : ''}　${p.location || p.name}`;
@@ -340,6 +340,7 @@
       <p class="source-q">🌱 第一次來？怎麼認識${esc(window.SITE.org)}的？</p>
       <div class="source-chips">${SOURCES.map((s) => `<label class="pos-chip${form.source === s ? ' is-checked' : ''}"><input type="radio" name="src" value="${esc(s)}" data-src${form.source === s ? ' checked' : ''}>${SOURCE_ICON[s] || ''} ${esc(s)}</label>`).join('')}</div>
       ${form.source === '朋友介紹' ? `<input class="input source-extra" data-referrer maxlength="20" value="${esc(form.referrer)}" placeholder="介紹人是誰？（名字）">` : ''}
+      <label class="source-bday"><span>🎂 生日（選填）</span><input class="input" type="date" data-birthday min="1900-01-01" max="${esc(Fmt.toDateStr(new Date()))}" value="${esc(form.birthday)}"></label>
       ${form.source === '其他' ? `<input class="input source-extra" data-source-note maxlength="50" value="${esc(form.sourceNote)}" placeholder="說一下在哪裡知道的（選填）">` : ''}
     </div>`;
   }
@@ -426,6 +427,8 @@
     f.querySelectorAll('[data-src]').forEach((r) => r.addEventListener('change', () => { form.source = r.value; redraw(); const x = root.querySelector('[data-referrer], [data-source-note]'); if (x) x.focus(); }));
     const ref = f.querySelector('[data-referrer]');
     if (ref) ref.addEventListener('input', () => { form.referrer = ref.value; });
+    const bday = f.querySelector('[data-birthday]');
+    if (bday) bday.addEventListener('input', () => { form.birthday = bday.value; });
     const note = f.querySelector('[data-source-note]');
     if (note) note.addEventListener('input', () => { form.sourceNote = note.value; });
     const l5 = f.querySelector('[data-last5]');
@@ -506,7 +509,7 @@
       const res = await Api.shopOrder({
         groupId: g.id, name, mode: 'add', pickupId: form.pickupId, pay: form.pay, last5: form.pay === '轉帳' ? form.last5 : '',
         items: cartLines(g).map((l) => ({ id: l.id, option: l.option, qty: l.qty })),
-        source: form.known === false ? form.source : '', referrer: form.known === false && form.source === '朋友介紹' ? form.referrer.trim() : '',
+        source: form.known === false ? form.source : '', referrer: form.known === false && form.source === '朋友介紹' ? form.referrer.trim() : '', birthday: form.known === false ? form.birthday : '',
         sourceNote: form.known === false && form.source === '其他' ? form.sourceNote.trim() : ''
       });
       Busy.hide();

@@ -136,3 +136,22 @@ test('錯誤訊息換成書槑子的用詞（勤務→活動、了愿項目→�
   const past = env.post({ action: 'signup', dutyId: vol.id, positionId: vol.positions[0].id, dates: ['2026-10-01'], entries: [{ name: '測試甲', source: '官網' }] });
   assert.doesNotMatch(JSON.stringify(past.error), /勤務/);
 });
+
+test('生日：第一次報名可以填（選填）；記在成員名單、歲數照生日算；後台可以改；不能是以後', () => {
+  const { env, call, signup, member } = setup();
+  assert.match(signup([{ name: '王小明', source: '官網', birthday: '2030-01-01' }]).error.details[0].message, /生日不對/);
+  assert.equal(signup([{ name: '王小明', source: '官網', birthday: '85/10/02' }]).ok, true); // 民國也可以
+  assert.equal(member('王小明')['生日'], '1996-10-02');
+  assert.equal(member('王小明')['出生年'], '1996');
+  assert.equal(signup([{ name: '測試甲', source: '官網' }]).ok, true); // 不填也可以
+  const list = call('adminMembers', {}).data.members;
+  const m = list.find((x) => x.name === '王小明');
+  assert.deepEqual([m.birthday, m.age], ['1996-10-02', 29], '10/1 還沒過生日：29 歲');
+  assert.equal(list.find((x) => x.name === '測試甲').birthday, '');
+  // 後台改生日
+  assert.equal(call('adminSaveMember', { row: m.row, original: m.name, member: { name: m.name, identity: '', groups: {}, note: '', active: true, birthday: '1996-09-30' } }).ok, true);
+  assert.equal(call('adminMembers', {}).data.members.find((x) => x.name === '王小明').age, 30);
+  assert.equal(call('adminSaveMember', { row: m.row, original: m.name, member: { name: m.name, identity: '', groups: {}, note: '', active: true, birthday: 'abc' } }).error.code, 'VALIDATION');
+  // 公開的 API 不回傳生日
+  assert.equal(JSON.stringify(env.get({ action: 'getBundle', from: '2026-10-01', to: '2026-10-31' })).includes('1996-'), false);
+});

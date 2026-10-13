@@ -69,7 +69,7 @@ function adminAddAttendee_(body) {
     // 成員名單上已登記身分的人，以名單為準（和一般報名相同）
     var entry = withMemberIdentity_([{ name: body.name, identity: body.identity, accompany: !!body.accompany, temple: body.temple }])[0];
     checkAmbiguous_([entry]);
-    var sources = newcomerSources_([{ name: entry.name, source: body.source, referrer: body.referrer, sourceNote: body.sourceNote }]);
+    var sources = newcomerSources_([{ name: entry.name, source: body.source, referrer: body.referrer, sourceNote: body.sourceNote, birthday: body.birthday }]);
     var problems = validateSignup_({
       duty: duty, positions: positions, signups: signups, positionId: body.positionId,
       dates: [body.date], entries: [entry], today: '0000-00-00', // 補登不受日期限制

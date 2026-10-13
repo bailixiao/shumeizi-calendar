@@ -40,6 +40,8 @@ function adminSaveMember_(body) {
   if (!name) errors.push('請填姓名');
   if (identity && OPTIONS.identity.indexOf(identity) === -1) errors.push('身分只能是道親、壇辦、未求道或點傳師');
   if (input.age !== undefined && input.age !== '' && birthYearOf_(input.age) === null) errors.push('年齡請填 0～120 的數字');
+  var birthday = input.birthday === undefined ? undefined : memberBirthday_(input.birthday);
+  if (birthday === null) errors.push('生日不對（例：1995-03-14；不能是以後）');
   if (input.overseas && SITE.overseas.indexOf(input.overseas) === -1) errors.push('國外只能是' + SITE.overseas.join('、') + '或空白');
   if (input.source && (SITE.sources || []).indexOf(input.source) === -1) errors.push('認識管道只能是' + (SITE.sources || []).join('、') + '或空白');
   var keys = groupKeys_();
@@ -62,6 +64,7 @@ function adminSaveMember_(body) {
     var values = { '姓名': name, '身分': identity, '備註': cleanText_(input.note), '啟用中': input.active === false ? '否' : '是', '待確認': '' }; // 存檔＝確認過
     if (input.vegetarian !== undefined) values['清口'] = input.vegetarian ? '是' : '';
     if (input.age !== undefined) values['出生年'] = birthYearOf_(input.age);
+    if (birthday !== undefined) { values['生日'] = birthday; if (birthday) values['出生年'] = birthday.slice(0, 4); } // 有生日：出生年照生日
     if (input.temple !== undefined) values['佛堂'] = temple;
     if (input.overseas !== undefined) values['國外'] = input.overseas || '';
     // 認識管道（書槑子）：後台可以補或改；介紹人只在朋友介紹時留著
@@ -180,12 +183,31 @@ function adminDeleteGroup_(body) {
 
 // ---- 共用 ----
 
+/** 生日：yyyy-MM-dd、yyyy/M/d、民國 85/3/14 → yyyy-MM-dd；空白回 ''，不對（以後、超過 120 年前）回 null */
+function memberBirthday_(v) {
+  var t = String(v === undefined || v === null ? '' : v).trim();
+  if (!t) return '';
+  var d = stockParseDate_(t);
+  var today = todayString_();
+  if (!d || d > today || Number(d.slice(0, 4)) < Number(today.slice(0, 4)) - 120) return null;
+  return d;
+}
+
+/** 歲數：有生日照生日算（今年過了生日才加一歲），沒有用出生年；都沒有回 '' */
+function memberAge_(m) {
+  var today = todayString_();
+  var b = m['生日'];
+  if (b && /^\d{4}-\d{2}-\d{2}$/.test(b)) return Number(today.slice(0, 4)) - Number(b.slice(0, 4)) - (today.slice(5) < b.slice(5) ? 1 : 0);
+  var by = Number(m['出生年']) || 0;
+  return by ? Number(today.slice(0, 4)) - by : '';
+}
+
 function memberToJson_(m) {
   var groups = {};
   MEMBER_GROUP_COLUMNS.forEach(function (t) { groups[t] = m[t]; });
   var by = Number(m['出生年']) || 0;
   return { row: m._row, name: m['姓名'], identity: m['身分'], groups: groups, note: m['備註'], active: m['啟用中'] !== '否', pending: m['待確認'] === '是',
-    vegetarian: m['清口'] === '是', birthYear: by || '', age: by ? Number(todayString_().slice(0, 4)) - by : '', temple: m['佛堂'] || '', aliases: splitAliases_(m['別名']), overseas: m['國外'] || '', careNote: m['成全紀錄'] || '',
+    vegetarian: m['清口'] === '是', birthYear: by || '', age: memberAge_(m), birthday: m['生日'] || '', temple: m['佛堂'] || '', aliases: splitAliases_(m['別名']), overseas: m['國外'] || '', careNote: m['成全紀錄'] || '',
     // 第一次報名時填的（書槑子）：認識管道、介紹人、管道說明、第一次報名日
     source: m['認識管道'] || '', referrer: m['介紹人'] || '', sourceNote: m['管道說明'] || '', firstDate: m['第一次報名日'] || '' };
 }
@@ -405,9 +427,11 @@ function newcomerSources_(entries) {
     if (!name || known[name] || out[name]) return;
     var source = cleanText_((e && e.source) || '');
     var referrer = normalizeName_((e && e.referrer) || '').slice(0, 20);
+    var birthday = memberBirthday_(e && e.birthday); // 生日（選填）
     if (list.indexOf(source) === -1) errors.push({ name: name, message: '第一次來的朋友，請選怎麼認識' + SITE.org + '的' });
     else if (source === '朋友介紹' && !referrer) errors.push({ name: name, message: '請填介紹人是誰' });
-    else out[name] = { source: source, referrer: source === '朋友介紹' ? referrer : '', note: source === '其他' ? cleanText_((e && e.sourceNote) || '').slice(0, 50) : '' };
+    else if (birthday === null) errors.push({ name: name, message: '生日不對（不能是以後），不想填可以空著' });
+    else out[name] = { source: source, referrer: source === '朋友介紹' ? referrer : '', note: source === '其他' ? cleanText_((e && e.sourceNote) || '').slice(0, 50) : '', birthday: birthday };
   });
   if (errors.length) throw new ApiError_('VALIDATION', '報名沒有完成，請看下面的說明', errors);
   return out;
@@ -428,7 +452,8 @@ function addPendingMembers_(signupRows, dutyName, sources) {
     has[name] = true;
     var src = (sources && sources[name]) || {};
     add.push({ '姓名': name, '身分': OPTIONS.identity.indexOf(r['身分']) !== -1 ? r['身分'] : '', '佛堂': temple, '備註': '自動加入：' + r['日期'] + ' ' + (dutyName || ''), '啟用中': '是', '待確認': '是',
-      '認識管道': src.source || '', '介紹人': src.referrer || '', '管道說明': src.note || '', '第一次報名日': todayString_() });
+      '認識管道': src.source || '', '介紹人': src.referrer || '', '管道說明': src.note || '', '第一次報名日': todayString_(),
+      '生日': src.birthday || '', '出生年': src.birthday ? src.birthday.slice(0, 4) : '' });
   });
   if (!add.length) return 0;
   appendRows_(SHEETS.MEMBERS, add);

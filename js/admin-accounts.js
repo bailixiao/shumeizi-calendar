@@ -1,5 +1,5 @@
 // 管理後台：帳號（#/admin/accounts，只有總管理者看得到）。規格第 2、8 節。
-// 新增勤務／道務／教育／唯讀帳號、改名稱與角色、重設密碼、停用。密碼只在設定時輸入，伺服器只存加密後的雜湊。
+// 新增帳號（都是總管理者）、改名稱、重設密碼、停用；以前建的其他角色帳號可以保留或改成總管理者。密碼只在設定時輸入，伺服器只存加密後的雜湊。
 (function () {
   'use strict';
 
@@ -23,7 +23,7 @@
     body.innerHTML = `
       ${flash || ''}
       <div class="admin-toolbar"><button type="button" class="btn btn-primary" data-new>＋ 新增帳號</button><button type="button" class="btn" data-change-pw>🔑 改總管理者密碼</button></div>
-      <p class="hint">原本的總管理者（帳號選「總管理者」＋管理密碼）不會列在下面，要換密碼按「🔑 改總管理者密碼」。需要好幾個人都有全部權限，就新增帳號、角色選「總管理者」，每個人用自己的帳號密碼。</p>
+      <p class="hint">原本的總管理者（帳號選「總管理者」＋管理密碼）不會列在下面，要換密碼按「🔑 改總管理者密碼」。要給別人用，按「＋ 新增帳號」，新帳號都是總管理者（全部權限），每個人用自己的帳號密碼。</p>
       ${data.accounts.length ? `<ul class="account-list">${data.accounts.map((a, i) => `
         <li class="account-item${a.active ? '' : ' is-off'}">
           <button type="button" class="account-main" data-edit="${i}">
@@ -83,15 +83,18 @@
       });
     }
 
+    // 新增帳號只有「總管理者」（2026/10/13：角色太多太亂）；以前建的其他角色帳號修改時可以保留原本的角色，或改成總管理者
+    const roleChoices = (a) => ['總管理者'].concat(a && a.role !== '總管理者' ? [a.role] : []);
+
     function edit(a) {
       const isNew = !a;
       const m = Modal.open(`
         <h2 class="modal-title">${isNew ? '新增帳號' : '修改帳號'}</h2>
         <form class="admin-form" novalidate>
-          <label class="form-row"><span>帳號（登入時輸入）</span><input class="input" id="acc-account" name="account" value="${esc(a ? a.account : '')}" placeholder="例：道務組" autocomplete="off"></label>
+          <label class="form-row"><span>帳號（登入時輸入）</span><input class="input" id="acc-account" name="account" value="${esc(a ? a.account : '')}" placeholder="例：小編甲" autocomplete="off"></label>
           <label class="form-row"><span>名稱或負責人（選填）</span><input class="input" id="acc-name" name="name" value="${esc(a ? a.name : '')}"></label>
-          <div class="form-row"><span>角色</span><div class="role-pick">${data.roles.filter((r) => r !== '場管' || Fmt.feature('venue')).map((r) => `
-            <label class="role-option"><input type="radio" name="role" value="${esc(r)}"${(a ? a.role : '') === r ? ' checked' : ''}><b>${esc(Fmt.catLabel(r))}</b><small>${esc(ROLE_NOTE[r] || '')}</small></label>`).join('')}</div></div>
+          <div class="form-row"><span>角色</span><div class="role-pick">${roleChoices(a).map((r) => `
+            <label class="role-option"><input type="radio" name="role" value="${esc(r)}"${(a ? a.role : '總管理者') === r ? ' checked' : ''}><b>${esc(Fmt.catLabel(r))}</b><small>${esc(ROLE_NOTE[r] || '')}</small></label>`).join('')}</div></div>
           <label class="form-row"><span>${isNew ? '密碼（至少 6 個字）' : '新密碼（不改就留空）'}</span>
             <div class="pw-row"><input class="input" id="acc-password" name="password" type="text" autocomplete="new-password"><button type="button" class="btn btn-small" data-gen>產生一組</button></div></label>
           <p class="hint">密碼設定後只會加密保存，之後看不到原本的密碼；忘記了就在這裡重設。請把帳號、密碼親自交給負責的人。</p>

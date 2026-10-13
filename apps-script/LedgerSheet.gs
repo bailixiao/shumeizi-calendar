@@ -50,8 +50,19 @@ function lsDate_(s) {
   return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
 }
 
-/** （同步時呼叫）沒有就建立，然後重寫系統記帳、系統存貨。出錯不影響同步。 */
-function ledgerSheetSync_() {
+/**
+ * 手動執行（Apps Script 編輯器選 setupLedgerSheet 按「執行」）：馬上建立／更新「植素園記帳」，執行記錄會寫網址；
+ * 有問題會直接顯示原因（例如 ADMIN_PASSWORD 和後台密碼不一樣）。平常每 10 分鐘同步會自動做，不用手動。
+ */
+function setupLedgerSheet() {
+  syncKey_(); // 先確認同步密鑰（密碼不對會說明怎麼改）
+  var url = ledgerSheetSync_(true);
+  Logger.log('植素園記帳：' + url);
+  return url;
+}
+
+/** （同步時呼叫）沒有就建立，然後重寫系統記帳、系統存貨。出錯不影響同步（strict＝手動執行時把錯誤丟出來）。回傳網址 */
+function ledgerSheetSync_(strict) {
   try {
     var props = PropertiesService.getScriptProperties();
     var ss = null;
@@ -68,8 +79,14 @@ function ledgerSheetSync_() {
       props.setProperty('LEDGER_SHEET_URL', url);
     }
     ledgerSheetWriteSystem_(ss, rows);
+    props.deleteProperty('LEDGER_SHEET_ERROR');
+    return url;
   } catch (e) {
-    Logger.log('植素園記帳試算表沒有更新：' + (e && e.message ? e.message : e));
+    var msg = e && e.message ? e.message : String(e);
+    PropertiesService.getScriptProperties().setProperty('LEDGER_SHEET_ERROR', nowString_() + ' ' + msg);
+    Logger.log('植素園記帳試算表沒有更新：' + msg);
+    if (strict) throw e;
+    return '';
   }
 }
 
@@ -97,6 +114,16 @@ function ledgerSheetWriteSystem_(ss, rows) {
 /** 建立「植素園記帳」：分頁、表頭、公式（之後系統只重寫系統記帳、系統存貨） */
 function ledgerSheetCreate_(rows) {
   var ss = SpreadsheetApp.create(LEDGER_SHEET_NAME);
+  try {
+    ledgerSheetBuild_(ss, rows);
+  } catch (e) {
+    try { DriveApp.getFileById(ss.getId()).setTrashed(true); } catch (e2) { /* 丟不掉也沒關係 */ }
+    throw e;
+  }
+  return ss;
+}
+
+function ledgerSheetBuild_(ss, rows) {
   var Y = '設定!$B$1';
   var yearText = 'TEXT(' + Y + '-1911,"0")';
   var range = '=' + yearText + '&".01.01 至 "&' + yearText + '&".12.31"';
@@ -298,5 +325,4 @@ function ledgerSheetCreate_(rows) {
   var order = [LS.help, LS.setting, LS.manual].concat(LS_ACCOUNT_TABS, [LS.ledger, LS.bs, LS.is, LS.subjects, LS.all, LS.system, LS.stock]);
   order.forEach(function (n, i) { ss.setActiveSheet(ss.getSheetByName(n)); ss.moveActiveSheet(i + 1); });
   ss.setActiveSheet(ss.getSheetByName(LS.manual));
-  return ss;
 }

@@ -35,7 +35,15 @@ function syncKey_() {
   var key = props.getProperty('SYNC_KEY');
   if (key) return key;
   key = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
-  workerPost_({ action: 'setSyncKey', password: props.getProperty('ADMIN_PASSWORD'), key: key });
+  try {
+    workerPost_({ action: 'setSyncKey', password: props.getProperty('ADMIN_PASSWORD'), key: key });
+  } catch (e) {
+    if (/密碼/.test(String(e.message))) {
+      throw new Error('同步密鑰設定失敗：指令碼屬性的 ADMIN_PASSWORD 和現在後台登入用的總管理者密碼不一樣。' +
+        '請到「專案設定 → 指令碼屬性」把 ADMIN_PASSWORD 改成現在後台登入用的密碼，再執行一次 setupLedgerSheet（只要第一次，之後同步就不用密碼了）。');
+    }
+    throw e;
+  }
   props.setProperty('SYNC_KEY', key);
   return key;
 }

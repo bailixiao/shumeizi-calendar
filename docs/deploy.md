@@ -4,6 +4,7 @@
 
 - 網站：https://bailixiao.github.io/shumeizi-calendar/ （GitHub Pages，main 分支根目錄；push 後約 1 分鐘更新）
 - 管理後台：網址後面加 `#/admin`，總管理者密碼在 Apps Script 的指令碼屬性 `ADMIN_PASSWORD`（不寫在這裡）
+- **植素園記帳（Google 試算表）**：每 10 分鐘同步時自動建立；沒出現的話，在 Apps Script 編輯器選 `setupLedgerSheet` 按「執行」，執行記錄會寫網址或失敗原因（例如 ADMIN_PASSWORD 和後台登入密碼不一樣：改成一樣再執行一次）。
 - **改總管理者密碼**：後台「帳號」分頁按「🔑 改總管理者密碼」（輸入舊密碼、新密碼兩次）。只改 Cloudflare 上的密碼；Google 試算表的同步用另一組同步密鑰 `SYNC_KEY`（第一次同步時用 Apps Script 的 `ADMIN_PASSWORD` 自動產生，兩邊各存一份），所以改密碼不影響同步，**不用再進 Apps Script**。之後 Apps Script 的 `ADMIN_PASSWORD` 只是舊的備用值，不必跟著改。
   - 忘記總管理者密碼、進不了後台時：Apps Script → 專案設定 → 指令碼屬性 → 新增 `NEW_ADMIN_PASSWORD`＝新密碼（至少 8 個字）→ 編輯器選 `changeAdminPassword` 按「執行」（用同步密鑰驗證，不需要舊密碼）。
   - 不要刪掉兩邊的 `SYNC_KEY`；萬一同步出現「密碼不正確」，把 Apps Script 的 `ADMIN_PASSWORD` 改成目前後台登入用的密碼、刪掉 Apps Script 的 `SYNC_KEY`，等下一次同步自動重設。

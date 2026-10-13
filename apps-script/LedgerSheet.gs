@@ -4,6 +4,8 @@
  *   - 系統只重寫「系統記帳」（收支記帳的每一筆：團購、出攤、進貨自動記的，和以前在後台記的）、「系統存貨」（每年的存貨）。
  *   - 其他分頁（設定、手動記帳、科目、全部記帳、(1)～(7)）建立時寫好公式，之後系統不再動，可以自己改公式。
  *   - 金額：和「115年簡易記帳表格」一樣，帳戶增加是正數、減少是負數（應付帳款：欠更多是正數）。
+ *   - 一年一份（2026/10/13 年度結算 段 1）：「115年植素園記帳」「116年植素園記帳」⋯，指令碼屬性 LEDGER_SHEETS＝{ 年度: ID }。
+ *     每份的「設定」有年度（B1）、開始記帳日（B2）；系統記帳只寫那一年、開始記帳日以後的，系統存貨的期初＝開始記帳日那天的存貨。
  */
 
 var LEDGER_SHEET_NAME = '植素園記帳';
@@ -29,14 +31,46 @@ function ledgerSheetSystemRows_(rows) {
   }).sort(function (a, b) { return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : (a[7] < b[7] ? -1 : 1); }).map(function (x) { return x.slice(0, 7); });
 }
 
-/** 「系統存貨」的列（純函式）：每一年 [年度, 期初存貨, 進銷存本期進貨, 期末存貨] */
-function ledgerSheetStockRows_(records, products, firstYear, lastYear) {
+/** 「系統存貨」的列（純函式）：每一年 [年度, 期初存貨, 進銷存本期進貨, 期末存貨]；starts＝{ 年度: 開始記帳日 }（沒有＝1/1） */
+function ledgerSheetStockRows_(records, products, firstYear, lastYear, starts) {
   var out = [];
   for (var y = firstYear; y <= lastYear; y++) {
-    var rep = stockReport_(records, products, y + '-01-01', y + '-12-31');
+    var from = (starts && starts[y]) || y + '-01-01';
+    var rep = stockReport_(records, products, from, y + '-12-31');
     out.push([y, rep.total.open.amount, rep.total.buy.amount, rep.total.end.amount]);
   }
   return out;
+}
+
+/** 這一年、開始記帳日以後的收支記帳（純函式） */
+function ledgerRowsForYear_(rows, year, start) {
+  var from = start || year + '-01-01';
+  var to = year + '-12-31';
+  return rows.filter(function (r) { var d = String(r['日期'] || ''); return d >= from && d <= to; });
+}
+
+/** 民國年的檔名：2026 → 115年植素園記帳 */
+function ledgerSheetTitle_(year) {
+  return (Number(year) - 1911) + '年' + LEDGER_SHEET_NAME;
+}
+
+/** 每年的試算表 { 年度: ID }（以前只有一份的 LEDGER_SHEET_ID＝那時候的年度） */
+function ledgerSheetMap_() {
+  var props = PropertiesService.getScriptProperties();
+  var map = shopJson_(props.getProperty('LEDGER_SHEETS'), null);
+  if (!map) {
+    map = {};
+    var old = props.getProperty('LEDGER_SHEET_ID');
+    if (old) map[todayString_().slice(0, 4)] = old;
+  }
+  return map;
+}
+
+/** 試算表「設定」的開始記帳日（B2；沒填＝那一年 1/1） */
+function ledgerSheetStart_(ss, year) {
+  var v = ss.getSheetByName(LS.setting).getRange('B2').getValue();
+  var d = v instanceof Date ? Utilities.formatDate(v, TIME_ZONE, 'yyyy-MM-dd') : stockParseDate_(v);
+  return d && d.slice(0, 4) === String(year) ? d : year + '-01-01';
 }
 
 /** 科目分頁的預設：[科目, 分類]（預設的＋收支記帳用過的） */
@@ -67,26 +101,50 @@ function setupLedgerSheet() {
   return url;
 }
 
-/** （同步時呼叫）沒有就建立，然後重寫系統記帳、系統存貨。出錯不影響同步（strict＝手動執行時把錯誤丟出來）。回傳網址 */
+/**
+ * （同步時呼叫）每一年一份：今年的沒有就建立，然後重寫每一年的系統記帳、系統存貨（結帳鎖住的年度不再寫）。
+ * 出錯不影響同步（strict＝手動執行時把錯誤丟出來）。回傳今年的網址。
+ */
 function ledgerSheetSync_(strict) {
   try {
     var props = PropertiesService.getScriptProperties();
-    var ss = null;
-    var id = props.getProperty('LEDGER_SHEET_ID');
-    if (id) { try { ss = SpreadsheetApp.openById(id); } catch (e) { ss = null; } }
     var rows = lsRead_(SHEETS.SHOP_LEDGER);
-    if (!ss) {
-      ss = ledgerSheetCreate_(rows);
-      props.setProperty('LEDGER_SHEET_ID', ss.getId());
-      props.deleteProperty('LEDGER_HELP_VERSION'); // 新的一份：使用說明的新段落也要加
-    }
-    var url = ss.getUrl();
-    if (props.getProperty('LEDGER_SHEET_URL') !== url) {
-      workerPost_({ action: 'import', password: syncKey_(), sheets: {}, props: { LEDGER_SHEET_URL: url } });
+    var map = ledgerSheetMap_();
+    var thisYear = Number(todayString_().slice(0, 4));
+    var years = Object.keys(map).map(Number);
+    var first = years.length ? Math.min.apply(null, years) : thisYear;
+    // 要有試算表的年度：今年、已經有的，和第一份以後有收支記帳的年度
+    var need = {};
+    need[thisYear] = true;
+    years.forEach(function (y) { need[y] = true; });
+    rows.forEach(function (r) { var y = Number(String(r['日期'] || '').slice(0, 4)); if (y >= first && y <= thisYear) need[y] = true; });
+    var locked = Number(String(props.getProperty('LEDGER_LOCKED_UNTIL') || '').slice(0, 4)) || 0; // 結帳鎖住的年度（段 3）
+    var urls = {};
+    var records = lsRead_(SHEETS.SHOP_STOCK);
+    var products = lsRead_(SHEETS.SHOP_PRODUCTS);
+    Object.keys(need).map(Number).sort().forEach(function (y) {
+      var ss = null;
+      if (map[y]) { try { ss = SpreadsheetApp.openById(map[y]); } catch (e) { ss = null; } }
+      if (!ss) {
+        ss = ledgerSheetCreate_(rows, y);
+        map[y] = ss.getId();
+        props.setProperty('LEDGER_SHEETS', JSON.stringify(map));
+      }
+      urls[y] = ss.getUrl();
+      if (y <= locked) return; // 結帳過的年度不再動
+      ledgerSheetUpgrade_(ss, y, rows);
+      try { ledgerSheetHelpMore_(ss); } catch (e) { Logger.log('使用說明沒有加上：' + e.message); } // 先加說明，後面出錯也不影響
+      var start = ledgerSheetStart_(ss, y);
+      ledgerSheetWriteSystem_(ss, ledgerRowsForYear_(rows, y, start), ledgerSheetStockRows_(records, products, y, y, (function () { var o = {}; o[y] = start; return o; })()));
+    });
+    props.setProperty('LEDGER_SHEETS', JSON.stringify(map));
+    var url = urls[thisYear];
+    var urlsJson = JSON.stringify(urls);
+    if (props.getProperty('LEDGER_SHEET_URLS') !== urlsJson || props.getProperty('LEDGER_SHEET_URL') !== url) {
+      workerPost_({ action: 'import', password: syncKey_(), sheets: {}, props: { LEDGER_SHEET_URL: url, LEDGER_SHEET_URLS: urlsJson } });
       props.setProperty('LEDGER_SHEET_URL', url);
+      props.setProperty('LEDGER_SHEET_URLS', urlsJson);
     }
-    try { ledgerSheetHelpMore_(ss); } catch (e) { Logger.log('使用說明沒有加上：' + e.message); } // 先加說明，後面出錯也不影響
-    ledgerSheetWriteSystem_(ss, rows);
     props.deleteProperty('LEDGER_SHEET_ERROR');
     return url;
   } catch (e) {
@@ -98,7 +156,7 @@ function ledgerSheetSync_(strict) {
   }
 }
 
-function ledgerSheetWriteSystem_(ss, rows) {
+function ledgerSheetWriteSystem_(ss, rows, inv) {
   var sys = ss.getSheetByName(LS.system);
   var data = ledgerSheetSystemRows_(rows).map(function (r) { return [lsDate_(r[0])].concat(r.slice(1)); });
   var last = sys.getLastRow();
@@ -108,11 +166,6 @@ function ledgerSheetWriteSystem_(ss, rows) {
     sys.getRange(2, 1, data.length, 1).setNumberFormat('yyyy/mm/dd');
     sys.getRange(2, 5, data.length, 1).setNumberFormat('#,##0');
   }
-  var records = lsRead_(SHEETS.SHOP_STOCK);
-  var thisYear = Number(todayString_().slice(0, 4));
-  var first = thisYear;
-  rows.concat(records).forEach(function (r) { var y = Number(String(r['日期'] || '').slice(0, 4)); if (y >= 2000 && y < first) first = y; });
-  var inv = ledgerSheetStockRows_(records, lsRead_(SHEETS.SHOP_PRODUCTS), first, thisYear);
   var st = ss.getSheetByName(LS.stock);
   if (st.getLastRow() > 1) st.getRange(2, 1, st.getLastRow() - 1, 4).clearContent();
   st.getRange(2, 1, inv.length, 4).setValues(inv);
@@ -142,21 +195,56 @@ var LS_HELP_MORE = [
 /** 使用說明加新的段落（接在最後面，空一列；同一版只加一次） */
 function ledgerSheetHelpMore_(ss) {
   var props = PropertiesService.getScriptProperties();
-  if (Number(props.getProperty('LEDGER_HELP_VERSION') || 0) >= LS_HELP_VERSION) return;
+  var key = 'LEDGER_HELP_VERSION:' + ss.getId(); // 每一份各自記（以前只有一份時記在 LEDGER_HELP_VERSION）
+  var done = props.getProperty(key) || (ledgerSheetMap_()[todayString_().slice(0, 4)] === ss.getId() ? props.getProperty('LEDGER_HELP_VERSION') : '');
+  if (Number(done || 0) >= LS_HELP_VERSION) return;
   var help = ss.getSheetByName(LS.help);
   if (!help) return;
   var start = help.getLastRow() + 2;
   help.getRange(start, 1, LS_HELP_MORE.length, 1).setValues(LS_HELP_MORE).setWrap(true);
   help.getRange(start, 1).setFontWeight('bold');
   help.getRange(start + LS_HELP_MORE.map(function (r) { return r[0]; }).indexOf('【不會連動的】'), 1).setFontWeight('bold');
-  props.setProperty('LEDGER_HELP_VERSION', String(LS_HELP_VERSION));
+  props.setProperty(key, String(LS_HELP_VERSION));
 }
 
+/**
+ * 舊的試算表升級（只做一次，記在 LEDGER_SHEET_VER:ID）：
+ *   v2（一年一份）：改檔名「115年植素園記帳」；設定加「開始記帳日」（B2，預設＝收支記帳最早的日期）；各帳戶、IS 的期間改成從開始記帳日算。
+ */
+var LS_SHEET_VERSION = 2;
+function ledgerSheetUpgrade_(ss, year, rows) {
+  var props = PropertiesService.getScriptProperties();
+  var key = 'LEDGER_SHEET_VER:' + ss.getId();
+  var v = Number(props.getProperty(key) || 1);
+  if (v >= LS_SHEET_VERSION) return;
+  if (v < 2) {
+    ss.rename(ledgerSheetTitle_(year));
+    var set = ss.getSheetByName(LS.setting);
+    if (!set.getRange('B2').getValue()) {
+      var mine = ledgerRowsForYear_(rows, year).map(function (r) { return r['日期']; }).sort();
+      set.getRange('A2').setValue('開始記帳日（這天以前的帳不算，例：之前在 Excel 的）').setFontWeight('bold');
+      set.getRange('B2').setValue(lsDate_(mine[0] || todayString_())).setNumberFormat('yyyy/mm/dd');
+      set.getRange('A3').setValue('開始記帳日那天各帳戶的餘額（第一次用填；之後的年度結帳時自動帶過來）');
+    }
+    LS_ACCOUNT_TABS.forEach(function (t) { var sh = ss.getSheetByName(t); if (sh) sh.getRange('A2').setFormula(LS_RANGE_FORMULA); });
+    var is = ss.getSheetByName(LS.is);
+    if (is) is.getRange('A3').setFormula(LS_RANGE_FORMULA);
+  }
+  props.setProperty(key, String(LS_SHEET_VERSION));
+}
+
+// 期間：開始記帳日 至 年底（民國），例：115.10.13 至 115.12.31
+var LS_RANGE_FORMULA = '=(YEAR(設定!$B$2)-1911)&TEXT(設定!$B$2,".mm.dd")&" 至 "&(設定!$B$1-1911)&".12.31"';
+
 /** 建立「植素園記帳」：分頁、表頭、公式（之後系統只重寫系統記帳、系統存貨） */
-function ledgerSheetCreate_(rows) {
-  var ss = SpreadsheetApp.create(LEDGER_SHEET_NAME);
+function ledgerSheetCreate_(rows, year) {
+  year = Number(year) || Number(todayString_().slice(0, 4));
+  var ss = SpreadsheetApp.create(ledgerSheetTitle_(year));
   try {
-    ledgerSheetBuild_(ss, rows);
+    ledgerSheetBuild_(ss, rows, year);
+    var props = PropertiesService.getScriptProperties();
+    props.setProperty('LEDGER_SHEET_VER:' + ss.getId(), String(LS_SHEET_VERSION));
+    props.deleteProperty('LEDGER_HELP_VERSION:' + ss.getId()); // 使用說明的新段落也要加
   } catch (e) {
     try { DriveApp.getFileById(ss.getId()).setTrashed(true); } catch (e2) { /* 丟不掉也沒關係 */ }
     throw e;
@@ -164,10 +252,10 @@ function ledgerSheetCreate_(rows) {
   return ss;
 }
 
-function ledgerSheetBuild_(ss, rows) {
+function ledgerSheetBuild_(ss, rows, year) {
   var Y = '設定!$B$1';
   var yearText = 'TEXT(' + Y + '-1911,"0")';
-  var range = '=' + yearText + '&".01.01 至 "&' + yearText + '&".12.31"';
+  var range = LS_RANGE_FORMULA;
   var bold = function (r) { r.setFontWeight('bold'); return r; };
   var yellow = function (r) { r.setBackground('#fff2cc'); return r; };
   var head = function (sh, cols) { bold(sh.getRange(1, 1, 1, cols.length).setValues([cols])).setBackground('#f3ead8'); sh.setFrozenRows(1); };
@@ -180,7 +268,7 @@ function ledgerSheetBuild_(ss, rows) {
     ['1、自己記的收入、支出打在「手動記帳」：日期、帳戶（零用金／銀行存款／應收帳款／應付帳款）、科目、摘要、金額。錢進來填正數、出去填負數；應付帳款欠更多填正數、付掉填負數。'],
     ['2、團購付款（付現＝零用金、轉帳＝銀行）、取貨還沒付（應收帳款）、出攤現場營業額（零用金）、商品增加的買進（進貨）會自動寫在「系統記帳」，後台一改幾秒內就更新。「系統記帳」「系統存貨」會整頁重寫，請不要改。'],
     ['3、錢換地方（零用金存銀行、收回應收、付清應付）：在「手動記帳」記兩筆，科目選「存提款／收回應收／付清應付」（不算損益），例：零用金 -5000、銀行存款 +5000。'],
-    ['4、第一次用：在「設定」填年度和記帳開始前各帳戶的餘額。看別的年度改「設定」的年度就好。'],
+    ['4、一年一份（115年植素園記帳、116年⋯）：「設定」有年度、開始記帳日、那天各帳戶的餘額。年底在後台「年度結帳」結帳後，餘額會自動帶到下一年那份。'],
     ['5、「科目」分頁決定每個科目算在損益表哪裡（收入、其他收入、成本、費用、其他損失、移轉）；新科目加在下面就好。'],
     ['6、(1)～(7) 都是公式自動算的（黃底＝公式）。這些分頁和「設定」「手動記帳」「科目」「全部記帳」系統不會再動，公式可以自己改、也可以自己加分頁。'],
     ['7、(7) IS 的費用下面有空白列，打新科目名稱就會算；存貨用後台進銷存報表的金額（系統存貨）。'],
@@ -194,11 +282,13 @@ function ledgerSheetBuild_(ss, rows) {
   // 設定
   var set = sheet(LS.setting, 1);
   set.getRange(1, 1, 8, 3).setValues([
-    ['年度（西元）', Number(todayString_().slice(0, 4)), ''],
-    ['', '', ''],
-    ['記帳開始前各帳戶的餘額（第一次用填；之後不用改）', '', ''],
+    ['年度（西元）', year, ''],
+    ['開始記帳日（這天以前的帳不算，例：之前在 Excel 的）', lsDate_(year + '-01-01'), ''],
+    ['開始記帳日那天各帳戶的餘額（第一次用填；之後的年度結帳時自動帶過來）', '', ''],
     ['零用金', 0, ''], ['銀行存款', 0, ''], ['應收帳款', 0, ''], ['應付帳款', 0, ''], ['', '', '']
   ]);
+  set.getRange('B2').setNumberFormat('yyyy/mm/dd');
+  bold(set.getRange('A2'));
   set.getRange('C1').setFormula('="民國 "&' + yearText + '&" 年"');
   bold(set.getRange('A1:C1'));
   bold(set.getRange('A3'));

@@ -124,8 +124,9 @@
     body.innerHTML = `
       <a class="btn back-btn" href="#/admin/shop">‹ 回團購</a>
       <h2>💰 記帳</h2>
-      ${d.ledgerUrl ? `<p>記帳在 Google 試算表「植素園記帳」：和「115年簡易記帳表格」一樣的格式，公式可以自己改。</p>
-        <a class="btn btn-primary btn-block" href="${esc(d.ledgerUrl)}" target="_blank" rel="noopener">📗 打開植素園記帳</a>`
+      ${d.ledgerUrl ? `<p>記帳在 Google 試算表「植素園記帳」：一年一份，和「115年簡易記帳表格」一樣的格式，公式可以自己改。</p>
+        <a class="btn btn-primary btn-block" href="${esc(d.ledgerUrl)}" target="_blank" rel="noopener">📗 打開今年的植素園記帳</a>
+        ${Object.keys(d.ledgerUrls || {}).length > 1 ? `<div class="ledger-years">${Object.keys(d.ledgerUrls).sort().reverse().map((y) => `<a class="btn" href="${esc(d.ledgerUrls[y])}" target="_blank" rel="noopener">${Number(y) - 1911} 年</a>`).join('')}</div>` : ''}`
         : '<div class="notice"><p>「植素園記帳」Google 試算表還沒建好：每 10 分鐘同步時會自動建立，請等一下再重新整理。</p></div>'}
       <p class="hint">團購付款、取貨還沒付、出攤現場營業額、商品增加的買進會自動寫進試算表的「系統記帳」（幾秒內）；自己的收入、支出打在「手動記帳」。試算表只有建立的人看得到，要給管帳的人請在試算表按「共用」。</p>`;
   }

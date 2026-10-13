@@ -684,3 +684,21 @@ test('一下單就從庫存扣；以前（取貨才扣）還沒記的訂單：�
   assert.deepEqual([p.stock, p.reserved], [7, 0], '打開庫存頁就補記');
   assert.equal(ok(call('adminShopStock', {})).records.filter((x) => x.orderId === a.id).length, 1, '補記一次就好');
 });
+
+test('訂單已確認、已取貨、已付款三個分開記；確認後大家不能改、不能取消，新的東西另外開一張；末五碼還可以補', () => {
+  const { env, call, ok, tofu, order } = setup();
+  const a = ok(order({ name: '王小明', source: '官網', items: [{ id: tofu.id, qty: 1 }], pay: '轉帳' })).order;
+  ok(call('adminShopOrderSet', { orderId: a.id, confirmed: true }));
+  let o = ok(env.post({ action: 'shopMyOrders', name: '王小明', all: true })).orders[0];
+  assert.deepEqual([o.confirmed, o.picked, o.paid], [true, false, false]);
+  assert.match(JSON.stringify(order({ name: '王小明', orderId: a.id, items: [{ id: tofu.id, qty: 2 }], pay: '轉帳' }).error), /已經確認/);
+  assert.equal(env.post({ action: 'shopCancel', orderId: a.id, name: '王小明' }).error.code, 'FORBIDDEN');
+  ok(env.post({ action: 'shopSetLast5', orderId: a.id, name: '王小明', last5: '12345' }));
+  const b = ok(order({ name: '王小明', mode: 'add', items: [{ id: tofu.id, qty: 1 }], pay: '轉帳' })).order;
+  assert.notEqual(b.id, a.id, '確認過的不再加東西進去');
+  ok(call('adminShopOrderSet', { orderId: a.id, picked: true, paid: true }));
+  o = ok(env.post({ action: 'shopMyOrders', name: '王小明', all: true })).orders.find((x) => x.id === a.id);
+  assert.deepEqual([o.confirmed, o.picked, o.paid, o.last5], [true, true, true, '12345']);
+  const logs = env.sheets['操作紀錄'].data.map((r) => r.join('|'));
+  assert.ok(logs.some((l) => l.includes('訂單已確認')));
+});

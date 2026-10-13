@@ -597,7 +597,8 @@
   /** 訂單狀態：已完成（取貨了）／待取貨（付了還沒取）／未付款 */
   function orderStatus(o) {
     if (o.picked) return { label: '已完成', cls: 'badge-full' };
-    if (o.paid) return { label: '待取貨', cls: 'badge-ok' };
+    if (o.paid) return { label: o.confirmed ? '已確認・待取貨' : '待取貨', cls: 'badge-ok' };
+    if (o.confirmed) return { label: '已確認・未付款', cls: 'badge-notice' };
     return { label: '未付款', cls: 'badge-notice' };
   }
   const inTab = (o, tab) => tab === 'all' || (tab === 'unpaid' ? !o.paid && !o.picked : tab === 'topick' ? !o.picked : o.picked);
@@ -661,7 +662,7 @@
           <p class="shop-ocard-total">應付總額 <b>${money(o.total)}</b></p>
           ${o.pay === '轉帳' && o.payInfo && !o.paid ? `<p class="shop-payinfo-small">🏦 ${esc(o.payInfo).replace(/\n/g, '<br>')}</p>` : ''}
           ${o.picked ? '' : `<div class="shop-order-actions">
-            ${o.closed ? '<span class="muted">已截止，要改請找小編</span>' : `<button type="button" class="btn btn-small" data-edit="${esc(o.id)}">改數量</button><button type="button" class="btn btn-small btn-quiet-danger" data-cancel="${esc(o.id)}">取消</button>`}
+            ${o.confirmed ? '<span class="muted">✅ 小編已確認，要改請找小編</span>' : o.closed ? '<span class="muted">已截止，要改請找小編</span>' : `<button type="button" class="btn btn-small" data-edit="${esc(o.id)}">改數量</button><button type="button" class="btn btn-small btn-quiet-danger" data-cancel="${esc(o.id)}">取消</button>`}
             ${o.pay === '轉帳' && !o.paid ? `<button type="button" class="btn btn-small" data-l5="${esc(o.id)}">${o.last5 ? '改末五碼' : '填轉帳末五碼'}</button>` : ''}
           </div>`}
         </li>`;

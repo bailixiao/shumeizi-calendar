@@ -215,7 +215,7 @@ function shopOrderOut_(o, group, withPay) {
   var out = {
     id: o['訂單ID'], groupId: o['團購ID'], name: o['姓名'], pickupId: o['取貨活動ID'], pickupDate: o['取貨日期'],
     items: shopJson_(o['品項'], []), total: Number(o['金額']) || 0, discounts: shopJson_(o['優惠'], []), pay: o['付款方式'], last5: o['末五碼'] || '',
-    paid: o['已付款'] === '是', picked: o['已取貨'] === '是', status: o['狀態'] || '有效', note: o['備註'] || '',
+    paid: o['已付款'] === '是', picked: o['已取貨'] === '是', confirmed: o['已確認'] === '是', status: o['狀態'] || '有效', note: o['備註'] || '',
     createdAt: o['建立時間'], updatedAt: o['更新時間']
   };
   if (group) {
@@ -263,10 +263,11 @@ function shopOrder_(body, opts) {
       existing = mine.filter(function (o) { return o['訂單ID'] === body.orderId; })[0];
       if (!existing) throw new ApiError_('NOT_FOUND', '找不到這張訂單（名字要和下單時一樣）');
     } else if (body.mode === 'add') { // 購物車結帳：加進付款方式一樣、還沒取貨的那張；沒有就另外開一張
-      existing = mine.filter(function (o) { return o['付款方式'] === body.pay && o['已取貨'] !== '是'; })[0] || null;
+      existing = mine.filter(function (o) { return o['付款方式'] === body.pay && o['已取貨'] !== '是' && o['已確認'] !== '是'; })[0] || null;
     } else existing = mine[0] || null;
     if (existing && existing['狀態'] === '已取消') existing = null;
     if (existing && existing['已取貨'] === '是' && !admin) throw new ApiError_('FORBIDDEN', '這張訂單已經取貨了，要改請找小編');
+    if (existing && existing['已確認'] === '是' && !admin) throw new ApiError_('FORBIDDEN', '這張訂單小編已經確認了，要改請找小編');
     var view = shopGroupView_(g, products, orders, { exceptOrderId: existing ? existing['訂單ID'] : '' });
     var items = Array.isArray(body.items) ? body.items : [];
     if (body.mode === 'add' && existing) {
@@ -369,6 +370,7 @@ function shopOwnOrder_(orders, body) {
 function shopCancel_(body) {
   return withSignupLock_(function () {
     var o = shopOwnOrder_(readTable_(SHEETS.SHOP_ORDERS), body);
+    if (o['已確認'] === '是') throw new ApiError_('FORBIDDEN', '這張訂單小編已經確認了，要取消請找小編');
     var g = findById_(readTable_(SHEETS.SHOP_GROUPS), '團購ID', o['團購ID']);
     if (g && g['截止時間'] && shopNowMinute_() > g['截止時間']) throw new ApiError_('FORBIDDEN', '已經過了截止時間，要取消請找小編');
     var before = rowSnapshot_(SHEETS.SHOP_ORDERS, o);
@@ -477,6 +479,7 @@ function adminShopGroup_(body) {
       paid: sum(active.filter(function (o) { return o['已付款'] === '是'; })),
       unpaid: sum(active.filter(function (o) { return o['已付款'] !== '是'; })),
       picked: active.filter(function (o) { return o['已取貨'] === '是'; }).length,
+      confirmed: active.filter(function (o) { return o['已確認'] === '是'; }).length,
       cost: costSum.cost, profit: sum(active) - costSum.cost, costMissing: costSum.missing // 成本、毛利（沒填成本的商品不算，列在 costMissing）
     }
   };
@@ -723,7 +726,7 @@ function adminShopDeleteGroup_(body) {
   });
 }
 
-/** body = { orderId, picked?, paid?, note?, cancel? }：取貨打勾、付款打勾、備註、取消（管理者不受截止限制） */
+/** body = { orderId, picked?, paid?, confirmed?, note?, cancel? }：取貨打勾、付款打勾、備註、取消（管理者不受截止限制） */
 function adminShopOrderSet_(body) {
   return withSignupLock_(function () {
     var o = findById_(readTable_(SHEETS.SHOP_ORDERS), '訂單ID', body.orderId);
@@ -732,6 +735,7 @@ function adminShopOrderSet_(body) {
     var what = [];
     if (body.picked !== undefined) { ch['已取貨'] = body.picked ? '是' : ''; what.push(body.picked ? '已取貨' : '改成還沒取貨'); }
     if (body.paid !== undefined) { ch['已付款'] = body.paid ? '是' : ''; what.push(body.paid ? '已付款' : '改成還沒付款'); }
+    if (body.confirmed !== undefined) { ch['已確認'] = body.confirmed ? '是' : ''; what.push(body.confirmed ? '訂單已確認' : '改成還沒確認'); }
     if (body.note !== undefined) { ch['備註'] = cleanText_(body.note).slice(0, 100); what.push('備註'); }
     if (body.cancel !== undefined) { ch['狀態'] = body.cancel ? '已取消' : '有效'; what.push(body.cancel ? '取消' : '恢復'); }
     if (!what.length) throw new ApiError_('BAD_REQUEST', '沒有要改的');

@@ -29,12 +29,15 @@ window.AdminStock = (function () {
   const repState = { from: '', to: '' };
 
   async function report(body, guard) {
+    // 金額、單價一律到小數第二位（2026/10/13）
+    const m2 = (v) => Number(v || 0).toLocaleString('zh-TW', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const c2 = (v) => (Number(v) || 0).toFixed(2); // CSV 用
     const today = Fmt.toDateStr ? Fmt.toDateStr(new Date()) : new Date().toISOString().slice(0, 10);
     if (!repState.from) { repState.from = today.slice(0, 4) + '-01-01'; repState.to = today; }
     body.innerHTML = `${back}<h2>📊 進銷存報表</h2><p class="panel-empty">計算中⋯</p>`;
     let d;
     try { d = await Api.admin('adminShopStockReport', { from: repState.from, to: repState.to }, true); } catch (e) { guard(e, body); return; }
-    const cell = (o, withPrice) => `<td class="num">${o.qty}</td>${withPrice ? `<td class="num">${money(o.price)}</td>` : ''}<td class="num">${money(o.amount)}</td>`;
+    const cell = (o, withPrice) => `<td class="num">${o.qty}</td>${withPrice ? `<td class="num">${m2(o.price)}</td>` : ''}<td class="num">${m2(o.amount)}</td>`;
     body.innerHTML = `
       ${back}
       <h2>📊 進銷存報表</h2>
@@ -45,10 +48,10 @@ window.AdminStock = (function () {
         <button type="button" class="btn" data-csv>⬇️ 下載 Excel（CSV）</button>
       </form>
       <div class="stat-cards stock-sum">
-        <div class="stat-card"><span class="stat-label">銷貨金額</span><span class="stat-num">${money(d.total.sale.amount)}</span><span class="stat-hint">${d.total.sale.qty} 件</span></div>
-        <div class="stat-card"><span class="stat-label">銷貨成本</span><span class="stat-num">${money(d.total.saleCost.amount)}</span><span class="stat-hint">用平均成本算</span></div>
-        <div class="stat-card"><span class="stat-label">毛利</span><span class="stat-num">${money(d.profit)}</span><span class="stat-hint">毛利率 ${Math.round(d.margin * 1000) / 10}%</span></div>
-        <div class="stat-card"><span class="stat-label">期末存貨</span><span class="stat-num">${money(d.total.end.amount)}</span><span class="stat-hint">${d.total.end.qty} 件</span></div>
+        <div class="stat-card"><span class="stat-label">銷貨金額</span><span class="stat-num">${m2(d.total.sale.amount)}</span><span class="stat-hint">${d.total.sale.qty} 件</span></div>
+        <div class="stat-card"><span class="stat-label">銷貨成本</span><span class="stat-num">${m2(d.total.saleCost.amount)}</span><span class="stat-hint">用平均成本算</span></div>
+        <div class="stat-card"><span class="stat-label">毛利</span><span class="stat-num">${m2(d.profit)}</span><span class="stat-hint">毛利率 ${Math.round(d.margin * 1000) / 10}%</span></div>
+        <div class="stat-card"><span class="stat-label">期末存貨</span><span class="stat-num">${m2(d.total.end.amount)}</span><span class="stat-hint">${d.total.end.qty} 件</span></div>
       </div>
       ${d.rows.length ? `<div class="stock-table-wrap"><table class="stock-table">
         <thead>
@@ -56,16 +59,16 @@ window.AdminStock = (function () {
           <tr><th>數量</th><th>單價</th><th>金額</th><th>數量</th><th>單價</th><th>金額</th><th>數量</th><th>金額</th><th>數量</th><th>金額</th><th>數量</th><th>單價</th><th>金額</th><th>數量</th><th>單價</th><th>金額</th><th>數量</th><th>單價</th><th>金額</th></tr>
         </thead>
         <tbody>${d.rows.map((r) => `<tr><td class="name"><small class="stock-code-sm">${esc(r.code)}</small>${esc(r.name)}</td>${cell(r.open, true)}${cell(r.buy, true)}${cell(r.add)}${cell(r.sub)}${cell(r.saleCost, true)}${cell(r.sale, true)}${cell(r.end, true)}</tr>`).join('')}</tbody>
-        <tfoot><tr><td>合計</td><td class="num">${d.total.open.qty}</td><td></td><td class="num">${money(d.total.open.amount)}</td><td class="num">${d.total.buy.qty}</td><td></td><td class="num">${money(d.total.buy.amount)}</td><td class="num">${d.total.add.qty}</td><td class="num">${money(d.total.add.amount)}</td><td class="num">${d.total.sub.qty}</td><td class="num">${money(d.total.sub.amount)}</td><td class="num">${d.total.saleCost.qty}</td><td></td><td class="num">${money(d.total.saleCost.amount)}</td><td class="num">${d.total.sale.qty}</td><td></td><td class="num">${money(d.total.sale.amount)}</td><td class="num">${d.total.end.qty}</td><td></td><td class="num">${money(d.total.end.amount)}</td></tr></tfoot>
+        <tfoot><tr><td>合計</td><td class="num">${d.total.open.qty}</td><td></td><td class="num">${m2(d.total.open.amount)}</td><td class="num">${d.total.buy.qty}</td><td></td><td class="num">${m2(d.total.buy.amount)}</td><td class="num">${d.total.add.qty}</td><td class="num">${m2(d.total.add.amount)}</td><td class="num">${d.total.sub.qty}</td><td class="num">${m2(d.total.sub.amount)}</td><td class="num">${d.total.saleCost.qty}</td><td></td><td class="num">${m2(d.total.saleCost.amount)}</td><td class="num">${d.total.sale.qty}</td><td></td><td class="num">${m2(d.total.sale.amount)}</td><td class="num">${d.total.end.qty}</td><td></td><td class="num">${m2(d.total.end.amount)}</td></tr></tfoot>
       </table></div>` : '<p class="panel-empty">這段期間沒有進出紀錄。</p>'}
       <p class="hint">平均成本＝（期初金額＋進貨金額＋其他加金額－其他減金額）÷（期初數量＋進貨數量＋其他加數量－其他減數量），不先四捨五入（顯示到小數兩位）；銷貨成本＝銷貨數量×平均成本，期末金額＝可賣的成本－銷貨成本，所以每一列「期初＋進貨＋其他加－其他減＝銷貨成本＋期末」都對得起來。毛利只是賣商品賺的，不含攤位費、包材等費用。</p>`;
     const f = body.querySelector('form');
     f.addEventListener('submit', (ev) => { ev.preventDefault(); repState.from = f.elements.from.value; repState.to = f.elements.to.value; report(body, guard); });
     body.querySelector('[data-csv]').addEventListener('click', () => {
       const head = [['產品代號', '品項', '期初數量', '期初單價', '期初金額', '進貨數量', '進貨單價', '進貨金額', '其他加數量', '其他加金額', '其他減數量', '其他減金額', '銷貨數量', '平均成本', '銷貨成本', '銷貨售價單價', '銷貨售價金額', '期末數量', '期末單價', '期末金額']];
-      const rows = d.rows.map((r) => [r.code, r.name, r.open.qty, r.open.price, r.open.amount, r.buy.qty, r.buy.price, r.buy.amount, r.add.qty, r.add.amount, r.sub.qty, r.sub.amount, r.saleCost.qty, r.saleCost.price, r.saleCost.amount, r.sale.price, r.sale.amount, r.end.qty, r.end.price, r.end.amount]);
-      const foot = [['', '合計', d.total.open.qty, '', d.total.open.amount, d.total.buy.qty, '', d.total.buy.amount, d.total.add.qty, d.total.add.amount, d.total.sub.qty, d.total.sub.amount, d.total.saleCost.qty, '', d.total.saleCost.amount, '', d.total.sale.amount, d.total.end.qty, '', d.total.end.amount],
-        [], ['', '毛利', d.profit], ['', '毛利率', Math.round(d.margin * 1000) / 10 + '%']];
+      const rows = d.rows.map((r) => [r.code, r.name, r.open.qty, c2(r.open.price), c2(r.open.amount), r.buy.qty, c2(r.buy.price), c2(r.buy.amount), r.add.qty, c2(r.add.amount), r.sub.qty, c2(r.sub.amount), r.saleCost.qty, c2(r.saleCost.price), c2(r.saleCost.amount), c2(r.sale.price), c2(r.sale.amount), r.end.qty, c2(r.end.price), c2(r.end.amount)]);
+      const foot = [['', '合計', d.total.open.qty, '', c2(d.total.open.amount), d.total.buy.qty, '', c2(d.total.buy.amount), d.total.add.qty, c2(d.total.add.amount), d.total.sub.qty, c2(d.total.sub.amount), d.total.saleCost.qty, '', c2(d.total.saleCost.amount), '', c2(d.total.sale.amount), d.total.end.qty, '', c2(d.total.end.amount)],
+        [], ['', '毛利', c2(d.profit)], ['', '毛利率', Math.round(d.margin * 1000) / 10 + '%']];
       downloadCsv(`植素園進銷存_${d.from}_${d.to}.csv`, head.concat(rows, foot));
     });
   }

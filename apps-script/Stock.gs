@@ -434,7 +434,8 @@ function stockReport_(records, products, from, to) {
     t[col].a += a;
   });
   // 平均成本不先四捨五入（2026/10/13：先四捨五入再乘，銷貨成本＋期末會和可賣的成本差幾元）；
-  // 銷貨成本＝數量×平均成本（四捨五入到元），期末金額＝可賣的成本－銷貨成本，兩邊一定對得起來
+  // 銷貨成本＝數量×平均成本（算到小數第二位，2026/10/13 使用者要的），期末金額＝可賣的成本－銷貨成本，兩邊一定對得起來
+  var r2 = function (n) { return Math.round(n * 100) / 100; };
   var avail = function (o, b, ad, s) { return { q: o.q + b.q + ad.q - s.q, a: o.a + b.a + ad.a - s.a }; };
   var avgOf = function (v) { return v.q ? v.a / v.q : 0; };
   var optIndex = function (k) { var m = meta[k]; var n = stockVariantNames_(m.p).indexOf(m.option); return n === -1 ? 99 : n; };
@@ -445,17 +446,17 @@ function stockReport_(records, products, from, to) {
     var bf = x.before;
     // 期間開始前：可賣的成本扣掉賣掉的（平均成本算）＝剩下的金額
     var bAvail = avail(bf.open, bf.buy, bf.add, bf.sub);
-    var bSaleCost = Math.round(bf.sale.q * avgOf(bAvail));
+    var bSaleCost = r2(bf.sale.q * avgOf(bAvail));
     var beforeQty = bAvail.q - bf.sale.q;
-    var open = { q: beforeQty + x.open.q, a: (beforeQty ? bAvail.a - bSaleCost : 0) + x.open.a }; // 之前賣完了＝0
+    var open = { q: beforeQty + x.open.q, a: r2((beforeQty ? bAvail.a - bSaleCost : 0) + x.open.a) }; // 之前賣完了＝0
     var nowAvail = avail(open, x.buy, x.add, x.sub);
     var avgExact = avgOf(nowAvail);
     var avg = Math.round(avgExact * 100) / 100; // 顯示用：到小數兩位
-    var saleCost = Math.round(x.sale.q * avgExact);
+    var saleCost = r2(x.sale.q * avgExact);
     var endQty = nowAvail.q - x.sale.q;
-    var endAmount = endQty ? nowAvail.a - saleCost : 0; // 全部賣完＝0（小數的零頭算進銷貨成本）
-    if (!endQty) saleCost = nowAvail.a;
-    var unit = function (o) { return o.q ? Math.round(o.a / o.q) : 0; };
+    var endAmount = endQty ? r2(nowAvail.a - saleCost) : 0; // 全部賣完＝0（小數的零頭算進銷貨成本）
+    if (!endQty) saleCost = r2(nowAvail.a);
+    var unit = function (o) { return o.q ? r2(o.a / o.q) : 0; };
     return {
       id: p['商品ID'], option: option, order: optIndex(k), code: p['編號'] || '', name: p['名稱'] + (option ? '（' + option + '）' : ''), category: p['分類'] || '', unit: p['單位'] || '',
       open: { qty: open.q, price: unit(open), amount: open.a },
@@ -471,8 +472,8 @@ function stockReport_(records, products, from, to) {
   var sum = function (key, f) { return rows.reduce(function (n, r) { return n + r[key][f]; }, 0); };
   var keys = ['open', 'buy', 'add', 'sub', 'saleCost', 'sale', 'end'];
   var total = {};
-  keys.forEach(function (k) { total[k] = { qty: sum(k, 'qty'), amount: sum(k, 'amount') }; });
-  var profit = total.sale.amount - total.saleCost.amount;
+  keys.forEach(function (k) { total[k] = { qty: sum(k, 'qty'), amount: Math.round(sum(k, 'amount') * 100) / 100 }; });
+  var profit = Math.round((total.sale.amount - total.saleCost.amount) * 100) / 100;
   return { from: from, to: to, rows: rows, total: total, profit: profit, margin: total.sale.amount ? profit / total.sale.amount : 0 };
 }
 

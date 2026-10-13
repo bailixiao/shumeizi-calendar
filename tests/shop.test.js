@@ -379,19 +379,19 @@ test('匯入 Excel（民國日期、分類對照、重複跳過）＋進銷存�
   const rep = ok(call('adminShopStockReport', { from: '2025-01-01', to: '2025-12-31' }));
   const x = rep.rows.find((y) => y.code === 'A001');
   assert.deepEqual([x.open.qty, x.open.amount, x.buy.qty, x.buy.amount], [6, 600, 3, 350]);
-  assert.deepEqual([x.saleCost.price, x.saleCost.amount, x.sale.amount, x.end.qty, x.end.amount], [105.56, 317, 400, 6, 633]);
+  assert.deepEqual([x.saleCost.price, x.saleCost.amount, x.sale.amount, x.end.qty, x.end.amount], [105.56, 316.67, 400, 6, 633.33]);
   // 每一列都對得起來：期初＋進貨＋其他加－其他減＝銷貨成本＋期末
-  rep.rows.forEach((w) => assert.equal(w.open.amount + w.buy.amount + w.add.amount - w.sub.amount, w.saleCost.amount + w.end.amount, w.name));
+  rep.rows.forEach((w) => assert.equal(Math.round((w.open.amount + w.buy.amount + w.add.amount - w.sub.amount) * 100), Math.round((w.saleCost.amount + w.end.amount) * 100), w.name));
   const y = rep.rows.find((z) => z.code === 'B002');
   assert.deepEqual([y.sub.qty, y.sub.amount, y.end.qty], [1, 150, 4]);
-  assert.equal(rep.profit, 400 - 317);
+  assert.equal(rep.profit, 83.33); // 算到小數第二位
   // 期間從 10/26 開始：10/20、10/21 的變成期初
   const rep2 = ok(call('adminShopStockReport', { from: '2025-10-26', to: '2025-12-31' }));
   const x2 = rep2.rows.find((z) => z.code === 'A001');
   assert.deepEqual([x2.open.qty, x2.open.amount, x2.buy.qty], [9, 950, 0]);
-  // 期間從 10/27 開始：之前賣掉 3 件（317），剩下 6 件＝633
+  // 期間從 10/27 開始：之前賣掉 3 件（316.67），剩下 6 件＝633.33
   const x3 = ok(call('adminShopStockReport', { from: '2025-10-27', to: '2025-12-31' })).rows.find((z) => z.code === 'A001');
-  assert.deepEqual([x3.open.qty, x3.open.amount], [6, 633]);
+  assert.deepEqual([x3.open.qty, x3.open.amount], [6, 633.33]);
 });
 
 test('日期、金額、分類：補登以前的；填總金額自動算單價；折讓只填金額；編號照分類 A001', () => {

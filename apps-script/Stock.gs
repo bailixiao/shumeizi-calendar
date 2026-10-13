@@ -159,6 +159,7 @@ function adminShopStock_() {
       var da = stockDate_(a), db = stockDate_(b);
       return da < db ? 1 : da > db ? -1 : a['時間'] < b['時間'] ? 1 : a['時間'] > b['時間'] ? -1 : 0;
     }).slice(0, STOCK_LIST_MAX).map(function (r) { return stockRecordOut_(r, products); }),
+    promos: activePromos_().map(function (p) { return { id: p.id, name: promoLabel_(p), productIds: p.productIds }; }), // 商品減少（售出）可以套用買多優惠
     inMethods: STOCK_IN_METHODS, outMethods: STOCK_OUT_METHODS, amountOnly: STOCK_AMOUNT_ONLY, categories: SHOP_CATEGORIES,
     today: todayString_()
   };
@@ -231,6 +232,21 @@ function adminShopStockMove_(body) {
       return stockRow_({ now: now, date: c.date, type: type, method: c.method, id: id, option: c.option, qty: c.qty, amount: c.amount,
         cost: c.cost !== '' ? c.cost : c.vp.cost, price: c.price !== '' ? c.price : c.vp.price, note: c.note, batch: batch });
     });
+    // 售出套用買多優惠（body.promo；和購物車同一個算法 promoApply_）：每一列扣掉分攤的優惠
+    var promoInfo = { discount: 0, names: [] };
+    if (type === '出' && body.promo) {
+      var saleRows = add.filter(function (r) { return r['方式'] === '售出' && Number(r['數量']) > 0; });
+      var pr = promoApply_(saleRows.map(function (r) { return { id: r['商品ID'], qty: Number(r['數量']), price: Math.round(Number(r['金額']) / Number(r['數量'])) }; }), activePromos_());
+      saleRows.forEach(function (r, i) {
+        var d = pr.lineDiscounts[i];
+        if (!d) return;
+        var amt = Number(r['金額']) - d;
+        r['金額'] = String(amt);
+        r['售價'] = String(Math.round(amt / Number(r['數量'])));
+        r['備註'] = (r['備註'] ? r['備註'] + '；' : '') + '買多優惠 -' + d;
+      });
+      promoInfo = { discount: pr.discounts.reduce(function (n, x) { return n + x.discount; }, 0), names: pr.discounts.map(function (x) { return x.name; }) };
+    }
     appendRows_(SHEETS.SHOP_STOCK, add);
     invalidateTable_(SHEETS.SHOP_STOCK);
     // 記帳：買進的加起來記一筆進貨（body.pay＝零用金／銀行存款／應付帳款）
@@ -249,7 +265,7 @@ function adminShopStockMove_(body) {
     writeDutyLog_('團購' + (type === '進' ? '進貨' : '出貨'), clean.map(function (c) { return c.p['名稱'] + (c.option ? '（' + c.option + '）' : '') + '×' + c.qty + '（' + c.method + '）'; }).join('、') + adminTag_());
     SpreadsheetApp.flush();
     invalidateTable_(SHEETS.SHOP_STOCK);
-    return { batch: batch, count: add.length, warnings: warnings };
+    return { batch: batch, count: add.length, warnings: warnings, promo: promoInfo };
   });
 }
 
@@ -395,20 +411,28 @@ function stockReport_(records, products, from, to) {
     t[col].q += q;
     t[col].a += a;
   });
-  var avgOf = function (o, b, ad, s) { var qq = o.q + b.q + ad.q - s.q; return qq ? Math.round((o.a + b.a + ad.a - s.a) / qq) : 0; };
+  // 平均成本不先四捨五入（2026/10/13：先四捨五入再乘，銷貨成本＋期末會和可賣的成本差幾元）；
+  // 銷貨成本＝數量×平均成本（四捨五入到元），期末金額＝可賣的成本－銷貨成本，兩邊一定對得起來
+  var avail = function (o, b, ad, s) { return { q: o.q + b.q + ad.q - s.q, a: o.a + b.a + ad.a - s.a }; };
+  var avgOf = function (v) { return v.q ? v.a / v.q : 0; };
   var optIndex = function (k) { var m = meta[k]; var n = stockVariantNames_(m.p).indexOf(m.option); return n === -1 ? 99 : n; };
   var rows = Object.keys(by).map(function (k) {
     var x = by[k];
     var p = meta[k].p;
     var option = meta[k].option;
     var bf = x.before;
-    // 期間開始前：剩下的數量×那時的平均成本
-    var beforeQty = bf.open.q + bf.buy.q + bf.add.q - bf.sub.q - bf.sale.q;
-    var beforeAvg = avgOf(bf.open, bf.buy, bf.add, bf.sub);
-    var open = { q: beforeQty + x.open.q, a: beforeQty * beforeAvg + x.open.a };
-    var avg = avgOf(open, x.buy, x.add, x.sub);
-    var saleCost = x.sale.q * avg;
-    var endQty = open.q + x.buy.q + x.add.q - x.sub.q - x.sale.q;
+    // 期間開始前：可賣的成本扣掉賣掉的（平均成本算）＝剩下的金額
+    var bAvail = avail(bf.open, bf.buy, bf.add, bf.sub);
+    var bSaleCost = Math.round(bf.sale.q * avgOf(bAvail));
+    var beforeQty = bAvail.q - bf.sale.q;
+    var open = { q: beforeQty + x.open.q, a: (beforeQty ? bAvail.a - bSaleCost : 0) + x.open.a }; // 之前賣完了＝0
+    var nowAvail = avail(open, x.buy, x.add, x.sub);
+    var avgExact = avgOf(nowAvail);
+    var avg = Math.round(avgExact * 100) / 100; // 顯示用：到小數兩位
+    var saleCost = Math.round(x.sale.q * avgExact);
+    var endQty = nowAvail.q - x.sale.q;
+    var endAmount = endQty ? nowAvail.a - saleCost : 0; // 全部賣完＝0（小數的零頭算進銷貨成本）
+    if (!endQty) saleCost = nowAvail.a;
     var unit = function (o) { return o.q ? Math.round(o.a / o.q) : 0; };
     return {
       id: p['商品ID'], option: option, order: optIndex(k), code: p['編號'] || '', name: p['名稱'] + (option ? '（' + option + '）' : ''), category: p['分類'] || '', unit: p['單位'] || '',
@@ -418,7 +442,7 @@ function stockReport_(records, products, from, to) {
       sub: { qty: x.sub.q, price: unit(x.sub), amount: x.sub.a },
       saleCost: { qty: x.sale.q, price: avg, amount: saleCost },
       sale: { qty: x.sale.q, price: unit(x.sale), amount: x.sale.a },
-      end: { qty: endQty, price: avg, amount: endQty * avg }
+      end: { qty: endQty, price: avg, amount: endAmount }
     };
   }).filter(function (r) { return r.open.qty || r.buy.qty || r.add.qty || r.sub.qty || r.sale.qty || r.sub.amount || r.end.qty; })
     .sort(function (a, b) { return String(a.code).localeCompare(String(b.code), 'zh-Hant', { numeric: true }) || a.order - b.order; });

@@ -24,7 +24,12 @@ async function seedDemo(call, get) {
   const sun = nextWeekday(today, 0); // 下一個星期日：課館、植素園出攤
   const sun2 = addDays(sun, 7);
   const tok = (await call({ action: 'adminLogin', password: 'test-pass' })).data.token;
-  const admin = (action, body) => call(Object.assign({ action, token: tok }, body));
+  // 後台動作：被擋下來的（例如規則改了）印出來，不要默默失敗
+  const admin = async (action, body) => {
+    const r = await call(Object.assign({ action, token: tok }, body));
+    if (r && r.ok === false) console.warn('示範資料沒寫進去：' + action + '｜' + r.error.message + (r.error.details ? '｜' + r.error.details.map((d) => d.message).join('、') : ''));
+    return r;
+  };
   const join = { name: '參加', min: '0' };
   const duties = [
     ...[gym, gym2, addDays(gym, 28)].map((d) => ({ name: '槑子的靈魂健身房', category: '道務', nature: '課程', start: d, startTime: '19:30', endTime: '21:30', location: '竹北', meal: true, mealOptions: '主餐：素便當、素麵\n飲料：紅茶、綠茶、不用',
@@ -78,7 +83,7 @@ async function seedDemo(call, get) {
   // 記帳：期初、進貨（銀行付）、攤位費、隨喜；測試甲的訂單已付款（自動記銷貨收入）
   const year = today.slice(0, 4);
   await admin('adminShopLedgerOpening', { year, balances: { 零用金: 3000, 銀行存款: 20000 } });
-  await admin('adminShopStockMove', { type: 'in', pay: '銀行存款', rows: [{ id: tofu, qty: 20, cost: 30, method: '買進' }, { id: jam, qty: 10, cost: 90, method: '買進' }, { id: bread, qty: 15, cost: 45, method: '買進' }] });
+  await admin('adminShopStockMove', { type: 'in', pay: '銀行存款', rows: [{ id: tofu, qty: 20, cost: 30, method: '買進' }, { id: jam, option: '桑葚', qty: 5, cost: 90, method: '買進' }, { id: jam, option: '鳳梨', qty: 5, cost: 95, method: '買進' }, { id: bread, qty: 15, cost: 45, method: '買進' }] });
   await admin('adminShopLedgerSave', { entry: { type: '支出', account: '零用金', category: '攤位費', amount: 300, note: '出攤攤位費' } });
   await admin('adminShopLedgerSave', { entry: { type: '收入', account: '零用金', category: '隨喜收入', amount: 500, note: '飲品隨喜' } });
   const paid = (await admin('adminShopGroup', { id: g.data.id })).data.orders.find((o) => o.name === '測試甲');

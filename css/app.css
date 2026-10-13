@@ -2780,3 +2780,5 @@ body.is-sub .homepage-link { display: none; }
 .bday-list li small { color: var(--muted); }
 .bday-list li.is-today { border-color: var(--accent); background: var(--accent-soft); }
 .bday-list li.is-past { opacity: .6; }
+.stock-promo { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 10px 0; padding: 10px 12px; border: 1px dashed var(--accent); border-radius: var(--radius); background: var(--card); }
+.stock-promo small { flex-basis: 100%; color: var(--muted); }

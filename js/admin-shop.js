@@ -144,6 +144,9 @@
     const variantStock = (p, o) => { const v = (p.variants || []).find((x) => x.option === o); return v ? v.stock : 0; };
     let date = st.today; // 這次的日期（可以補登以前的）
     let pay = '零用金'; // 買進怎麼付（記帳自動記進貨）
+    let usePromo = true; // 售出套用買多優惠
+    /** 這次售出的商品有在哪些買多優惠裡 */
+    const promosHere = () => (st.promos || []).filter((p) => rows.some((r) => r.id && r.method === '售出' && p.productIds.includes(r.id)));
     const rows = [blank()];
     /** 帶入成本、售價：規格有填用規格的，沒有用商品的 */
     const setPrices = (r, p) => {
@@ -180,6 +183,7 @@
           <button type="button" class="btn btn-block" data-add-row>＋ 加一列</button>
           ${isIn && rows.some((r) => r.method === '買進') ? `<div class="form-row stock-pay"><span>💰 買進的錢怎麼付（記帳會自動記一筆「進貨」）</span>
             <div class="seg">${[['零用金', '💵 零用金'], ['銀行存款', '🏦 銀行'], ['應付帳款', '🧾 還沒付']].map(([v, l]) => `<label class="seg-item"><input type="radio" name="pay" value="${v}"${pay === v ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div></div>` : ''}
+          ${!isIn && promosHere().length ? `<label class="check stock-promo"><input type="checkbox" name="promo"${usePromo ? ' checked' : ''}> 🏷️ 套用買多優惠（${promosHere().map((p) => esc(p.name)).join('、')}）<small>存檔時照件數自動扣，和大家在購物車買的算法一樣</small></label>` : ''}
           ${err ? `<div class="form-error">${err}</div>` : ''}
           <div class="admin-actions">
             <button type="submit" class="btn btn-primary">存檔（${rows.filter((r) => r.id).length} 樣）</button>
@@ -190,10 +194,12 @@
       const f = body.querySelector('form');
       f.elements.date.addEventListener('change', () => { date = f.elements.date.value || st.today; });
       f.querySelectorAll('input[name=pay]').forEach((x) => x.addEventListener('change', () => { pay = x.value; }));
+      const pc = f.querySelector('input[name=promo]');
+      if (pc) pc.addEventListener('change', () => { usePromo = pc.checked; });
       f.querySelectorAll('[data-k]').forEach((x) => x.addEventListener(x.tagName === 'SELECT' ? 'change' : 'input', () => {
         const r = rows[Number(x.dataset.i)];
         r[x.dataset.k] = x.value;
-        if (x.dataset.k === 'method' && isIn) draw();
+        if (x.dataset.k === 'method') draw();
         if (x.dataset.k === 'id') {
           // 選了商品：帶入商品現在的成本、售價（有規格的選了規格再帶）
           const p = products.find((y) => y.id === x.value);
@@ -209,12 +215,12 @@
         ev.preventDefault();
         Busy.show('存檔中⋯');
         try {
-          const res = await Api.admin('adminShopStockMove', { type, pay, rows: rows.filter((r) => r.id).map((r) => Object.assign({ date }, r)) });
+          const res = await Api.admin('adminShopStockMove', { type, pay, promo: !isIn && usePromo && promosHere().length > 0, rows: rows.filter((r) => r.id).map((r) => Object.assign({ date }, r)) });
           Busy.hide();
           AdminPage.clearMemo();
           state.tab = 'stock';
           flash = res.warnings.length ? AdminPage.notice('error', '已存檔，請注意', res.warnings.join('；'))
-            : AdminPage.notice('success', isIn ? '進貨記好了' : '出貨記好了', `共 ${res.count} 樣`);
+            : AdminPage.notice('success', isIn ? '進貨記好了' : '出貨記好了', `共 ${res.count} 樣${res.promo && res.promo.discount ? `；🏷️ 買多優惠扣了 ${res.promo.discount} 元（${res.promo.names.join('、')}）` : ''}`);
           location.hash = '#/admin/shop';
         } catch (e) {
           Busy.hide();

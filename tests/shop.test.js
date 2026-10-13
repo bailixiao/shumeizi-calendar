@@ -369,18 +369,23 @@ test('匯入 Excel（民國日期、分類對照、重複跳過）＋進銷存�
   assert.equal(a001.category, '國內食品');
   assert.equal(a001.price, 133, '售價用銷貨單價');
   assert.equal(st.products.find((p) => p.code === 'B002').category, '國外食品');
-  // 報表（2025 整年）：A001 期初 6×100、進貨 3（350）、銷貨 3（售價 400）→ 平均成本 round(950/9)=106
+  // 報表（2025 整年）：A001 期初 6×100、進貨 3（350）、銷貨 3（售價 400）→ 平均成本 950/9＝105.56（不先四捨五入）
   const rep = ok(call('adminShopStockReport', { from: '2025-01-01', to: '2025-12-31' }));
   const x = rep.rows.find((y) => y.code === 'A001');
   assert.deepEqual([x.open.qty, x.open.amount, x.buy.qty, x.buy.amount], [6, 600, 3, 350]);
-  assert.deepEqual([x.saleCost.price, x.saleCost.amount, x.sale.amount, x.end.qty, x.end.amount], [106, 318, 400, 6, 636]);
+  assert.deepEqual([x.saleCost.price, x.saleCost.amount, x.sale.amount, x.end.qty, x.end.amount], [105.56, 317, 400, 6, 633]);
+  // 每一列都對得起來：期初＋進貨＋其他加－其他減＝銷貨成本＋期末
+  rep.rows.forEach((w) => assert.equal(w.open.amount + w.buy.amount + w.add.amount - w.sub.amount, w.saleCost.amount + w.end.amount, w.name));
   const y = rep.rows.find((z) => z.code === 'B002');
   assert.deepEqual([y.sub.qty, y.sub.amount, y.end.qty], [1, 150, 4]);
-  assert.equal(rep.profit, 400 - 318);
+  assert.equal(rep.profit, 400 - 317);
   // 期間從 10/26 開始：10/20、10/21 的變成期初
   const rep2 = ok(call('adminShopStockReport', { from: '2025-10-26', to: '2025-12-31' }));
   const x2 = rep2.rows.find((z) => z.code === 'A001');
-  assert.deepEqual([x2.open.qty, x2.open.amount, x2.buy.qty], [9, 9 * 106, 0]);
+  assert.deepEqual([x2.open.qty, x2.open.amount, x2.buy.qty], [9, 950, 0]);
+  // 期間從 10/27 開始：之前賣掉 3 件（317），剩下 6 件＝633
+  const x3 = ok(call('adminShopStockReport', { from: '2025-10-27', to: '2025-12-31' })).rows.find((z) => z.code === 'A001');
+  assert.deepEqual([x3.open.qty, x3.open.amount], [6, 633]);
 });
 
 test('日期、金額、分類：補登以前的；填總金額自動算單價；折讓只填金額；編號照分類 A001', () => {
@@ -593,4 +598,18 @@ test('分規格的庫存：商品表單每個口味填售價、成本、數量�
   const auto = ok(call('adminShopStock', {})).records.find((r) => r.orderId);
   assert.equal(call('adminShopStockUpdate', { id: auto.id, record: { qty: 1 } }).error.code, 'FORBIDDEN');
   assert.equal(env.post({ action: 'adminShopStockUpdate', id: buy.id }).ok, false);
+});
+
+test('商品減少（售出）可以套用買多優惠：照件數算、分攤到每一列；不勾就照原價', () => {
+  const { call, ok } = setup();
+  const bag = ok(call('adminShopSaveProduct', { product: { name: '豆干', price: '50', cost: '30', stock: '20' } })).product;
+  const dry = ok(call('adminShopSaveProduct', { product: { name: '豆皮', price: '50', cost: '30', stock: '20' } })).product;
+  ok(call('adminShopSavePromo', { promo: { productIds: [bag.id, dry.id], tiers: [{ qty: 3, price: 100 }] } }));
+  assert.equal(ok(call('adminShopStock', {})).promos.length, 1);
+  const r = ok(call('adminShopStockMove', { type: 'out', promo: true, rows: [{ id: bag.id, qty: 2, method: '售出' }, { id: dry.id, qty: 2, method: '售出' }] }));
+  assert.deepEqual([r.promo.discount, r.promo.names], [50, ['任選 3 件 100 元']]);
+  const sold = ok(call('adminShopStock', {})).records.filter((x) => x.method === '售出');
+  assert.equal(sold.reduce((n, x) => n + x.amount, 0), 150, '4 包：100＋50');
+  ok(call('adminShopStockMove', { type: 'out', rows: [{ id: bag.id, qty: 3, method: '售出' }] }));
+  assert.equal(ok(call('adminShopStock', {})).records.find((x) => x.method === '售出' && x.qty === 3).amount, 150, '沒勾＝原價');
 });

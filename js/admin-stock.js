@@ -52,13 +52,13 @@ window.AdminStock = (function () {
       </div>
       ${d.rows.length ? `<div class="stock-table-wrap"><table class="stock-table">
         <thead>
-          <tr><th rowspan="2">代號</th><th rowspan="2">品項</th><th colspan="3">期初存貨</th><th colspan="3">本期進貨</th><th colspan="2">其他：加</th><th colspan="2">其他：減</th><th colspan="3">本期銷貨（平均成本）</th><th colspan="3">本期銷貨（售價）</th><th colspan="3">期末存貨</th></tr>
+          <tr><th rowspan="2">品項</th><th colspan="3">期初存貨</th><th colspan="3">本期進貨</th><th colspan="2">其他：加</th><th colspan="2">其他：減</th><th colspan="3">本期銷貨（平均成本）</th><th colspan="3">本期銷貨（售價）</th><th colspan="3">期末存貨</th></tr>
           <tr><th>數量</th><th>單價</th><th>金額</th><th>數量</th><th>單價</th><th>金額</th><th>數量</th><th>金額</th><th>數量</th><th>金額</th><th>數量</th><th>單價</th><th>金額</th><th>數量</th><th>單價</th><th>金額</th><th>數量</th><th>單價</th><th>金額</th></tr>
         </thead>
-        <tbody>${d.rows.map((r) => `<tr><td>${esc(r.code)}</td><td class="name">${esc(r.name)}</td>${cell(r.open, true)}${cell(r.buy, true)}${cell(r.add)}${cell(r.sub)}${cell(r.saleCost, true)}${cell(r.sale, true)}${cell(r.end, true)}</tr>`).join('')}</tbody>
-        <tfoot><tr><td></td><td>合計</td><td class="num">${d.total.open.qty}</td><td></td><td class="num">${money(d.total.open.amount)}</td><td class="num">${d.total.buy.qty}</td><td></td><td class="num">${money(d.total.buy.amount)}</td><td class="num">${d.total.add.qty}</td><td class="num">${money(d.total.add.amount)}</td><td class="num">${d.total.sub.qty}</td><td class="num">${money(d.total.sub.amount)}</td><td class="num">${d.total.saleCost.qty}</td><td></td><td class="num">${money(d.total.saleCost.amount)}</td><td class="num">${d.total.sale.qty}</td><td></td><td class="num">${money(d.total.sale.amount)}</td><td class="num">${d.total.end.qty}</td><td></td><td class="num">${money(d.total.end.amount)}</td></tr></tfoot>
+        <tbody>${d.rows.map((r) => `<tr><td class="name"><small class="stock-code-sm">${esc(r.code)}</small>${esc(r.name)}</td>${cell(r.open, true)}${cell(r.buy, true)}${cell(r.add)}${cell(r.sub)}${cell(r.saleCost, true)}${cell(r.sale, true)}${cell(r.end, true)}</tr>`).join('')}</tbody>
+        <tfoot><tr><td>合計</td><td class="num">${d.total.open.qty}</td><td></td><td class="num">${money(d.total.open.amount)}</td><td class="num">${d.total.buy.qty}</td><td></td><td class="num">${money(d.total.buy.amount)}</td><td class="num">${d.total.add.qty}</td><td class="num">${money(d.total.add.amount)}</td><td class="num">${d.total.sub.qty}</td><td class="num">${money(d.total.sub.amount)}</td><td class="num">${d.total.saleCost.qty}</td><td></td><td class="num">${money(d.total.saleCost.amount)}</td><td class="num">${d.total.sale.qty}</td><td></td><td class="num">${money(d.total.sale.amount)}</td><td class="num">${d.total.end.qty}</td><td></td><td class="num">${money(d.total.end.amount)}</td></tr></tfoot>
       </table></div>` : '<p class="panel-empty">這段期間沒有進出紀錄。</p>'}
-      <p class="hint">平均成本＝（期初金額＋進貨金額＋其他加金額－其他減金額）÷（期初數量＋進貨數量＋其他加數量－其他減數量），和「植素園成本表單」一樣。毛利只是賣商品賺的，不含攤位費、包材等費用。</p>`;
+      <p class="hint">平均成本＝（期初金額＋進貨金額＋其他加金額－其他減金額）÷（期初數量＋進貨數量＋其他加數量－其他減數量），不先四捨五入（顯示到小數兩位）；銷貨成本＝銷貨數量×平均成本，期末金額＝可賣的成本－銷貨成本，所以每一列「期初＋進貨＋其他加－其他減＝銷貨成本＋期末」都對得起來。毛利只是賣商品賺的，不含攤位費、包材等費用。</p>`;
     const f = body.querySelector('form');
     f.addEventListener('submit', (ev) => { ev.preventDefault(); repState.from = f.elements.from.value; repState.to = f.elements.to.value; report(body, guard); });
     body.querySelector('[data-csv]').addEventListener('click', () => {

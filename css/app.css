@@ -96,6 +96,10 @@ a { color: var(--accent); }
 
 .btn:hover { background: var(--paper-2); }
 
+/* 連結做的按鈕：和 button 一樣置中、沒有底線（:where 不加權重，個別按鈕的樣式照樣蓋得過） */
+:where(a).btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; }
+a.btn-block { display: flex; }
+
 .btn-icon {
   padding: 0;
   font-size: 1.5rem;

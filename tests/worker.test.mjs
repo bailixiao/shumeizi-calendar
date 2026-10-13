@@ -200,3 +200,32 @@ test('修繕照片：公開上傳只收照片、最大 2MB，之後用檔案網�
   assert.match(r.data.id, /^F-/);
   assert.equal((await call('POST', { action: 'repairUpload', mime: 'application/pdf', data: tiny })).error.code, 'BAD_REQUEST');
 });
+
+test('記帳即時更新：動到收支記帳就通知 Google 端（帶同步密鑰、不等回應）；沒動到不送；ledgerExport 只給三個分頁', async () => {
+  const googleEnv = createEnv(OCT_1);
+  const sheets = Object.fromEntries(Object.entries(googleEnv.sheets).map(([n, s]) => [n, s.data]));
+  const store = createMemoryStore();
+  const deferred = [];
+  const app = createApp(store, { now: () => OCT_1, ledgerPushUrl: 'https://gas.test/exec', defer: (p) => deferred.push(p) });
+  const sent = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => { sent.push({ url, body: JSON.parse(init.body) }); return new Response('{"ok":true,"data":{"updated":true}}'); };
+  try {
+    const call = async (payload) => { const r = await app.handle(new Request('https://w.test/', { method: 'POST', body: JSON.stringify(payload) })); store.persist(); return r.json(); };
+    await call({ action: 'import', sheets, props: { ADMIN_PASSWORD: 'test-pass' } });
+    const key = 'k'.repeat(40);
+    await call({ action: 'setSyncKey', password: 'test-pass', key });
+    const tok = (await call({ action: 'adminLogin', password: 'test-pass' })).data.token;
+    await call({ action: 'adminPing', token: tok });
+    assert.equal(sent.length, 0, '沒動到記帳不送');
+    assert.equal((await call({ action: 'adminShopLedgerSave', token: tok, entry: { type: '支出', category: '攤位費', amount: 300 } })).ok, true);
+    await Promise.all(deferred);
+    assert.deepEqual(sent.map((x) => [x.url, x.body.action, x.body.key]), [['https://gas.test/exec', 'ledgerPush', key]]);
+    const ex = await call({ action: 'ledgerExport', password: key });
+    assert.deepEqual(Object.keys(ex.data.sheets).sort(), ['商品', '庫存紀錄', '收支記帳'].sort());
+    assert.equal(ex.data.sheets['收支記帳'].length, 2);
+    assert.equal((await call({ action: 'ledgerExport', password: 'wrong' })).error.code, 'UNAUTHORIZED');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

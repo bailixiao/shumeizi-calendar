@@ -75,6 +75,13 @@ export function createApp(store, opts) {
       store.cacheClear();
       return { sheets: Object.fromEntries(Object.keys(sheets).map((n) => [n, sheets[n].length])), live: store.getProp('LIVE') === '1' };
     },
+    /** 記帳即時更新：Google 端只拿收支記帳、庫存紀錄、商品（Sync.gs ledgerPush_） */
+    ledgerExport(body) {
+      checkSync(body.password, false);
+      const sheets = {};
+      [gs.SHEETS.SHOP_LEDGER, gs.SHEETS.SHOP_STOCK, gs.SHEETS.SHOP_PRODUCTS].forEach((def) => { sheets[def.name] = store.sheets[def.name] || []; });
+      return { sheets, at: gs.nowString_() };
+    },
     /** Google 端每 10 分鐘來拿資料寫回試算表（統計分頁由 Google 端自己算） */
     syncExport(body) {
       checkSync(body.password, false);
@@ -151,7 +158,24 @@ export function createApp(store, opts) {
     }
     const out = gs.doPost({ postData: { contents } }).text;
     await flushPush();
+    pushLedger();
     return json(out);
+  }
+
+  /**
+   * 記帳即時更新：這次請求動到收支記帳、庫存紀錄、商品，就通知 Google 端（Apps Script 網頁應用程式）更新「植素園記帳」。
+   * 網址在 Worker 的 secret LEDGER_PUSH_URL；沒設定、還沒有同步密鑰就不送。不等它回來（不拖慢後台）。
+   */
+  function pushLedger() {
+    const url = opts && opts.ledgerPushUrl;
+    const key = store.getProp('SYNC_KEY');
+    if (!url || !key) return;
+    const names = [gs.SHEETS.SHOP_LEDGER.name, gs.SHEETS.SHOP_STOCK.name, gs.SHEETS.SHOP_PRODUCTS.name];
+    if (!names.some((n) => store.dirty && store.dirty.has(n))) return;
+    const p = fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'ledgerPush', key }), redirect: 'follow' })
+      .then((r) => r.text()).then((t) => { if (!/"ok"\s*:\s*true/.test(t)) console.error('ledgerPush', t.slice(0, 300)); })
+      .catch((e) => console.error('ledgerPush', e && e.message));
+    if (opts && opts.defer) opts.defer(p);
   }
 
   /** 這次請求排進去的推播（借場地通知、後台現在推播）一起送出；還沒正式切換不送 */

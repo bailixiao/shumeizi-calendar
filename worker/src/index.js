@@ -8,7 +8,8 @@ export class DutyStore extends DurableObject {
     super(ctx, env);
     ctx.blockConcurrencyWhile(async () => {
       this.store = createSqlStore(ctx.storage);
-      this.app = createApp(this.store);
+      // ledgerPushUrl：記帳即時更新的 Apps Script 網址（secret）；defer：送出後不用等
+      this.app = createApp(this.store, { ledgerPushUrl: env.LEDGER_PUSH_URL || '', defer: (p) => ctx.waitUntil(p) });
       this.store.persist(); // 第一次啟動：建立分頁標題
     });
   }

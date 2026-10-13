@@ -20,6 +20,7 @@
 ## 開發流程
 
 - 每完成一個段落就 commit 並 push 到 GitHub。
+- 部署：改了 apps-script 要 `node tools/build-worker.js` → `cd worker && npx wrangler deploy` → **`node tools/deploy-gas.js`**（clasp push＋更新「記帳即時更新」網頁應用程式；只 clasp push 的話，記帳即時更新還是跑舊程式）。
 - **每次加新功能或畫面（行事曆排版）改變，都要同時更新常見問題**：apps-script/FaqSeed.gs 的題目（大家與管理者）、img/help 截圖、圖解教學（img/tutorial、js/tutorial.js）要和畫面對得上。
   - 截圖：先開示範版 `node tools/dev-server.js --mock --demo`（書槑子的示範資料，tools/demo-data.js），再 `node tools/help-shots.js`；圖解教學 `node tools/tutorial-shots.js`（拍之前要重開示範版）。
   - 加到主畫面示意圖：`node tools/help-art.js`。

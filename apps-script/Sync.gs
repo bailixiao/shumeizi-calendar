@@ -101,10 +101,29 @@ function switchToWorker() {
 
 /** （排程，每 10 分鐘）Cloudflare → 試算表 */
 function syncFromWorker() {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(60000); // 和記帳即時更新（ledgerPush_）不要同時寫
+  try {
+    syncFromWorkerLocked_();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function syncFromWorkerLocked_() {
   var props = PropertiesService.getScriptProperties();
   var data = workerPost_({ action: 'syncExport', password: syncKey_(), statsUpdatedAt: props.getProperty('STATS_UPDATED_AT') || '' });
+  writeWorkerSheets_(data.sheets);
+  SpreadsheetApp.flush();
+  invalidateAllTables_();
+  writeStatsSheet_(Number(todayString_().slice(0, 4)));
+  ledgerSheetSync_(); // 植素園記帳 Google 試算表（LedgerSheet.gs）
+}
+
+/** Cloudflare 拿來的分頁整頁寫進試算表（沒有的分頁會建立） */
+function writeWorkerSheets_(sheets) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  Object.keys(data.sheets).forEach(function (name) {
+  Object.keys(sheets).forEach(function (name) {
     var rows = data.sheets[name];
     var sh = ss.getSheetByName(name) || ss.insertSheet(name);
     var width = rows.reduce(function (w, r) { return Math.max(w, r.length); }, 1);
@@ -118,10 +137,27 @@ function syncFromWorker() {
       range.setValues(padded);
     }
   });
-  SpreadsheetApp.flush();
-  invalidateAllTables_();
-  writeStatsSheet_(Number(todayString_().slice(0, 4)));
-  ledgerSheetSync_(); // 植素園記帳 Google 試算表（LedgerSheet.gs）
+}
+
+/**
+ * 記帳即時更新（網頁應用程式的 doPost 呼叫）：Cloudflare 那邊收支記帳、庫存、商品有變動，馬上通知這裡；
+ * 只拿這三個分頁寫回試算表，再更新「植素園記帳」。用同步密鑰驗證。忙的時候（正在同步）跳過，下一次同步會補上。
+ */
+function ledgerPush_(body) {
+  var key = PropertiesService.getScriptProperties().getProperty('SYNC_KEY');
+  if (!key || String(body.key || '') !== key) throw new ApiError_('UNAUTHORIZED', '同步密鑰不對');
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) return { skipped: 'busy' };
+  try {
+    var data = workerPost_({ action: 'ledgerExport', password: key });
+    writeWorkerSheets_(data.sheets);
+    SpreadsheetApp.flush();
+    invalidateAllTables_();
+    var url = ledgerSheetSync_();
+    return { updated: !!url };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /** 緊急退回 Google 版：先把 Cloudflare 的最新資料寫回試算表，再恢復這裡的寫入與排程（前端網址也要改回 Google） */

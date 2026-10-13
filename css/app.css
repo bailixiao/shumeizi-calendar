@@ -2782,3 +2782,9 @@ body.is-sub .homepage-link { display: none; }
 .bday-list li.is-past { opacity: .6; }
 .stock-promo { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 10px 0; padding: 10px 12px; border: 1px dashed var(--accent); border-radius: var(--radius); background: var(--card); }
 .stock-promo small { flex-basis: 100%; color: var(--muted); }
+/* 下單完成頁：直接填轉帳末五碼 */
+.shop-last5-inline { margin-top: 10px; }
+.shop-last5-inline label { display: block; font-size: .92rem; color: var(--muted); margin-bottom: 4px; }
+.shop-last5-row { display: flex; gap: 8px; }
+.shop-last5-row .input { max-width: 10em; }
+.shop-last5-inline .muted { margin: 6px 0 0; font-size: .88rem; }

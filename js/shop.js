@@ -547,13 +547,36 @@
         ${p ? `<p>📦 ${esc(pickupText(p))} 取貨</p>` : ''}
         ${p ? `<div class="addcal-row">${AddCal.button({ name: '取團購：' + g.name, location: p.location, start: p.date, end: p.date, startTime: p.startTime, endTime: p.endTime || '', dutyId: p.id, date: p.date }, '加到手機行事曆（取貨那天）')}</div>` : ''}
       </div>
-      ${o.pay === '轉帳' ? `<div class="notice shop-payinfo"><p><strong>🏦 轉帳資訊</strong></p><p>${esc(o.payInfo || '請問小編轉帳帳號').replace(/\n/g, '<br>')}</p><p class="muted">${o.last5 ? `已填末五碼 ${esc(o.last5)}` : '轉好後，到「我的訂單」填轉帳末五碼，小編才對得到帳 🙏'}</p></div>` : ''}
+      ${o.pay === '轉帳' ? `<div class="notice shop-payinfo"><p><strong>🏦 轉帳資訊</strong></p><p>${esc(o.payInfo || '請問小編轉帳帳號').replace(/\n/g, '<br>')}</p><form class="shop-last5-inline" data-last5-form novalidate>
+          <label for="done-last5">轉帳末五碼${o.last5 ? '（已填，可以改）' : '（轉好後填，小編才對得到帳 🙏）'}</label>
+          <div class="shop-last5-row"><input class="input" id="done-last5" name="last5" inputmode="numeric" maxlength="5" value="${esc(o.last5 || '')}" placeholder="例：12345"><button type="submit" class="btn btn-primary">${o.last5 ? '改末五碼' : '存檔'}</button></div>
+          <p class="form-error" data-error hidden></p>
+          <p class="muted">還沒轉也沒關係，之後在「我的訂單」補也可以。</p>
+        </form></div>` : ''}
       <p class="hint">截止前（${esc(g.deadline)}）都可以到「我的訂單」改數量或取消。</p>
       <a class="btn btn-block btn-primary" href="#/shop/orders">📋 看我的訂單</a>
       <a class="btn btn-block" href="#/shop/${encodeURIComponent(g.id)}">繼續逛</a>
       </div>
       ${tabbar('cart', g)}`;
     window.scrollTo(0, 0);
+    // 轉帳末五碼直接在這裡填（2026/10/13）
+    const lf = root.querySelector('[data-last5-form]');
+    if (lf) lf.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const v = lf.elements.last5.value.replace(/\D/g, '');
+      const box = lf.querySelector('[data-error]');
+      if (!/^\d{5}$/.test(v)) { box.textContent = '要 5 個數字'; box.hidden = false; return; }
+      Busy.show('存檔中⋯');
+      try {
+        await Api.shopSetLast5(o.id, o.name, v);
+        Busy.hide();
+        o.last5 = v;
+        box.hidden = true;
+        lf.querySelector('label').textContent = '轉帳末五碼（已填，可以改）';
+        lf.querySelector('button').textContent = '改末五碼';
+        lf.querySelector('.muted').textContent = '✅ 末五碼 ' + v + ' 存好了，謝謝 😊';
+      } catch (e) { Busy.hide(); box.textContent = e.message || '存檔失敗'; box.hidden = false; }
+    });
   }
 
   // ---------- 我的訂單 ----------

@@ -40,11 +40,12 @@ function doPost(e) {
     // 記帳即時更新：Cloudflare 通知（Sync.gs ledgerPush_，用同步密鑰驗證；搬家後也要能用）
     if (e && e.postData && /"action"\s*:\s*"ledgerPush"/.test(e.postData.contents || '')) return ledgerPush_(JSON.parse(e.postData.contents));
     // 年度結帳：Cloudflare 叫這裡讀寫植素園記帳（YearClose.gs，同步密鑰驗證）
-    if (e && e.postData && /"action"\s*:\s*"year(Check|Close|Unlock)"/.test(e.postData.contents || '')) {
+    if (e && e.postData && /"action"\s*:\s*"year(Check|Close|Unlock|Trial)"/.test(e.postData.contents || '')) {
       var yb = JSON.parse(e.postData.contents);
       if (yb.action === 'yearCheck') return yearCheckGas_(yb);
       if (yb.action === 'yearClose') return yearCloseGas_(yb);
       if (yb.action === 'yearUnlock') return yearUnlockGas_(yb);
+      if (yb.action === 'yearTrial') return yearTrialGas_(yb);
     }
     // 已搬到 Cloudflare：這裡不再接受寫入（舊網頁還開著的人，請他重新整理）
     if (PropertiesService.getScriptProperties().getProperty('MIGRATED') === '1') {

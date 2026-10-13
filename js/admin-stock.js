@@ -316,7 +316,7 @@ window.AdminStock = (function () {
 
   // ---------- 📕 年度結帳（#/admin/shop/year；只有總管理者；年度結算 段 3） ----------
 
-  const yearState = { year: 0, check: null, actual: { 零用金: '', 銀行存款: '' }, done: null };
+  const yearState = { year: 0, check: null, actual: { 零用金: '', 銀行存款: '' }, done: null, trial: null };
 
   function yearClose(body, guard, flash) {
     if (Api.adminWho().role !== '總管理者') { body.innerHTML = `${back}<p class="panel-empty">年度結帳只有總管理者可以做。</p>`; return; }
@@ -356,11 +356,16 @@ window.AdminStock = (function () {
             ${['應收帳款', '應付帳款'].map((a) => `<tr><td class="name">${a}</td><td class="num">${money(bal[a] || 0)}</td><td colspan="2" class="muted">${a === '應收帳款' ? '別人還欠的' : '還欠別人的'}</td></tr>`).join('')}
           </tbody></table></div>
           <p class="hint">實際和帳上不一樣：到植素園記帳的「手動記帳」記一筆調整（例：零用金 -50、科目「其他損失」、摘要寫原因），再按一次對帳檢查。<a href="${esc(sheet.url)}" target="_blank" rel="noopener">打開 ${roc} 年植素園記帳 ›</a></p>` : ''}
-        ${!(c.locked && c.locked >= y + '-12-31') ? `<div class="admin-actions"><button type="button" class="btn btn-primary" data-close-year>2. 結帳 ${roc} 年</button></div>` : ''}` : '<p class="muted">按「1. 對帳檢查」開始（要讀植素園記帳，大約 10～30 秒）。</p>'}
+        ${!(c.locked && c.locked >= y + '-12-31') ? `<div class="admin-actions"><button type="button" class="btn" data-trial>🧪 試結帳（先看看）</button><button type="button" class="btn btn-primary" data-close-year>2. 結帳 ${roc} 年</button></div>
+        <p class="hint">🧪 試結帳：只產生一份標示「試算」的 Excel／PDF 給你看（放在「植素園記帳封存」），不鎖、不開下一年，隨時可以按。</p>` : ''}` : '<p class="muted">按「1. 對帳檢查」開始（要讀植素園記帳，大約 10～30 秒）。</p>'}
+      ${yearState.trial ? `<div class="notice"><p><strong>🧪 試結帳好了（${roc} 年，沒有鎖、也沒有開下一年）</strong></p>
+        <p>看看：<a href="${esc(yearState.trial.archive.xlsx)}" target="_blank" rel="noopener">Excel</a>・<a href="${esc(yearState.trial.archive.pdf)}" target="_blank" rel="noopener">PDF</a>・<a href="${esc(yearState.trial.archive.folder)}" target="_blank" rel="noopener">封存資料夾</a></p>
+        <p>真的結帳時，帶到 ${roc + 1} 年 1/1 的期初餘額會是：${Object.entries(yearState.trial.nextBalances || {}).map(([a, v]) => esc(a) + ' ' + money(v) + ' 元').join('、')}</p>
+        <p class="muted">試算的檔案看完可以到雲端硬碟刪掉。</p></div>` : ''}
       ${yearState.done ? `<div class="notice notice-success"><p><strong>🎉 ${roc} 年結帳完成</strong></p>
         <p>封存：<a href="${esc(yearState.done.archive.xlsx)}" target="_blank" rel="noopener">Excel</a>・<a href="${esc(yearState.done.archive.pdf)}" target="_blank" rel="noopener">PDF</a>・<a href="${esc(yearState.done.archive.folder)}" target="_blank" rel="noopener">封存資料夾</a></p>
         <p>下一年：<a href="${esc(yearState.done.next.url)}" target="_blank" rel="noopener">${yearState.done.next.year - 1911} 年植素園記帳</a>（期初餘額已經帶過去）</p></div>` : ''}`;
-    body.querySelector('[data-year]').addEventListener('change', (ev) => { yearState.year = Number(ev.target.value); yearState.check = null; yearState.done = null; yearClose(body, guard); });
+    body.querySelector('[data-year]').addEventListener('change', (ev) => { yearState.year = Number(ev.target.value); yearState.check = null; yearState.done = null; yearState.trial = null; yearClose(body, guard); });
     body.querySelector('[data-check]').addEventListener('click', async () => {
       Busy.show('對帳檢查中⋯（讀植素園記帳）');
       try { yearState.check = await Api.admin('adminYearCheck', { year: y }); Busy.hide(); yearClose(body, guard); } catch (e) { Busy.hide(); if (!guard(e)) yearClose(body, guard, AdminPage.notice('error', '對帳檢查失敗', e.message)); }
@@ -370,6 +375,11 @@ window.AdminStock = (function () {
       const d = diffOf(x.dataset.actual);
       body.querySelector(`[data-bdiff="${x.dataset.actual}"]`).textContent = d === null ? '' : d ? money(d) : '✅';
     }));
+    const tb = body.querySelector('[data-trial]');
+    if (tb) tb.addEventListener('click', async () => {
+      Busy.show('試結帳中⋯（大約 1 分鐘）');
+      try { yearState.trial = await Api.admin('adminYearTrial', { year: y }); Busy.hide(); yearClose(body, guard); } catch (e) { Busy.hide(); if (!guard(e)) yearClose(body, guard, AdminPage.notice('error', '試結帳沒有完成', e.message)); }
+    });
     const cb = body.querySelector('[data-close-year]');
     if (cb) cb.addEventListener('click', async () => {
       const warn = c && (c.unpaid.count || c.unconfirmed.count || c.unpicked.count || c.negative.length || !c.count.yearEnd || c.sheetError || (sheet && sheet.bs.diff));

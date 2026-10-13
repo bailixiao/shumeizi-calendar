@@ -164,6 +164,11 @@ export function createApp(store, opts) {
       gs.withSignupLock_(() => gs.yearCloseSetLock_(year, true));
       return res;
     },
+    // 🧪 試結帳：不鎖、不開下一年，只產生「試算」的 Excel／PDF
+    adminYearTrial: async (body) => {
+      requireSuper(body);
+      return callGas({ action: 'yearTrial', year: yearOf(body) });
+    },
     adminYearUnlock: async (body) => {
       requireSuper(body);
       const year = yearOf(body);

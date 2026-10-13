@@ -74,7 +74,7 @@ function yearCloseSetLock_(year, lock) {
 // ---------- Google 這邊（Apps Script 網頁應用程式） ----------
 
 /** 網頁應用程式的動作（Code.gs doPost 先處理這幾個；同步密鑰驗證） */
-var GAS_YEAR_ACTIONS = { yearCheck: 'yearCheckGas_', yearClose: 'yearCloseGas_', yearUnlock: 'yearUnlockGas_' };
+var GAS_YEAR_ACTIONS = { yearCheck: 'yearCheckGas_', yearClose: 'yearCloseGas_', yearUnlock: 'yearUnlockGas_', yearTrial: 'yearTrialGas_' };
 
 function gasKeyCheck_(body) {
   var key = PropertiesService.getScriptProperties().getProperty('SYNC_KEY');
@@ -142,6 +142,34 @@ function yearCloseGas_(body) {
   }
 }
 
+/**
+ * body = { key, year }：🧪 試結帳。複製一份那一年的試算表，在複本寫「年度結算」頁、另存成「試算」的 Excel／PDF，複本丟到垃圾桶。
+ * 原本那份不動、不鎖、不開下一年；回傳封存檔連結和「下一年會帶過去的期初餘額」。
+ */
+function yearTrialGas_(body) {
+  gasKeyCheck_(body);
+  var year = Number(body.year);
+  var lock = LockService.getScriptLock();
+  lock.waitLock(60000);
+  try {
+    var ss = yearSheetFresh_(year);
+    var nums = yearSheetNumbers_(ss);
+    var start = ledgerSheetStart_(ss, year);
+    var copyFile = DriveApp.getFileById(ss.getId()).makeCopy(ledgerSheetTitle_(year) + '（試算）');
+    try {
+      var copy = SpreadsheetApp.openById(copyFile.getId());
+      yearArchiveTab_(copy, year, start);
+      SpreadsheetApp.flush();
+      var files = yearExport_(copy, year, '試算');
+    } finally {
+      copyFile.setTrashed(true);
+    }
+    return { numbers: nums, archive: files, nextBalances: nums.balances, trial: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 /** body = { key, year }：解除結帳（拿掉保護，之後同步會再寫系統記帳） */
 function yearUnlockGas_(body) {
   gasKeyCheck_(body);
@@ -197,10 +225,10 @@ function yearProtect_(ss, lock) {
 }
 
 /** 另存 Excel、PDF 到雲端硬碟「植素園記帳封存」；回傳 { folder, xlsx, pdf } 網址 */
-function yearExport_(ss, year) {
+function yearExport_(ss, year, tag) {
   var folders = DriveApp.getFoldersByName(YEAR_ARCHIVE_FOLDER);
   var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(YEAR_ARCHIVE_FOLDER);
-  var name = ledgerSheetTitle_(year) + '（結帳 ' + todayString_() + '）';
+  var name = ledgerSheetTitle_(year) + '（' + (tag || '結帳') + ' ' + todayString_() + '）';
   var token = ScriptApp.getOAuthToken();
   var get = function (format, ext) {
     var resp = UrlFetchApp.fetch('https://docs.google.com/spreadsheets/d/' + ss.getId() + '/export?format=' + format, { headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true });

@@ -252,13 +252,16 @@ test('年度結帳（Cloudflare）：只有總管理者；對帳檢查帶 Google
     const chk = await call({ action: 'adminYearCheck', token: tok, year: 2026 });
     assert.equal(chk.ok, true, JSON.stringify(chk.error));
     assert.deepEqual([chk.data.sheet.balances.零用金, chk.data.locked], [100, '']);
+    const trial = await call({ action: 'adminYearTrial', token: tok, year: 2026 });
+    assert.equal(trial.ok, true, JSON.stringify(trial.error));
+    assert.equal(store.getProp('LEDGER_LOCKED_UNTIL'), null, '試結帳不鎖');
     const done = await call({ action: 'adminYearClose', token: tok, year: 2026 });
     assert.equal(done.ok, true, JSON.stringify(done.error));
     assert.equal(store.getProp('LEDGER_LOCKED_UNTIL'), '2026-12-31');
     assert.equal((await call({ action: 'adminYearClose', token: tok, year: 2026 })).error.code, 'BAD_REQUEST', '結過的不能再結');
     assert.equal((await call({ action: 'adminYearUnlock', token: tok, year: 2026 })).ok, true);
     assert.equal(store.getProp('LEDGER_LOCKED_UNTIL'), '2025-12-31');
-    assert.deepEqual(sent, ['yearCheck', 'yearClose', 'yearUnlock']);
+    assert.deepEqual(sent, ['yearCheck', 'yearTrial', 'yearClose', 'yearUnlock']);
     assert.equal((await call({ action: 'adminYearCheck', year: 2026 })).ok, false, '要登入');
   } finally {
     globalThis.fetch = realFetch;

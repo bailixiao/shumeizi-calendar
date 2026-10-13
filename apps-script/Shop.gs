@@ -75,15 +75,42 @@ function shopSold_(orders, groupId, exceptId) {
 }
 
 /**
- * 團購給畫面用的樣子。opts.admin：附付款說明。
+ * 「照庫存」限量用：每個商品＋規格還可以賣幾個＝目前庫存－還沒取貨的有效訂單（所有團購）。
+ * 取貨打勾才會從庫存扣（Stock.gs stockForOrder_），所以還沒取貨的訂單先預留。exceptOrderId：改單時不算自己那張。
+ */
+function shopStockAvail_(exceptOrderId) {
+  var left = stockLevels_(readTable_(SHEETS.SHOP_STOCK));
+  readTable_(SHEETS.SHOP_ORDERS).forEach(function (o) {
+    if (o['狀態'] === '已取消' || o['已取貨'] === '是' || o['訂單ID'] === exceptOrderId) return;
+    shopJson_(o['品項'], []).forEach(function (l) { var k = stockKeyOf_(l.id, l.option || ''); left[k] = (left[k] || 0) - (Number(l.qty) || 0); });
+  });
+  return left;
+}
+
+/**
+ * 團購給畫面用的樣子。opts.admin：附付款說明。opts.exceptOrderId：照庫存限量時不算這張訂單（改單用）。
+ * 商品設定的 limit＝'stock'（照庫存）：stockMode＝true，left＝各規格可賣的加起來，有規格的每個選項另外帶 left。
  * items：[{ id, name, price, unit, description, photo, limit, perPerson, sold, left }]（left＝null 表示不限）
  */
 function shopGroupView_(g, products, orders, opts) {
   var sold = shopSold_(orders, g['團購ID']);
   var now = shopNowMinute_();
+  var avail = null; // 照庫存的商品才算（讀庫存紀錄、所有訂單）
   var items = shopJson_(g['商品設定'], []).map(function (it) {
     var p = findById_(products, '商品ID', it.id);
     if (!p) return null;
+    if (it.limit === 'stock') {
+      if (!avail) avail = shopStockAvail_(opts && opts.exceptOrderId);
+      var opt = shopOptions_(p);
+      var leftOf = function (o) { return Math.max(avail[stockKeyOf_(p['商品ID'], o)] || 0, 0); };
+      if (opt) opt.options.forEach(function (o) { o.left = leftOf(o.name); });
+      return {
+        id: it.id, name: p['名稱'], price: it.price === '' || it.price === undefined || it.price === null ? Number(p['價格']) || 0 : Number(it.price),
+        unit: p['單位'] || '', description: p['說明'] || '', photo: p['照片'] || '', photos: shopPhotos_(p), options: opt,
+        limit: null, stockMode: true, perPerson: it.perPerson === '' || it.perPerson === null || it.perPerson === undefined ? null : Number(it.perPerson),
+        sold: sold[it.id] || 0, left: opt ? opt.options.reduce(function (n, o) { return n + o.left; }, 0) : leftOf('')
+      };
+    }
     var limit = it.limit === '' || it.limit === null || it.limit === undefined ? null : Number(it.limit);
     var s = sold[it.id] || 0;
     return {
@@ -140,6 +167,7 @@ function shopValidate_(ctx, input) {
   var total = 0;
   var seen = {};
   var perItem = {}; // 商品ID → 這張訂單的份數（各規格加總）
+  var perOpt = {}; // 商品ID|規格 → 份數（照庫存限量用）
   items.forEach(function (it) {
     var qty = shopInt_(it && it.qty);
     var gi = g.items.filter(function (x) { return x.id === (it && it.id); })[0];
@@ -155,11 +183,19 @@ function shopValidate_(ctx, input) {
     if (!qty) return;
     total += qty;
     perItem[gi.id] = (perItem[gi.id] || 0) + qty;
+    perOpt[key] = (perOpt[key] || 0) + qty;
   });
   g.items.forEach(function (gi) {
     var qty = perItem[gi.id];
     if (!qty) return;
     if (gi.perPerson !== null && qty > gi.perPerson) errors.push({ message: '「' + gi.name + '」每人最多 ' + gi.perPerson + ' ' + (gi.unit || '份') });
+    if (gi.stockMode) { // 照庫存：每個規格各自不能超過還能賣的
+      (gi.options ? gi.options.options : [{ name: '', left: gi.left }]).forEach(function (o) {
+        var q = perOpt[gi.id + '|' + o.name] || 0;
+        var label = '「' + gi.name + (o.name ? '（' + o.name + '）' : '') + '」';
+        if (q > o.left) errors.push({ message: o.left ? label + '只剩 ' + o.left + ' ' + (gi.unit || '份') : label + '已經賣完了' });
+      });
+    }
     if (gi.limit !== null) {
       var left = Math.max(gi.limit - ((ctx.sold && ctx.sold[gi.id]) || 0), 0);
       if (qty > left) errors.push({ message: left ? '「' + gi.name + '」只剩 ' + left + ' ' + (gi.unit || '份') : '「' + gi.name + '」已經賣完了' });
@@ -220,7 +256,7 @@ function shopOrder_(body, opts) {
       : orders.filter(function (o) { return o['團購ID'] === g['團購ID'] && o['狀態'] !== '已取消' && normalizeName_(o['姓名']) === who.name; })[0] || null;
     if (existing && existing['狀態'] === '已取消') existing = null;
     if (existing && existing['已取貨'] === '是' && !admin) throw new ApiError_('FORBIDDEN', '這張訂單已經取貨了，要改請找小編');
-    var view = shopGroupView_(g, products, orders);
+    var view = shopGroupView_(g, products, orders, { exceptOrderId: existing ? existing['訂單ID'] : '' });
     var items = Array.isArray(body.items) ? body.items : [];
     if (body.mode === 'add' && existing) {
       // 加進原本那張：原本的品項＋這次的（同商品同規格相加）
@@ -348,7 +384,13 @@ function shopSetLast5_(body) {
 
 /** 商品庫、所有團購（新的在前，附訂單數與金額）、可以當取貨場次的活動（今天起 180 天） */
 function adminShop_() {
-  var products = readTable_(SHEETS.SHOP_PRODUCTS).map(shopProductOut_).sort(function (a, b) { return a.order - b.order || (a.name < b.name ? -1 : 1); });
+  var levels = stockLevels_(readTable_(SHEETS.SHOP_STOCK)); // 目前庫存（開團的「限量照庫存」顯示用）
+  var products = readTable_(SHEETS.SHOP_PRODUCTS).map(function (p) {
+    var o = shopProductOut_(p);
+    o.stock = stockProductTotal_(levels, o.id);
+    o.variants = o.options ? o.options.options.map(function (x) { return { option: x.name, stock: levels[stockKeyOf_(o.id, x.name)] || 0 }; }) : null;
+    return o;
+  }).sort(function (a, b) { return a.order - b.order || (a.name < b.name ? -1 : 1); });
   var orders = readTable_(SHEETS.SHOP_ORDERS);
   var groups = readTable_(SHEETS.SHOP_GROUPS).map(function (g) {
     var mine = orders.filter(function (o) { return o['團購ID'] === g['團購ID'] && o['狀態'] !== '已取消'; });
@@ -581,7 +623,7 @@ function adminShopSaveGroup_(body) {
     var p = it && findById_(products, '商品ID', it.id);
     if (!p) { errors.push('有一個商品找不到，請重新整理'); return; }
     var price = it.price === '' || it.price === undefined || it.price === null ? '' : shopInt_(it.price);
-    var limit = it.limit === '' || it.limit === undefined || it.limit === null ? '' : shopInt_(it.limit);
+    var limit = it.limit === '' || it.limit === undefined || it.limit === null ? '' : it.limit === 'stock' ? 'stock' : shopInt_(it.limit); // stock＝照庫存
     var per = it.perPerson === '' || it.perPerson === undefined || it.perPerson === null ? '' : shopInt_(it.perPerson);
     if (price === null) errors.push('「' + p['名稱'] + '」的價格請填整數');
     if (limit === null || limit === 0) errors.push('「' + p['名稱'] + '」的限量請填 1 以上的整數，或空白（不限）');
@@ -605,7 +647,7 @@ function adminShopSaveGroup_(body) {
       var sold = shopSold_(orders, row['團購ID']);
       items.forEach(function (it) {
         var p = findById_(products, '商品ID', it.id);
-        if (it.limit !== '' && (sold[it.id] || 0) > it.limit) warnings.push('「' + p['名稱'] + '」已經訂了 ' + sold[it.id] + ' 份，比限量多');
+        if (typeof it.limit === 'number' && (sold[it.id] || 0) > it.limit) warnings.push('「' + p['名稱'] + '」已經訂了 ' + sold[it.id] + ' 份，比限量多');
       });
       Object.keys(sold).forEach(function (id) {
         if (sold[id] && !items.some(function (it) { return it.id === id; })) { var p = findById_(products, '商品ID', id); warnings.push('「' + (p ? p['名稱'] : id) + '」拿掉了，但已經有人訂（訂單還在）'); }

@@ -534,9 +534,10 @@
               <label class="check"><input type="checkbox" data-item-on${s ? ' checked' : ''}> <strong>${esc(p.name)}</strong><small>${money(p.price)}${p.unit ? '／' + esc(p.unit) : ''}</small></label>
               <div class="shop-three"${s ? '' : ' hidden'}>
                 <label><span>這次價格</span><input class="input" data-k="price" inputmode="numeric" value="${esc(s && s.price !== '' ? s.price : '')}" placeholder="${esc(p.price)}"></label>
-                <label><span>限量</span><input class="input" data-k="limit" inputmode="numeric" value="${esc(s ? s.limit : '')}"></label>
+                <label><span>限量</span><input class="input" data-k="limit" inputmode="numeric" value="${esc(s && s.limit !== 'stock' ? s.limit : '')}"${!s || s.limit === 'stock' ? ' disabled placeholder="照庫存"' : ''}></label>
                 <label><span>每人最多</span><input class="input" data-k="perPerson" inputmode="numeric" value="${esc(s ? s.perPerson : '')}"></label>
-                <small class="shop-three-hint">價格空白＝照商品庫的價格；限量、每人最多空白＝不限</small>
+                <label class="check shop-stock-limit"><input type="checkbox" data-stock-limit${!s || s.limit === 'stock' ? ' checked' : ''}> 📦 限量照庫存（目前 ${p.stock !== undefined ? p.stock : '—'}${p.variants ? '：' + p.variants.filter((x) => x.option).map((x) => esc(x.option) + ' ' + x.stock).join('、') : ''}）</label>
+                <small class="shop-three-hint">價格空白＝照商品庫的價格。照庫存：能賣的＝庫存－還沒取貨的訂單，每個口味分開算，賣完就顯示已售完；不勾的話限量自己填（空白＝不限）。每人最多空白＝不限。</small>
               </div>
             </div>`; }).join('')}</div>` : '<p class="muted">商品庫是空的，先到「📦 商品庫」新增商品。</p>'}
         </fieldset>
@@ -578,6 +579,13 @@
     });
     const so = f.querySelector('[data-show-other]');
     if (so) so.addEventListener('click', () => { f.querySelectorAll('.shop-pick.is-other').forEach((x) => { x.hidden = false; }); so.remove(); });
+    // 限量照庫存：勾了就不用填限量
+    f.querySelectorAll('[data-stock-limit]').forEach((c) => c.addEventListener('change', () => {
+      const lim = c.closest('[data-item]').querySelector('[data-k=limit]');
+      lim.disabled = c.checked;
+      lim.placeholder = c.checked ? '照庫存' : '';
+      if (c.checked) lim.value = '';
+    }));
     f.querySelectorAll('[data-item-on]').forEach((c) => c.addEventListener('change', () => {
       const box = c.closest('[data-item]');
       box.classList.toggle('is-on', c.checked);
@@ -592,7 +600,7 @@
         payInfo: f.elements.payInfo.value, status: f.querySelector('input[name=status]:checked') ? f.querySelector('input[name=status]:checked').value : '開放',
         pickups: [...f.querySelectorAll('input[name=pickup]:checked')].map((x) => x.value),
         items: [...f.querySelectorAll('[data-item]')].filter((x) => x.querySelector('[data-item-on]').checked).map((x) => ({
-          id: x.dataset.item, price: x.querySelector('[data-k=price]').value.trim(), limit: x.querySelector('[data-k=limit]').value.trim(), perPerson: x.querySelector('[data-k=perPerson]').value.trim()
+          id: x.dataset.item, price: x.querySelector('[data-k=price]').value.trim(), limit: x.querySelector('[data-stock-limit]').checked ? 'stock' : x.querySelector('[data-k=limit]').value.trim(), perPerson: x.querySelector('[data-k=perPerson]').value.trim()
         }))
       };
       Busy.show('存檔中⋯');
@@ -674,7 +682,7 @@
         <div class="stat-card"><span class="stat-label">總金額</span><span class="stat-num">${Number(s.total).toLocaleString('zh-TW')}</span><span class="stat-hint">已付 ${money(s.paid)}<br>未付 ${money(s.unpaid)}</span></div>
         <div class="stat-card shop-profit"><span class="stat-label">毛利</span><span class="stat-num">${Number(s.profit).toLocaleString('zh-TW')}</span><span class="stat-hint">成本 ${money(s.cost)}${s.total ? `・毛利率 ${Math.round(s.profit / s.total * 100)}%` : ''}${s.costMissing && s.costMissing.length ? `<br>⚠️ 沒填成本：${esc(s.costMissing.join('、'))}` : ''}</span></div>
       </div>
-      <ul class="shop-sold">${g.items.map((it) => `<li>${thumb(it.photo, it.name, 'shop-thumb-sm')}<span>${esc(it.name)}</span><strong>${it.sold}${it.unit ? ' ' + esc(it.unit) : ''}</strong>${it.limit !== null ? `<small>${it.left ? `剩 ${it.left}` : '已售完'}／限量 ${it.limit}</small>` : ''}</li>`).join('')}</ul>
+      <ul class="shop-sold">${g.items.map((it) => `<li>${thumb(it.photo, it.name, 'shop-thumb-sm')}<span>${esc(it.name)}</span><strong>${it.sold}${it.unit ? ' ' + esc(it.unit) : ''}</strong>${it.stockMode ? `<small>${it.left ? `可賣 ${it.left}` : '已售完'}（照庫存${it.options ? '：' + it.options.options.map((o) => esc(o.name) + ' ' + o.left).join('、') : ''}）</small>` : it.limit !== null ? `<small>${it.left ? `剩 ${it.left}` : '已售完'}／限量 ${it.limit}</small>` : ''}</li>`).join('')}</ul>
 
       <section class="stats-section">
         <h3 class="admin-sub">📦 備貨清單<span class="h2-sub">${g.pickups.length ? '每一場要帶幾份' : '要準備幾份'}</span></h3>

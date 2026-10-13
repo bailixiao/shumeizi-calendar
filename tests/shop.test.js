@@ -613,3 +613,27 @@ test('商品減少（售出）可以套用買多優惠：照件數算、分攤�
   ok(call('adminShopStockMove', { type: 'out', rows: [{ id: bag.id, qty: 3, method: '售出' }] }));
   assert.equal(ok(call('adminShopStock', {})).records.find((x) => x.method === '售出' && x.qty === 3).amount, 150, '沒勾＝原價');
 });
+
+test('限量照庫存：能賣的＝庫存－還沒取貨的訂單，每個口味分開算；改單不算自己那張；取貨後照樣', () => {
+  const { env, call, ok, gid, order } = setup();
+  const snack = ok(call('adminShopSaveProduct', { product: { name: '鍋巴', unit: '包', options: { label: '口味', options: [{ name: '甘梅', price: '130', stock: '3' }, { name: '芥末', price: '130', stock: '1' }] } } })).product;
+  const g = ok(call('adminShopGroup', { id: gid })).group;
+  ok(call('adminShopSaveGroup', { group: { id: gid, name: g.name, deadline: g.deadline, pickups: g.pickupIds, payInfo: g.payInfo, items: g.itemSettings.concat([{ id: snack.id, limit: 'stock' }]) } }));
+  const item = () => ok(env.get({ action: 'getShop' })).groups[0].items.find((x) => x.id === snack.id);
+  assert.deepEqual([item().stockMode, item().left, item().options.options.map((o) => o.left)], [true, 4, [3, 1]]);
+  assert.match(JSON.stringify(order({ name: '王小明', source: '官網', items: [{ id: snack.id, option: '芥末', qty: 2 }] }).error), /只剩 1/);
+  const a = ok(order({ name: '王小明', source: '官網', items: [{ id: snack.id, option: '芥末', qty: 1 }, { id: snack.id, option: '甘梅', qty: 2 }] })).order;
+  assert.deepEqual(item().options.options.map((o) => o.left), [1, 0]);
+  assert.match(JSON.stringify(order({ name: '測試甲', source: '官網', items: [{ id: snack.id, option: '芥末', qty: 1 }] }).error), /賣完/);
+  // 改單：自己那張的不算（甘梅 2 → 3 可以）
+  ok(order({ name: '王小明', items: [{ id: snack.id, option: '芥末', qty: 1 }, { id: snack.id, option: '甘梅', qty: 3 }] }));
+  assert.deepEqual(item().options.options.map((o) => o.left), [0, 0]);
+  // 取貨：庫存扣掉、預留也拿掉，能賣的不變；取消訂單就還回來
+  ok(call('adminShopOrderSet', { orderId: a.id, picked: true }));
+  assert.equal(item().left, 0);
+  ok(call('adminShopOrderSet', { orderId: a.id, picked: false }));
+  ok(call('adminShopOrderSet', { orderId: a.id, cancel: true }));
+  assert.equal(item().left, 4);
+  // 開團存檔：限量照庫存存成 stock
+  assert.equal(ok(call('adminShopGroup', { id: gid })).group.itemSettings.find((x) => x.id === snack.id).limit, 'stock');
+});

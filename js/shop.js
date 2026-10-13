@@ -105,12 +105,14 @@
   /** 這個商品在購物車裡（各規格加總） */
   const inCart = (g, id) => cartOf(g.id).filter((l) => l.id === id).reduce((n, l) => n + (Number(l.qty) || 0), 0);
 
-  /** 這個商品最多還能放幾份：限量剩下的、每人上限，扣掉購物車裡的 */
-  function room(g, it) {
+  /** 這個商品（規格）最多還能放幾份：限量剩下的、每人上限，扣掉購物車裡的；限量照庫存的照規格算 */
+  function room(g, it, option) {
     let max = 99;
-    if (it.left !== null) max = Math.min(max, it.left);
-    if (it.perPerson !== null) max = Math.min(max, it.perPerson);
-    return Math.max(max - inCart(g, it.id), 0);
+    if (it.left !== null) max = Math.min(max, it.left - inCart(g, it.id));
+    if (it.perPerson !== null) max = Math.min(max, it.perPerson - inCart(g, it.id));
+    const op = it.stockMode && it.options && option ? it.options.options.find((o) => o.name === option) : null;
+    if (op) max = Math.min(max, op.left - cartOf(g.id).filter((l) => l.id === it.id && l.option === option).reduce((n, l) => n + (Number(l.qty) || 0), 0));
+    return Math.max(max, 0);
   }
 
   /** 商品價格：有規格而且價格不一樣時寫「25 元起」 */
@@ -279,7 +281,7 @@
     const photos = it.photos && it.photos.length ? it.photos : [it.photo].filter(Boolean);
     const op = it.options ? it.options.options.find((o) => o.name === st.option) : null;
     const price = op && op.price !== null ? op.price : it.price;
-    const max = room(g, it);
+    const max = room(g, it, st.option);
     const qty = Math.min(st.qty, Math.max(max, 1));
     const soldOut = it.left === 0;
     root.innerHTML = `
@@ -295,7 +297,7 @@
       <p class="shop-product-meta">已售出 ${it.sold}${it.left !== null ? `・${soldOut ? '已售完' : '剩 ' + it.left + ' ' + esc(it.unit || '份')}` : ''}${it.perPerson !== null ? `・每人最多 ${it.perPerson}` : ''}</p>
       ${deadlineLine(g, now)}
       ${it.description ? `<p class="shop-desc">${Fmt.linkText(it.description)}</p>` : ''}
-      ${it.options ? `<div class="shop-opt"><p class="shop-opt-label">${esc(it.options.label)}</p><div class="pos-chips">${it.options.options.map((o) => `<label class="pos-chip${st.option === o.name ? ' is-checked' : ''}"><input type="radio" name="opt" value="${esc(o.name)}" data-opt${st.option === o.name ? ' checked' : ''}>${esc(o.name)}${o.price !== null && o.price !== it.price ? `<small>${money(o.price)}</small>` : ''}</label>`).join('')}</div></div>` : ''}
+      ${it.options ? `<div class="shop-opt"><p class="shop-opt-label">${esc(it.options.label)}</p><div class="pos-chips">${it.options.options.map((o) => { const out = it.stockMode && !o.left; return `<label class="pos-chip${st.option === o.name ? ' is-checked' : ''}${out ? ' is-disabled' : ''}"><input type="radio" name="opt" value="${esc(o.name)}" data-opt${st.option === o.name ? ' checked' : ''}${out ? ' disabled' : ''}>${esc(o.name)}${o.price !== null && o.price !== it.price ? `<small>${money(o.price)}</small>` : ''}${it.stockMode ? `<small>${out ? '已售完' : o.left <= 5 ? '剩 ' + o.left : ''}</small>` : ''}</label>`; }).join('')}</div></div>` : ''}
       ${st.flash}
       <div class="shop-buybar">
         <div class="shop-stepper" role="group" aria-label="數量">
@@ -361,7 +363,7 @@
         <section class="shop-step">
           <h2><span class="step">${n()}</span>確認商品</h2>
           <ul class="shop-cart">${lines.map((l, i) => {
-            const max = room(g, l.it) + l.qty;
+            const max = room(g, l.it, l.option) + l.qty;
             return `<li class="shop-cart-row">
               <a class="shop-cart-img" href="#/shop/${encodeURIComponent(g.id)}/p/${encodeURIComponent(l.id)}">${l.it.photo ? `<img src="${esc(photoUrl(l.it.photo))}" alt="" loading="lazy">` : '<span class="shop-noimg" aria-hidden="true">🌿</span>'}</a>
               <div class="shop-cart-body">

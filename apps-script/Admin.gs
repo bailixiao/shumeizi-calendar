@@ -348,6 +348,8 @@ function adminRun_(body) {
     case 'adminShopStockReport': return adminShopStockReport_(body);
     case 'adminShopStall': return adminShopStall_(body);
     case 'adminShopStallSave': return adminShopStallSave_(body);
+    case 'adminShopStockCount': return adminShopStockCount_(body);
+    case 'adminShopStockCountSave': return adminShopStockCountSave_(body);
     case 'adminShopStockImport': return adminShopStockImport_(body);
     case 'adminShopLedger': return adminShopLedger_(body);
     case 'adminShopLedgerSave': return adminShopLedgerSave_(body);

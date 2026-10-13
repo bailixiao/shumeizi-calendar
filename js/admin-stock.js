@@ -248,6 +248,72 @@ window.AdminStock = (function () {
     });
   }
 
+  // ---------- 📋 盤點（#/admin/shop/count；年度結算 段 2） ----------
+
+  const countState = { date: '' };
+
+  async function count(body, guard, flash) {
+    body.innerHTML = `${back}<h2>📋 盤點</h2><p class="panel-empty">載入中⋯</p>`;
+    let d;
+    try { d = await Api.admin('adminShopStockCount', { date: countState.date }, true); } catch (e) { guard(e, body); return; }
+    countState.date = d.date;
+    const edit = canEdit();
+    const yearEnd = d.today.slice(0, 4) + '-12-31';
+    const lastYearEnd = (Number(d.today.slice(0, 4)) - 1) + '-12-31';
+    const input = d.rows.map((r) => (r.actual === null ? '' : String(r.actual)));
+    body.innerHTML = `
+      ${back}
+      <h2>📋 盤點</h2>
+      <p class="hint">點完實際有幾個填進去，存檔後差的會自動記「盤盈／盤虧」（成本用平均成本、備註寫「盤點」）。沒填的不動，可以先存一半、之後再補；同一天再存一次會換掉上次的。年底結帳前請盤點一次（盤點日選 12/31）。</p>
+      ${flash || ''}
+      <form class="stock-range" data-date novalidate>
+        <label>盤點日 <input class="input" type="date" name="date" max="${esc(d.today)}" value="${esc(d.date)}"></label>
+        <button type="submit" class="btn">換日期</button>
+        ${d.today >= yearEnd ? `<button type="button" class="btn" data-day="${yearEnd}">今年 12/31</button>` : `<button type="button" class="btn" data-day="${lastYearEnd}">去年 12/31</button>`}
+      </form>
+      <p class="muted">已盤點 ${d.counted} / ${d.rows.length} 樣</p>
+      ${d.rows.length ? `<form data-count novalidate><div class="stock-table-wrap"><table class="stock-table count-table">
+        <thead><tr><th>品項</th><th>帳上</th><th>實際</th><th>差</th></tr></thead>
+        <tbody>${d.rows.map((r, i) => `<tr class="${r.actual !== null ? 'is-counted' : ''}"><td class="name"><small class="stock-code-sm">${esc(r.code)}</small>${esc(r.name)}</td>
+          <td class="num">${r.book}</td>
+          <td><input class="input stall-in" inputmode="numeric" data-i="${i}" value="${esc(input[i])}" placeholder="${r.book}"${edit ? '' : ' disabled'}></td>
+          <td class="num" data-diff="${i}"></td></tr>`).join('')}</tbody>
+      </table></div>
+      ${edit ? '<div class="form-error" data-error hidden></div><div class="admin-actions"><button type="submit" class="btn btn-primary">存檔（有填的）</button></div>' : ''}
+      </form>` : '<p class="panel-empty">還沒有商品。</p>'}`;
+    const df = body.querySelector('[data-date]');
+    df.addEventListener('submit', (ev) => { ev.preventDefault(); countState.date = df.elements.date.value; count(body, guard); });
+    body.querySelectorAll('[data-day]').forEach((b) => b.addEventListener('click', () => { countState.date = b.dataset.day; count(body, guard); }));
+    const f = body.querySelector('[data-count]');
+    if (!f) return;
+    const drawDiff = (i) => {
+      const v = input[i].trim();
+      const el = f.querySelector(`[data-diff="${i}"]`);
+      const diff = v === '' ? null : Number(v) - d.rows[i].book;
+      el.textContent = diff === null || isNaN(diff) ? '' : diff > 0 ? '+' + diff : String(diff);
+      el.className = 'num' + (diff ? ' is-diff' : '');
+    };
+    d.rows.forEach((r, i) => drawDiff(i));
+    f.querySelectorAll('[data-i]').forEach((x) => x.addEventListener('input', () => { input[Number(x.dataset.i)] = x.value; drawDiff(Number(x.dataset.i)); }));
+    f.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const rows = d.rows.map((r, i) => ({ id: r.id, option: r.option, actual: input[i].trim() })).filter((r) => r.actual !== '');
+      const box = f.querySelector('[data-error]');
+      Busy.show('存檔中⋯');
+      try {
+        await Api.admin('adminShopStockCountSave', { date: d.date, rows });
+        Busy.hide();
+        AdminPage.clearMemo();
+        count(body, guard, AdminPage.notice('success', '盤點存好了', `${rows.length} 樣；差的已經記成盤盈／盤虧`));
+      } catch (e) {
+        Busy.hide();
+        if (e.code === 'UNAUTHORIZED') { guard(e); return; }
+        box.innerHTML = `<strong>${esc(e.message)}</strong>${(e.details || []).map((x) => '<br>' + esc(x.message)).join('')}`;
+        box.hidden = false;
+      }
+    });
+  }
+
   // ---------- 🏷️ 買多優惠（#/admin/shop/promos；規格 0.6「買多優惠」） ----------
 
   async function promos(body, guard, flash) {
@@ -332,5 +398,5 @@ window.AdminStock = (function () {
     });
   }
 
-  return { report, stall, importPage, promos, shrinkImage, downloadCsv };
+  return { report, stall, importPage, promos, count, shrinkImage, downloadCsv };
 })();

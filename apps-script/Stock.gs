@@ -621,6 +621,100 @@ function adminShopStallSave_(body) {
   });
 }
 
+// ---------- 📋 盤點（年度結算 段 2） ----------
+
+/**
+ * 盤點：選一天，每樣商品（口味）帳上有幾個，填實際點到的，差的記盤盈／盤虧（日期＝盤點日、成本＝那天的平均成本、備註「盤點」）。
+ * 這次盤點記的紀錄：活動ID＝COUNT:日期（同一天再存一次＝換掉那幾樣上次記的，可以先存一半之後再補）。
+ */
+function stockCountTag_(date) {
+  return 'COUNT:' + date;
+}
+
+/** 這天每個商品＋規格的帳上數量（不算這天盤點記的）、平均成本、這天盤點過的實際數量（純函式） */
+function stockCountRows_(records, products, date) {
+  var tag = stockCountTag_(date);
+  var mineCount = records.filter(function (r) { return r['活動ID'] === tag; });
+  var others = records.filter(function (r) { return r['活動ID'] !== tag && stockDate_(r) <= date; });
+  var book = stockLevels_(others);
+  var counted = stockLevels_(mineCount); // 盤盈＋、盤虧－
+  var countedKeys = {};
+  mineCount.forEach(function (r) { countedKeys[stockKey_(r)] = true; });
+  // 平均成本：今年 1/1（或更早的紀錄）到盤點日的進銷存
+  var rep = stockReport_(others, products, date.slice(0, 4) + '-01-01', date);
+  var avg = {};
+  rep.rows.forEach(function (r) { avg[stockKeyOf_(r.id, r.option)] = r.end.price; });
+  var out = [];
+  products.forEach(function (p) {
+    var id = p['商品ID'];
+    var names = stockVariantNames_(p);
+    if (names[0] !== '' && book[id]) names = names.concat(['']); // 以前沒分規格記的
+    names.forEach(function (o, i) {
+      var k = stockKeyOf_(id, o);
+      var b = book[k] || 0;
+      if (p['啟用'] === '否' && !b && !countedKeys[k]) return;
+      var vp = stockVariantPrice_(p, o);
+      out.push({ id: id, option: o, order: i, code: p['編號'] || '', name: p['名稱'] + (o ? '（' + o + '）' : (names[0] !== '' ? '（未分規格）' : '')), unit: p['單位'] || '',
+        book: b, actual: countedKeys[k] ? b + (counted[k] || 0) : null, cost: avg[k] || Number(vp.cost) || 0 });
+    });
+  });
+  return out.sort(function (a, c) { return String(a.code).localeCompare(String(c.code), 'zh-Hant', { numeric: true }) || a.order - c.order; });
+}
+
+/** body = { date }：盤點表（空白＝今天） */
+function adminShopStockCount_(body) {
+  var today = todayString_();
+  var date = body.date ? stockParseDate_(body.date) : today;
+  if (!date) throw new ApiError_('BAD_REQUEST', '日期不對');
+  if (date > today) throw new ApiError_('BAD_REQUEST', '盤點日不能是以後');
+  var rows = stockCountRows_(readTable_(SHEETS.SHOP_STOCK), readTable_(SHEETS.SHOP_PRODUCTS), date);
+  return { date: date, today: today, rows: rows, counted: rows.filter(function (r) { return r.actual !== null; }).length };
+}
+
+/** body = { date, rows: [{ id, option, actual }] }：有填 actual 的那幾樣，換掉這天上次記的，再照差記盤盈／盤虧 */
+function adminShopStockCountSave_(body) {
+  var today = todayString_();
+  var date = body.date ? stockParseDate_(body.date) : today;
+  var errors = [];
+  if (!date) errors.push('盤點日不對');
+  else if (date > today) errors.push('盤點日不能是以後');
+  var input = (Array.isArray(body.rows) ? body.rows : []).filter(function (r) { return r && r.id && r.actual !== '' && r.actual !== null && r.actual !== undefined; });
+  input.forEach(function (r) { if (!/^\d{1,6}$/.test(String(r.actual).trim())) errors.push('實際數量請填 0 以上的整數'); });
+  if (!input.length) errors.push('請至少填一樣的實際數量');
+  if (errors.length) throw new ApiError_('VALIDATION', '沒有存檔', errors.filter(function (m, i, a) { return a.indexOf(m) === i; }).map(function (m) { return { message: m }; }));
+  return withSignupLock_(function () {
+    var tag = stockCountTag_(date);
+    var records = readTable_(SHEETS.SHOP_STOCK);
+    var products = readTable_(SHEETS.SHOP_PRODUCTS);
+    var keys = {};
+    input.forEach(function (r) { keys[stockKeyOf_(r.id, String(r.option || ''))] = Number(String(r.actual).trim()); });
+    // 這幾樣上次盤點記的先刪掉
+    stockDeleteRows_(records.filter(function (r) { return r['活動ID'] === tag && keys.hasOwnProperty(stockKey_(r)); }));
+    invalidateTable_(SHEETS.SHOP_STOCK);
+    var list = stockCountRows_(readTable_(SHEETS.SHOP_STOCK), products, date);
+    var now = nowString_();
+    var batch = newId_('K');
+    var add = [];
+    var changes = [];
+    list.forEach(function (x) {
+      var k = stockKeyOf_(x.id, x.option);
+      if (!keys.hasOwnProperty(k)) return;
+      var diff = keys[k] - x.book;
+      changes.push(x.name + ' ' + x.book + '→' + keys[k]);
+      var p = findById_(products, '商品ID', x.id);
+      var q = Math.abs(diff);
+      // 差 0 也記一筆數量 0 的「盤盈」，表示這樣點過了（報表不影響）
+      add.push(stockRow_({ now: now, date: date, type: diff < 0 ? '出' : '進', method: diff < 0 ? '盤虧' : '盤盈', id: x.id, option: x.option, qty: q,
+        amount: Math.round(q * x.cost * 100) / 100, cost: x.cost, price: p ? stockVariantPrice_(p, x.option).price : '', note: '盤點', batch: batch, dutyId: tag }));
+    });
+    if (add.length) appendRows_(SHEETS.SHOP_STOCK, add);
+    writeDutyLog_('團購盤點', date + '｜' + changes.join('、') + adminTag_());
+    SpreadsheetApp.flush();
+    invalidateTable_(SHEETS.SHOP_STOCK);
+    return adminShopStockCount_({ date: date });
+  });
+}
+
 // ---------- 匯入 Excel ----------
 
 /** Excel「2-日報表」的分類 → [類型, 方式] */

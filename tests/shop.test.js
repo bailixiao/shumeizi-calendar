@@ -702,3 +702,22 @@ test('訂單已確認、已取貨、已付款三個分開記；確認後大家�
   const logs = env.sheets['操作紀錄'].data.map((r) => r.join('|'));
   assert.ok(logs.some((l) => l.includes('訂單已確認')));
 });
+
+test('盤點：列出帳上數量、填實際的，差的記盤盈盤虧（平均成本）；可以先存一半再補；同一天再存是換掉', () => {
+  const { env, call, ok, tofu, jam } = setup();
+  ok(call('adminShopStockMove', { type: 'in', rows: [{ id: tofu.id, qty: 10, cost: 30, method: '買進' }, { id: jam.id, qty: 5, cost: 80, method: '買進' }] }));
+  let c = ok(call('adminShopStockCount', { date: '2026-10-01' }));
+  assert.deepEqual(c.rows.map((r) => [r.name, r.book, r.actual, r.cost]), [['手工豆腐', 10, null, 30], ['果醬', 5, null, 80]]);
+  assert.equal(call('adminShopStockCountSave', { date: '2026-10-01', rows: [{ id: tofu.id, actual: '' }] }).error.code, 'VALIDATION');
+  // 先點豆腐：只有 8 個（盤虧 2）
+  c = ok(call('adminShopStockCountSave', { date: '2026-10-01', rows: [{ id: tofu.id, option: '', actual: '8' }] }));
+  assert.deepEqual(c.rows.map((r) => [r.book, r.actual]), [[10, 8], [5, null]]);
+  assert.equal(c.counted, 1);
+  // 再存一次：豆腐其實 9、果醬 5（沒差）
+  c = ok(call('adminShopStockCountSave', { date: '2026-10-01', rows: [{ id: tofu.id, actual: 9 }, { id: jam.id, actual: 5 }] }));
+  assert.deepEqual(c.rows.map((r) => [r.book, r.actual]), [[10, 9], [5, 5]]);
+  const recs = ok(call('adminShopStock', {})).records.filter((r) => r.note === '盤點');
+  assert.deepEqual(recs.map((r) => [r.method, r.qty, r.amount]).sort(), [['盤盈', 0, 0], ['盤虧', 1, 30]]);
+  assert.equal(ok(call('adminShopStock', {})).products.find((p) => p.id === tofu.id).stock, 9);
+  assert.equal(env.post({ action: 'adminShopStockCount', date: '2026-10-01' }).ok, false);
+});

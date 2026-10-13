@@ -2790,3 +2790,7 @@ body.is-sub .homepage-link { display: none; }
 .shop-last5-inline .muted { margin: 6px 0 0; font-size: .88rem; }
 .stock-variant i { font-style: normal; margin-left: 4px; color: var(--accent); }
 .ledger-years { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+/* 盤點 */
+.count-table td .input { width: 6em; }
+.count-table tr.is-counted td { background: #f4f8ec; }
+.count-table td.is-diff { color: var(--berry); font-weight: 700; }

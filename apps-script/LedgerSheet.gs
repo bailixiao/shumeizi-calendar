@@ -63,7 +63,7 @@ function setupLedgerSheet() {
   syncKey_(); // 先確認同步密鑰（密碼不對會說明怎麼改）
   syncFromWorker(); // 先把 Cloudflare 的資料（含收支記帳、庫存紀錄）同步到試算表
   var url = ledgerSheetSync_(true);
-  Logger.log('植素園記帳：' + url);
+  Logger.log('植素園記帳：' + url + '（使用說明版本 ' + (PropertiesService.getScriptProperties().getProperty('LEDGER_HELP_VERSION') || '0') + '）');
   return url;
 }
 
@@ -85,8 +85,8 @@ function ledgerSheetSync_(strict) {
       workerPost_({ action: 'import', password: syncKey_(), sheets: {}, props: { LEDGER_SHEET_URL: url } });
       props.setProperty('LEDGER_SHEET_URL', url);
     }
+    try { ledgerSheetHelpMore_(ss); } catch (e) { Logger.log('使用說明沒有加上：' + e.message); } // 先加說明，後面出錯也不影響
     ledgerSheetWriteSystem_(ss, rows);
-    ledgerSheetHelpMore_(ss);
     props.deleteProperty('LEDGER_SHEET_ERROR');
     return url;
   } catch (e) {

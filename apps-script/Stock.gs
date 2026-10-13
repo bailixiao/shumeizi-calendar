@@ -3,7 +3,7 @@
  *   - 「庫存紀錄」分頁一列＝一筆進或出：日期、類型（進／出）、方式、商品ID、數量、當時的成本與售價、金額、備註、活動ID（出攤）。
  *   - 目前庫存＝進的數量－出的數量。
  *   - 進貨填的成本、售價會變成商品現在的價格。
- *   - 訂單打勾「已取貨」自動記「售出」（連著訂單ID），取消打勾就刪掉那幾筆。
+ *   - 團購一下單就自動記「售出」（連著訂單ID，2026/10/13 起；以前是取貨打勾才記）；改單照新的內容重記，取消訂單就刪掉。
  *   - 進銷存報表：加權平均成本，算法和「植素園成本表單」Excel 一樣（見 stockReport_）。
  *   - 出攤銷售統計表：一場出攤的售前、預購、現場、營業額、售後應有／實際（盤盈盤虧）。
  *   - 匯入：貼上 Excel 的「產品代號」「日報表」。
@@ -142,9 +142,10 @@ function adminShopStock_() {
     });
     products = readTable_(SHEETS.SHOP_PRODUCTS);
   }
+  withSignupLock_(function () { stockMigrateOrders_(); });
   var records = readTable_(SHEETS.SHOP_STOCK);
   var levels = stockLevels_(records);
-  // 訂單預留：還沒取貨的有效訂單（取貨打勾才從庫存扣）；可賣＝庫存－預留
+  // 訂單預留（以前的訂單還沒補記時才會有）：還沒取貨的有效訂單（取貨打勾才從庫存扣）；可賣＝庫存－預留
   var avail = shopStockAvail_('');
   var reservedOf = function (k) { return (levels[k] || 0) - (avail[k] || 0); };
   return {
@@ -295,7 +296,7 @@ function adminShopStockUpdate_(body) {
   return withSignupLock_(function () {
     var r = findById_(readTable_(SHEETS.SHOP_STOCK), '紀錄ID', body.id);
     if (!r) throw new ApiError_('NOT_FOUND', '找不到這筆紀錄，可能已經刪掉了');
-    if (r['訂單ID']) throw new ApiError_('FORBIDDEN', '這筆是訂單取貨自動記的，請改那張訂單');
+    if (r['訂單ID']) throw new ApiError_('FORBIDDEN', '這筆是團購訂單自動記的，請改那張訂單（改數量或取消）');
     var p = findById_(readTable_(SHEETS.SHOP_PRODUCTS), '商品ID', r['商品ID']);
     var errors = [];
     var methods = r['類型'] === '進' ? STOCK_IN_METHODS : STOCK_OUT_METHODS;
@@ -337,7 +338,7 @@ function adminShopStockDelete_(body) {
   return withSignupLock_(function () {
     var r = findById_(readTable_(SHEETS.SHOP_STOCK), '紀錄ID', body.id);
     if (!r) throw new ApiError_('NOT_FOUND', '找不到這筆紀錄，可能已經刪掉了');
-    if (r['訂單ID']) throw new ApiError_('FORBIDDEN', '這筆是訂單取貨自動記的，請到那張訂單取消「已取貨」');
+    if (r['訂單ID']) throw new ApiError_('FORBIDDEN', '這筆是團購訂單自動記的，請改那張訂單（改數量或取消）');
     var p = findById_(readTable_(SHEETS.SHOP_PRODUCTS), '商品ID', r['商品ID']);
     getSheet_(SHEETS.SHOP_STOCK).deleteRow(r._row);
     writeDutyLog_('團購庫存刪除', (r['類型'] === '進' ? '進貨' : '出貨') + '｜' + (p ? p['名稱'] : r['商品ID']) + (r['規格'] ? '（' + r['規格'] + '）' : '') + '×' + r['數量'] + '（' + r['方式'] + '）' + adminTag_());
@@ -348,34 +349,51 @@ function adminShopStockDelete_(body) {
   });
 }
 
-/** 訂單取貨：picked＝true 記「售出」（每樣商品一列，金額＝這張訂單那樣商品的金額）；false 刪掉這張訂單記的。在鎖裡面呼叫。 */
-function stockForOrder_(o, picked) {
-  var records = readTable_(SHEETS.SHOP_STOCK);
-  var mine = records.filter(function (r) { return r['訂單ID'] === o['訂單ID']; });
-  if (!picked) {
-    stockDeleteRows_(mine);
-  } else if (!mine.length) {
-    var products = readTable_(SHEETS.SHOP_PRODUCTS);
-    var qty = {};
-    var amount = {};
-    var keys = {};
-    shopJson_(o['品項'], []).forEach(function (l) {
-      var q = Number(l.qty) || 0;
-      var k = stockKeyOf_(l.id, l.option || ''); // 分規格記
-      keys[k] = { id: l.id, option: l.option || '' };
-      qty[k] = (qty[k] || 0) + q;
-      amount[k] = (amount[k] || 0) + q * (Number(l.price) || 0) - (Number(l.discount) || 0); // 扣掉分攤的買多優惠
-    });
-    var now = nowString_();
-    var batch = newId_('K');
-    var add = Object.keys(qty).filter(function (k) { return qty[k] > 0; }).map(function (k) {
-      var p = findById_(products, '商品ID', keys[k].id);
-      return stockRow_({ now: now, date: todayString_(), type: '出', method: '售出', id: keys[k].id, option: keys[k].option, qty: qty[k], amount: amount[k],
-        cost: p ? stockVariantPrice_(p, keys[k].option).cost : '', price: Math.round(amount[k] / qty[k]), note: '訂單：' + o['姓名'], orderId: o['訂單ID'], batch: batch });
-    });
-    if (add.length) appendRows_(SHEETS.SHOP_STOCK, add);
-  }
+/**
+ * 團購訂單的庫存（在鎖裡面呼叫；2026/10/13 起一下單就扣）：這張訂單原本記的「售出」先刪掉，有效的訂單照現在的品項再記
+ * （每個商品＋規格一列，金額扣掉分攤的買多優惠；日期＝下單那天）。取消的訂單就只刪不記。
+ */
+function stockSyncOrder_(o) {
+  var mine = readTable_(SHEETS.SHOP_STOCK).filter(function (r) { return r['訂單ID'] === o['訂單ID']; });
+  if (mine.length) { stockDeleteRows_(mine); invalidateTable_(SHEETS.SHOP_STOCK); }
+  if (o['狀態'] === '已取消') return;
+  var products = readTable_(SHEETS.SHOP_PRODUCTS);
+  var qty = {};
+  var amount = {};
+  var keys = {};
+  shopJson_(o['品項'], []).forEach(function (l) {
+    var q = Number(l.qty) || 0;
+    var k = stockKeyOf_(l.id, l.option || ''); // 分規格記
+    keys[k] = { id: l.id, option: l.option || '' };
+    qty[k] = (qty[k] || 0) + q;
+    amount[k] = (amount[k] || 0) + q * (Number(l.price) || 0) - (Number(l.discount) || 0); // 扣掉分攤的買多優惠
+  });
+  var now = nowString_();
+  var batch = newId_('K');
+  var date = String(o['建立時間'] || '').slice(0, 10) || todayString_();
+  var add = Object.keys(qty).filter(function (k) { return qty[k] > 0; }).map(function (k) {
+    var p = findById_(products, '商品ID', keys[k].id);
+    return stockRow_({ now: now, date: date, type: '出', method: '售出', id: keys[k].id, option: keys[k].option, qty: qty[k], amount: amount[k],
+      cost: p ? stockVariantPrice_(p, keys[k].option).cost : '', price: Math.round(amount[k] / qty[k]), note: '訂單：' + o['姓名'], orderId: o['訂單ID'], batch: batch });
+  });
+  if (add.length) appendRows_(SHEETS.SHOP_STOCK, add);
   invalidateTable_(SHEETS.SHOP_STOCK);
+}
+
+/** 以前（取貨打勾才扣）下的、還沒記售出的有效訂單補記一次（在鎖裡面呼叫；記過的不再記） */
+function stockMigrateOrders_() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('STOCK_AT_ORDER') === '1') return;
+  var has = {};
+  readTable_(SHEETS.SHOP_STOCK).forEach(function (r) { if (r['訂單ID']) has[r['訂單ID']] = true; });
+  var groups = readTable_(SHEETS.SHOP_GROUPS);
+  readTable_(SHEETS.SHOP_ORDERS).forEach(function (o) {
+    if (o['狀態'] === '已取消' || has[o['訂單ID']]) return;
+    var g = findById_(groups, '團購ID', o['團購ID']);
+    if (g && g['賣場連結']) return;
+    stockSyncOrder_(o);
+  });
+  props.setProperty('STOCK_AT_ORDER', '1');
 }
 
 // ---------- 進銷存報表 ----------

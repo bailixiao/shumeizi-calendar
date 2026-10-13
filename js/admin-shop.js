@@ -88,7 +88,7 @@
         ${edit ? '<div class="admin-actions"><a class="btn btn-primary" href="#/admin/shop/new">＋ 開團</a></div>' : ''}
         ${groupsHtml}` : state.tab === 'records' ? `
         ${recHtml}
-        <p class="hint">訂單打勾「已取貨」會自動記一筆「售出」，取消打勾會還回去；手動記的記錯了可以「修改」或刪除。</p>` : `
+        <p class="hint">團購一下單就自動記「售出」，改單跟著改、取消訂單會還回去；手動記的記錯了可以「修改」或刪除。</p>` : `
         ${stockHtml}
         <div class="stock-tools">
           <a class="btn stock-tool" href="#/admin/shop/report"><span class="stock-tool-icon" aria-hidden="true">📊</span><span>進銷存報表</span></a>
@@ -97,7 +97,7 @@
           <a class="btn stock-tool" href="#/admin/shop/promos"><span class="stock-tool-icon" aria-hidden="true">🏷️</span><span>買多優惠</span></a>
           ${edit ? '<a class="btn stock-tool" href="#/admin/shop/import"><span class="stock-tool-icon" aria-hidden="true">📥</span><span>匯入 Excel</span></a>' : ''}
         </div>
-        <p class="hint">目前庫存＝進貨－出貨（團購訂單打勾「已取貨」才扣）；還沒取貨的訂單算「預留」，可賣＝庫存－預留（開團選「限量照庫存」就照這個數字賣）。點商品可以修改（名稱、照片、規格、編號、分類）；停用的商品不能再加進新的團購。</p>`}`;
+        <p class="hint">目前庫存＝進貨－出貨（團購一下單就扣，取消會還回去；開團選「限量照庫存」就照這個數字賣）。點商品可以修改（名稱、照片、規格、編號、分類）；停用的商品不能再加進新的團購。</p>`}`;
     flash = '';
     bindZoom(body);
     body.querySelectorAll('input[name=shoptab]').forEach((r) => r.addEventListener('change', () => { state.tab = r.value; renderList(body, guard, data, false); }));

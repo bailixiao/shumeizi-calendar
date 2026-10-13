@@ -75,13 +75,16 @@ function shopSold_(orders, groupId, exceptId) {
 }
 
 /**
- * 「照庫存」限量用：每個商品＋規格還可以賣幾個＝目前庫存－還沒取貨的有效訂單（所有團購）。
- * 取貨打勾才會從庫存扣（Stock.gs stockForOrder_），所以還沒取貨的訂單先預留。exceptOrderId：改單時不算自己那張。
+ * 「照庫存」限量用：每個商品＋規格還可以賣幾個。一下單就從庫存扣（Stock.gs stockSyncOrder_），所以＝目前庫存；
+ * 以前（取貨才扣）還沒記售出的有效訂單先扣掉（預留）。exceptOrderId：改單時把自己那張加回來。
  */
 function shopStockAvail_(exceptOrderId) {
-  var left = stockLevels_(readTable_(SHEETS.SHOP_STOCK));
+  var records = readTable_(SHEETS.SHOP_STOCK);
+  var left = stockLevels_(records, function (r) { return !exceptOrderId || r['訂單ID'] !== exceptOrderId; });
+  var recorded = {};
+  records.forEach(function (r) { if (r['訂單ID']) recorded[r['訂單ID']] = true; });
   readTable_(SHEETS.SHOP_ORDERS).forEach(function (o) {
-    if (o['狀態'] === '已取消' || o['已取貨'] === '是' || o['訂單ID'] === exceptOrderId) return;
+    if (o['狀態'] === '已取消' || recorded[o['訂單ID']] || o['訂單ID'] === exceptOrderId) return;
     shopJson_(o['品項'], []).forEach(function (l) { var k = stockKeyOf_(l.id, l.option || ''); left[k] = (left[k] || 0) - (Number(l.qty) || 0); });
   });
   return left;
@@ -124,8 +127,6 @@ function shopGroupView_(g, products, orders, opts) {
     id: g['團購ID'], name: g['名稱'], description: g['說明'] || '', deadline: g['截止時間'], status: g['狀態'] || '開放',
     closed: g['狀態'] === '結束' || (g['截止時間'] && now > g['截止時間']),
     pickups: shopPickups_(g), items: items, hasPayInfo: !!g['付款說明'],
-    // 轉帳資訊：購物車選轉帳就顯示（2026/10/13 使用者要的；原本只在下單後顯示）。賣貨便的不用
-    transferInfo: g['賣場連結'] ? '' : g['付款說明'] || '',
     link: g['賣場連結'] || '', cover: g['封面'] || '', // 賣場連結：賣貨便（有填＝到賣貨便下單）；封面：封面照片
     promos: g['賣場連結'] ? [] : promosForItems_(items) // 買多優惠（Promo.gs）
   };
@@ -321,6 +322,8 @@ function shopOrder_(body, opts) {
       appendRows_(SHEETS.SHOP_ORDERS, [row]);
       writeDutyLog_('團購下單', summary + (admin ? adminTag_() : ''));
     }
+    stockMigrateOrders_(); // 以前的訂單先補記（只做一次）
+    stockSyncOrder_(row); // 一下單就從庫存扣（改單照新的內容重記）
     addPendingMembers_([{ '姓名': who.name, '佛堂': who.temple, '日期': pickup ? pickup.date : todayString_(), '身分': '' }], '團購：' + g['名稱'], sources);
     SpreadsheetApp.flush();
     invalidateTable_(SHEETS.SHOP_ORDERS);
@@ -371,6 +374,7 @@ function shopCancel_(body) {
     var before = rowSnapshot_(SHEETS.SHOP_ORDERS, o);
     updateRow_(SHEETS.SHOP_ORDERS, o, { '狀態': '已取消', '更新時間': nowString_() });
     ledgerSyncOrder_(o);
+    stockSyncOrder_(o); // 庫存還回去
     writeDutyLog_('團購取消', o['姓名'] + '｜' + (g ? g['名稱'] : o['團購ID']) + '｜' + o['金額'] + ' 元' + (o['付款方式'] === '轉帳' && o['末五碼'] ? '｜已轉帳（末五碼 ' + o['末五碼'] + '），要退款' : ''), before);
     SpreadsheetApp.flush();
     invalidateTable_(SHEETS.SHOP_ORDERS);
@@ -745,9 +749,8 @@ function adminShopOrderSet_(body) {
     ch['更新時間'] = nowString_();
     var before = rowSnapshot_(SHEETS.SHOP_ORDERS, o);
     updateRow_(SHEETS.SHOP_ORDERS, o, ch);
-    // 庫存：打勾已取貨記售出、取消打勾刪掉；取消訂單也刪掉
-    if (body.picked !== undefined) stockForOrder_(o, !!body.picked && o['狀態'] !== '已取消');
-    if (body.cancel === true) stockForOrder_(o, false);
+    // 庫存（2026/10/13 起一下單就扣）：取消訂單還回去、恢復再扣；取貨打勾不動庫存
+    if (body.cancel !== undefined) { stockMigrateOrders_(); stockSyncOrder_(o); }
     ledgerSyncOrder_(o); // 記帳：已付款＝銷貨收入、已取貨沒付＝應收帳款
     writeDutyLog_('團購訂單', o['姓名'] + '｜' + what.join('、') + adminTag_(), before);
     SpreadsheetApp.flush();

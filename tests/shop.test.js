@@ -36,7 +36,7 @@ test('開團後大家看得到：商品、價格（這次的價格）、剩幾�
   assert.equal(g.pickups.length, 2);
   assert.deepEqual(g.items.map((x) => [x.id, x.price, x.left]), [[tofu.id, 60, null], [jam.id, 120, 5]]);
   assert.equal(g.payInfo, undefined);
-  assert.equal(g.transferInfo, '轉帳：測試銀行 000-000000', '購物車選轉帳就顯示轉帳資訊（2026/10/13）');
+  assert.equal(g.transferInfo, undefined, '轉帳帳號只在下單後顯示');
   assert.equal(g.hasPayInfo, true);
 });
 
@@ -294,7 +294,7 @@ test('購物車結帳（mode＝add）：已經有訂單就加進原本那張；�
   assert.equal(ok(env.post({ action: 'shopMyOrders', name: '測試甲' })).orders.length, 0);
 });
 
-test('庫存：進貨更新價格、出貨、目前庫存；編號自動給、不能重複；訂單取貨自動售出', () => {
+test('庫存：進貨更新價格、出貨、目前庫存；編號自動給、不能重複；一下單就自動售出（改單重記、取消還回去、取貨打勾不動）', () => {
   const { env, call, ok, tofu, jam, order } = setup();
   const st = () => ok(call('adminShopStock', {}));
   // 編號：前兩個商品自動 001、002
@@ -314,16 +314,21 @@ test('庫存：進貨更新價格、出貨、目前庫存；編號自動給、�
   // 出貨超過庫存：照記，提醒
   const out = ok(call('adminShopStockMove', { type: 'out', rows: [{ id: jam.id, qty: 5, method: '損壞' }] }));
   assert.match(out.warnings.join(), /庫存會變成 -2/);
-  // 訂單取貨 → 自動售出；取消打勾 → 還回去
+  // 一下單 → 自動售出（2026/10/13 起）；取貨打勾不動庫存；改單重記；取消還回去
   const o = ok(order({ name: '測試甲', source: '官網', items: [{ id: tofu.id, qty: 2 }] })).order;
-  ok(call('adminShopOrderSet', { orderId: o.id, picked: true }));
   s = st();
   assert.equal(s.products.find((p) => p.id === tofu.id).stock, 8);
   const auto = s.records.find((x) => x.orderId === o.id);
   assert.equal(auto.method, '售出');
   assert.equal(call('adminShopStockDelete', { id: auto.id }).error.code, 'FORBIDDEN');
+  ok(call('adminShopOrderSet', { orderId: o.id, picked: true }));
+  assert.equal(st().products.find((p) => p.id === tofu.id).stock, 8, '取貨打勾不動庫存');
   ok(call('adminShopOrderSet', { orderId: o.id, picked: false }));
-  assert.equal(st().products.find((p) => p.id === tofu.id).stock, 10);
+  ok(order({ name: '測試甲', items: [{ id: tofu.id, qty: 3 }] }));
+  assert.equal(st().products.find((p) => p.id === tofu.id).stock, 7, '改單照新的數量');
+  assert.equal(st().records.filter((x) => x.orderId === o.id).length, 1, '不會重複記');
+  ok(call('adminShopOrderSet', { orderId: o.id, cancel: true }));
+  assert.equal(st().products.find((p) => p.id === tofu.id).stock, 10, '取消還回去');
   // 手動紀錄可以刪
   const manual = st().records.find((x) => x.method === '損壞');
   ok(call('adminShopStockDelete', { id: manual.id }));
@@ -456,11 +461,12 @@ test('記帳（115年簡易記帳表格）：期初、手動收支、移轉；�
   assert.deepEqual(L.accounts.map((x) => [x.name, x.opening, x.closing]), [['零用金', 1000, 1120], ['銀行存款', 5000, 4760], ['應收帳款', 0, 0], ['應付帳款', 0, 0]]);
   // 損益表：收入 180＋佈施 500；進貨 500；期末存貨 8×30＋2×100＝440；銷貨成本 60；費用 300 → 損益 320
   assert.equal(L.is.incomeTotal, 680);
-  assert.deepEqual([L.is.openInv, L.is.purchases, L.is.closeInv, L.is.cogs, L.is.stockBuy], [0, 500, 440, 60, 500]);
+  // （一下單就扣：王小明那包也算賣掉）期末存貨 7×30＋2×100＝410、銷貨成本 90
+  assert.deepEqual([L.is.openInv, L.is.purchases, L.is.closeInv, L.is.cogs, L.is.stockBuy], [0, 500, 410, 90, 500]);
   assert.equal(L.is.expenseTotal, 300);
-  assert.equal(L.is.profit, 320);
+  assert.equal(L.is.profit, 290);
   // 資產負債表：資產 1120＋4760＋440＝6320＝累積結餘 6000＋本期結餘 320
-  assert.deepEqual([L.bs.assetTotal, L.bs.retained, L.bs.profit, L.bs.diff], [6320, 6000, 320, 0]);
+  assert.deepEqual([L.bs.assetTotal, L.bs.retained, L.bs.profit, L.bs.diff], [6290, 6000, 290, 0]);
   // 分類帳：照科目
   assert.deepEqual(L.ledger.map((g) => [g.subject, g.total]), [['銷貨收入', 180], ['佈施', 500], ['進貨', 500], ['攤位費', 300]]);
   // 自動記的不能刪、只能改帳戶；取消付款就拿掉
@@ -662,13 +668,19 @@ test('同一個人付款方式不同就分成兩張：付現的加進付現那�
   assert.equal(order({ name: '測試甲', source: '官網', orderId: b.order.id, items: [{ id: tofu.id, qty: 1 }], pay: '轉帳' }).error.code, 'NOT_FOUND', '別人的不能改');
 });
 
-test('庫存頁顯示訂單預留、可賣（還沒取貨的訂單）', () => {
-  const { call, ok, tofu, order } = setup();
+test('一下單就從庫存扣；以前（取貨才扣）還沒記的訂單：可賣先扣掉，打開庫存頁補記一次', () => {
+  const { env, call, ok, tofu, order } = setup();
   ok(call('adminShopStockMove', { type: 'in', rows: [{ id: tofu.id, qty: 10, cost: 30, method: '買進' }] }));
   const a = ok(order({ name: '王小明', source: '官網', items: [{ id: tofu.id, qty: 3 }] })).order;
-  let p = ok(call('adminShopStock', {})).products.find((x) => x.id === tofu.id);
-  assert.deepEqual([p.stock, p.reserved], [10, 3]);
-  ok(call('adminShopOrderSet', { orderId: a.id, picked: true }));
-  p = ok(call('adminShopStock', {})).products.find((x) => x.id === tofu.id);
-  assert.deepEqual([p.stock, p.reserved], [7, 0], '取貨：從庫存扣，不再預留');
+  // 模擬以前的訂單：售出紀錄還沒記
+  const sh = env.sheets['庫存紀錄'];
+  const col = sh.data[0].indexOf('訂單ID');
+  for (let i = sh.data.length - 1; i > 0; i--) if (sh.data[i][col] === a.id) sh.data.splice(i, 1);
+  assert.equal(sh.data.filter((r) => r[col] === a.id).length, 0);
+  env.fn('PropertiesService').getScriptProperties().deleteProperty('STOCK_AT_ORDER');
+  env.fn('invalidateAllTables_')();
+  assert.equal(env.fn('shopStockAvail_')('')[tofu.id], 7, '可賣：以前的訂單先扣掉');
+  const p = ok(call('adminShopStock', {})).products.find((x) => x.id === tofu.id);
+  assert.deepEqual([p.stock, p.reserved], [7, 0], '打開庫存頁就補記');
+  assert.equal(ok(call('adminShopStock', {})).records.filter((x) => x.orderId === a.id).length, 1, '補記一次就好');
 });

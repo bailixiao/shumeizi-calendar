@@ -2631,7 +2631,7 @@ body.is-sub .homepage-link { display: none; }
 .stock-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .stock-table td.name { text-align: left; white-space: normal; min-width: 8em; }
 .stock-table tfoot td { font-weight: 800; background: var(--ok-soft); }
-.stock-table th:first-child, .stock-table td:first-child { position: sticky; left: 0; background: var(--card); z-index: 1; }
+.stock-table thead tr:first-child th:first-child, .stock-table td:first-child { position: sticky; left: 0; background: var(--card); z-index: 1; } /* 只固定「品項」欄（第二列表頭的第一格是期初的數量，不固定） */
 .stock-table thead th:first-child { background: var(--paper-2); }
 .stall-in { width: 4.2em; min-height: 36px; padding: 4px 6px; text-align: right; }
 .stall-in.is-diff { border-color: var(--berry); background: var(--berry-soft, #f6e1df); }

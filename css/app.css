@@ -2158,11 +2158,13 @@ html.text-l { font-size: 112.5%; }
 html.text-xl { font-size: 125%; }
 .text-size-btn { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); min-height: 40px; min-width: 52px; padding: 0 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--ink); font: inherit; font-weight: 700; font-size: 1rem; cursor: pointer; }
 .app-header { position: relative; }
-/* 頁首「回首頁」（官網），在 A＋ 左邊；窄手機只留 🏠 */
+/* 頁首「回到主頁」（官網），在 A＋ 左邊；窄手機只留 🏠 */
 .home-btn { position: absolute; right: 72px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 40px; min-width: 44px; padding: 0 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--ink); font-weight: 700; font-size: 1rem; text-decoration: none; }
 .home-btn[hidden] { display: none; }
 body.splash-on .home-btn { visibility: hidden; }
-@media (max-width: 520px) { .home-btn-text { display: none; } .home-btn { padding: 0; } }
+/* 手機：標題小一點，讓「🏠 回到主頁」放得下（開場動畫的名稱也一起變小，才會剛好落在標題上） */
+@media (max-width: 520px) { .app-title, .splash-title { font-size: .95rem; letter-spacing: 0; } .app-title { gap: 6px; } .home-btn { right: 62px; gap: 2px; padding: 0 8px; font-size: .85rem; } .text-size-btn { min-width: 44px; padding: 0 8px; } }
+@media (max-width: 340px) { .home-btn-text { display: none; } } /* 很窄的手機只留 🏠 */
 body.splash-on .text-size-btn { visibility: hidden; }
 .push-auto { border-color: #c58a1b; }
 .push-auto-days { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 8px 0; }
@@ -2811,3 +2813,4 @@ span.shop-thumb { cursor: default; }
 /* 頁首標題左邊的書槑子標誌（2026/10/14） */
 .app-logo { width: 36px; height: 36px; flex: none; object-fit: contain; mix-blend-mode: multiply; }
 @media (max-width: 380px) { .app-logo { width: 30px; height: 30px; } .app-title { gap: 6px; } }
+@media (max-width: 520px) { .app-logo { width: 30px; height: 30px; } } /* 要放在 .app-logo 後面才蓋得過 */

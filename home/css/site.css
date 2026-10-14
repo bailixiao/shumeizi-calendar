@@ -280,3 +280,7 @@ a.card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
 .install-card h2 { margin: 0 0 10px; font-size: 1.2rem; color: var(--navy); }
 .install-card ol { padding-left: 1.4em; line-height: 1.9; }
 .install-card code { word-break: break-all; }
+
+/* 植素園拆成三頁（2026/10/14） */
+.wrap.narrow { max-width: 680px; }
+.zhisu-links { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }

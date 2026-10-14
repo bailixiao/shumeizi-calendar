@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/site.css?v=20261014h">
+  <link rel="stylesheet" href="css/site.css?v=20261014i">
   <script>document.documentElement.classList.add("js")</script>
   <link rel="canonical" href="https://bailixiao.github.io/shumeizi/zhisu.html">
   <link rel="manifest" href="../manifest.webmanifest?v=20261014b">
@@ -40,13 +40,14 @@
           <div class="nav-item"><a href="./">首頁</a></div>
           <details class="nav-item nav-group"><summary>關於我們</summary><div class="nav-sub"><a href="about.html">關於我們</a><a href="stories.html">回憶與回饋</a></div></details>
           <details class="nav-item nav-group"><summary>槑子活動</summary><div class="nav-sub"><a href="gym.html">靈魂健身房</a><a href="taoke.html">槑青韜課館</a><a href="volunteer.html">志工</a></div></details>
-          <details class="nav-item nav-group is-here"><summary>植素園工作坊</summary><div class="nav-sub"><a href="zhisu.html" aria-current="page">關於植素園工作坊</a><a href="zhisu.html#shop">本月團購</a><a href="zhisu.html#stalls">出攤預告</a><a href="https://line.me/ti/g2/54nufHfVxf8vBencGmHK4fvJH408_CUpuOEWIA" target="_blank" rel="noopener">🌿 HAPPY 購團購社群</a></div></details>
+          <details class="nav-item nav-group is-here"><summary>植素園工作坊</summary><div class="nav-sub"><a href="zhisu.html" aria-current="page">關於植素園工作坊</a><a href="zhisu-shop.html">本月團購</a><a href="zhisu-stalls.html">出攤預告</a><a href="https://line.me/ti/g2/54nufHfVxf8vBencGmHK4fvJH408_CUpuOEWIA" target="_blank" rel="noopener">🌿 HAPPY 購團購社群</a></div></details>
           <details class="nav-item nav-group"><summary>聯絡我們</summary><div class="nav-sub"><a href="./#contact">聯絡方式</a><a href="https://lin.ee/auCgNDI" target="_blank" rel="noopener">💬 官方 LINE</a><a href="https://bailixiao.github.io/shumeizi-calendar/" data-cal>📅 行事曆、報名</a></div></details>
       </div>
     </nav>
   </header>
 
   <main id="main">
+<script>/* 舊網址 zhisu.html#shop／#stalls（2026/10/14 拆成各自一頁）→ 轉到新的頁面 */ (function () { var to = { '#shop': 'zhisu-shop.html', '#stalls': 'zhisu-stalls.html' }[location.hash]; if (to) location.replace(to); })();</script>
 <section class="page-hero">
   <div class="wrap hero-with-logo">
     <div>
@@ -70,12 +71,12 @@
       </figure>
     </div>
     <div class="side">
-      <h2 class="section-title" id="shop" data-brand-label="本月團購">本月團購</h2>
-      <div data-shop data-empty="目前沒有開放中的團購。加入下面的 LINE 社群，開團時第一個知道！"></div>
-      <a class="btn btn-line" href="https://line.me/ti/g2/54nufHfVxf8vBencGmHK4fvJH408_CUpuOEWIA" target="_blank" rel="noopener">🌿 加入植素園 HAPPY 購</a>
-
-      <h2 class="section-title" id="stalls" data-brand-label="出攤預告" style="margin-top: 32px">出攤預告</h2>
-      <div data-events data-cat="植素" data-limit="5" data-days="120"></div>
+      <h2 class="section-title">逛逛植素園</h2>
+      <div class="zhisu-links">
+        <a class="btn btn-primary" href="zhisu-shop.html">🛒 本月團購 ›</a>
+        <a class="btn" href="zhisu-stalls.html">🏕️ 出攤預告 ›</a>
+        <a class="btn btn-line" href="https://line.me/ti/g2/54nufHfVxf8vBencGmHK4fvJH408_CUpuOEWIA" target="_blank" rel="noopener">🌿 加入植素園 HAPPY 購</a>
+      </div>
     </div>
   </div>
 </section>
@@ -97,10 +98,10 @@
     <p class="wrap copyright">© 書槑子青年坊</p>
   </footer>
 
-  <script src="js/config.js?v=20261014h"></script>
-  <script src="js/live.js?v=20261014h"></script>
-  <script src="js/nav.js?v=20261014h"></script>
-  <script src="js/install.js?v=20261014h"></script>
+  <script src="js/config.js?v=20261014i"></script>
+  <script src="js/live.js?v=20261014i"></script>
+  <script src="js/nav.js?v=20261014i"></script>
+  <script src="js/install.js?v=20261014i"></script>
   <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js").catch(function () {});</script>
 </body>
 </html>

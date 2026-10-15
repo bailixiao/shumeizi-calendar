@@ -2814,3 +2814,55 @@ span.shop-thumb { cursor: default; }
 .app-logo { width: 36px; height: 36px; flex: none; object-fit: contain; mix-blend-mode: multiply; }
 @media (max-width: 380px) { .app-logo { width: 30px; height: 30px; } .app-title { gap: 6px; } }
 @media (max-width: 520px) { .app-logo { width: 30px; height: 30px; } } /* 要放在 .app-logo 後面才蓋得過 */
+
+/* ---------- 訂餐重新設計（2026/10/16，規格 0.5）---------- */
+.meal-setup { display: grid; gap: 10px; padding: 12px; border: 1px dashed var(--line); border-radius: var(--radius); background: var(--paper); }
+.meal-cutoff { display: flex; gap: 8px; flex-wrap: wrap; }
+.meal-cutoff .input { width: auto; flex: 1 1 140px; }
+.meal-price { margin-left: 4px; color: var(--muted); font-weight: 400; }
+.meal-menu-box { display: grid; gap: 8px; margin: 8px 0 12px; padding: 12px; border-radius: var(--radius); background: var(--ok-soft); }
+.meal-menu-head { margin: 0; font-weight: 700; }
+.meal-menu-note { margin: 0; white-space: normal; overflow-wrap: anywhere; }
+.meal-menu-photos { display: flex; gap: 8px; overflow-x: auto; }
+.meal-menu-photos img { height: 120px; width: auto; border-radius: 10px; border: 1px solid var(--line); background: var(--card); }
+.meal-menu-box .btn { justify-self: start; }
+.meal-order { display: grid; gap: 6px; margin-top: 8px; }
+.meal-order.is-missing .order-name { border-color: var(--accent); }
+.order-line { display: grid; grid-template-columns: minmax(0, 1fr) 84px 64px auto; gap: 6px; align-items: center; }
+.order-line .input { min-width: 0; }
+.order-price, .order-qty { display: flex; align-items: center; gap: 2px; }
+.order-price span, .order-qty span { color: var(--muted); }
+.order-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.order-sum { font-weight: 700; }
+@media (max-width: 420px) { .order-line { grid-template-columns: minmax(0, 1fr) 76px 56px auto; gap: 4px; } }
+.meal-pay { display: grid; gap: 8px; margin: 4px 0 12px; padding: 12px; border-radius: var(--radius); background: var(--accent-soft); }
+.meal-pay-total { margin: 0; }
+.meal-pay-total small { color: var(--muted); margin-left: 4px; }
+.meal-last5 { display: grid; gap: 4px; }
+.meal-last5 .input { max-width: 180px; }
+.meal-paid, .mine-fee { margin-top: 8px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .85); color: var(--ink); }
+.meal-paid p, .mine-fee p { margin: 4px 0; }
+.pay-info { white-space: normal; overflow-wrap: anywhere; padding: 8px 10px; border-radius: 10px; background: var(--paper-2); }
+.last5-form { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.last5-form .input { width: 140px; }
+.last5-form .hint { flex-basis: 100%; margin: 0; }
+.tag.tag-ok { background: var(--ok-soft); color: var(--ok); border-color: var(--ok-soft); }
+.stat-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 12px 0; }
+.stat-tile { display: grid; gap: 2px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.stat-tile span { color: var(--muted); font-size: .9em; }
+.stat-tile strong { font-size: 1.3em; }
+.stat-tile.is-warn strong { color: var(--accent); }
+.meal-admin-info p { margin: 6px 0; }
+.meal-notes { margin: 0 0 12px; padding-left: 1.2em; }
+/* 報名成功（綠底白字）裡面的餐費框：改回深色字、一般大小 */
+.notice .meal-paid, .notice-big .meal-paid p, .notice-big .meal-paid strong { color: var(--ink); font-size: 1rem; line-height: 1.6; }
+.notice-big .meal-paid strong { display: inline; font-size: 1.15rem; letter-spacing: 0; margin: 0; }
+.notice-big .meal-paid .pay-info { color: var(--ink); }
+.notice-big .meal-paid .hint { color: var(--muted); font-size: .9rem; }
+/* 自己點的一行：名稱一整行（右邊刪除），下面是單價、份數，手機也放得下 */
+.order-line { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; padding-bottom: 6px; border-bottom: 1px dashed var(--line); }
+.order-line .order-name { grid-column: 1 / span 2; grid-row: 1; }
+.order-line .btn-remove { grid-column: 3; grid-row: 1; }
+.order-line .order-price { grid-column: 1; grid-row: 2; }
+.order-line .order-qty { grid-column: 2; grid-row: 2; }
+@media (max-width: 420px) { .order-line { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; } }

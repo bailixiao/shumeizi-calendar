@@ -535,6 +535,7 @@
     };
     const signupTotal = editing ? ctx.source.signups : 0;
     if (!Array.isArray(s.dm)) s.dm = [];
+    if (!Array.isArray(s.menuPhotos)) s.menuPhotos = []; // 訂餐的菜單照片（和 DM 分開）
     // 表單用詞跟著這筆的類別：道務、教育叫「活動」
     const F = () => (isSimple(s.category) ? '活動' : T());
     // 名額（道務、教育）：用第一個了愿項目的「最多」；空白＝不限
@@ -567,12 +568,7 @@
             <div class="form-row"><span>種類</span>${segmented('nature', natures.map((n) => [n, Fmt.natureLabel(s.category, n)]), s.nature)}</div>
             ${simple || Fmt.feature('groups') || s.mode === '公告型' ? `<div class="form-row"><span>模式</span>${segmented('mode', ['報名型', '公告型'], s.mode)}</div>` : ''}
             ${s.mode === '公告型' ? '' : `<label class="check meal-toggle"><input type="checkbox" name="meal"${s.meal === true || s.meal === '是' ? ' checked' : ''}> 🍱 這次有吃飯（報名時每個人可以勾「我會一起吃飯」，後台算要準備幾份）</label>`}
-            ${s.mode !== '公告型' && (s.meal === true || s.meal === '是') ? `<label class="form-row meal-options"><span>餐點選項（選填）</span>
-              <textarea class="input" name="mealOptions" rows="3" placeholder="一行一組，例：
-主餐：素便當、素麵
-飲料：紅茶、綠茶、不用">${esc(s.mealOptions || '')}</textarea></label>
-            <p class="hint">有填的話，勾吃飯的人每組要選一個；也可以寫備註（不吃辣、少飯⋯）。後台名單上方會算好每樣幾份。不填＝只勾吃不吃。</p>
-            <div class="meal-menus" data-meal-menus hidden></div>` : ''}
+            ${s.mode !== '公告型' && (s.meal === true || s.meal === '是') ? mealFields() : ''}
             ${isNotice ? '<p class="hint">公告型：只顯示輪值組，不需報名、沒有項目。</p>' : ''}
           </fieldset>
 
@@ -673,7 +669,7 @@
 
           <fieldset class="form-block">
             <legend>DM（照片或 PDF）</legend>
-            <p class="hint">家人們打開這個${F()}就看得到。最多 ${DM_MAX} 個；照片會自動縮小，PDF 一個最大 5MB。有吃飯的話，餐廳的菜單照片也可以放這裡。</p>
+            <p class="hint">家人們打開這個${F()}就看得到。最多 ${DM_MAX} 個；照片會自動縮小，PDF 一個最大 5MB。（課程 DM 放這裡；餐廳菜單請放在上面「🍱 這次有吃飯」那一區。）</p>
             ${s.dm.length ? `<ul class="dm-edit">${s.dm.map((x, i) => `<li>${/^image\//.test(x.mime) ? `<img src="${esc(Api.fileUrl(x.id))}" alt="">` : '<span class="dm-pdf">PDF</span>'}<span class="dm-name">${esc(x.name || '')}</span><button type="button" class="btn btn-small btn-quiet-danger" data-dm-del="${i}">移除</button></li>`).join('')}</ul>` : ''}
             ${s.dm.length < DM_MAX ? '<label class="btn btn-block">＋ 加照片或 PDF<input type="file" accept="image/*,application/pdf" multiple hidden data-dm-file></label>' : ''}
           </fieldset>
@@ -702,6 +698,38 @@
           </div>
         </form>`;
       bind();
+    }
+
+    /** 吃飯的設定（規格 0.5 訂餐重新設計）：點餐方式、選項、菜單（連結、說明、照片）、訂餐截止、餐費轉帳說明 */
+    function mealFields() {
+      const self = s.mealMode === '自己點';
+      const cut = String(s.mealCutoff || '1|12:00').split('|');
+      const days = /^\d$/.test(cut[0]) ? cut[0] : '1';
+      const time = /^\d{2}:\d{2}$/.test(cut[1] || '') ? cut[1] : '12:00';
+      return `<div class="meal-setup">
+        <div class="form-row"><span>點餐方式</span>${segmented('mealMode', [['', '選項'], ['自己點', '自己點']], s.mealMode || '')}</div>
+        ${self ? '<p class="hint">報名的人看菜單，自己一行一行打「要吃什麼、單價、幾份」，會自動算要付多少。下面記得貼菜單連結或照片。</p>' : `<label class="form-row meal-options"><span>餐點選項（選填）</span>
+          <textarea class="input" name="mealOptions" rows="3" placeholder="一行一組，要收錢就在後面寫 $價錢，例：
+主餐：素便當 $80、素麵 $70
+飲料：紅茶 $25、不用">${esc(s.mealOptions || '')}</textarea></label>
+        <p class="hint">有填的話，勾吃飯的人每組要選一個；選項後面寫「$80」就會算餐費（沒寫＝不用錢）。不填＝只勾吃不吃。</p>
+        <div class="meal-menus" data-meal-menus hidden></div>`}
+        <label class="form-row"><span>菜單或店家連結（選填）</span>
+          <input class="input" name="menuUrl" type="url" inputmode="url" value="${esc(s.menuUrl || '')}" placeholder="例：Google 地圖、店家的菜單網址"></label>
+        <label class="form-row"><span>菜單說明（選填）</span>
+          <textarea class="input" name="menuNote" rows="2" maxlength="500" placeholder="例：店名、推薦什麼、全素不含五辛">${esc(s.menuNote || '')}</textarea></label>
+        <div class="form-row"><span>菜單照片（選填，最多 ${DM_MAX} 張）</span>
+          ${s.menuPhotos.length ? `<ul class="dm-edit">${s.menuPhotos.map((x, i) => `<li><img src="${esc(Api.fileUrl(x.id))}" alt=""><span class="dm-name">${esc(x.name || '')}</span><button type="button" class="btn btn-small btn-quiet-danger" data-menu-del="${i}">移除</button></li>`).join('')}</ul>` : ''}
+          ${s.menuPhotos.length < DM_MAX ? '<label class="btn btn-block">＋ 加菜單照片<input type="file" accept="image/*" multiple hidden data-menu-file></label>' : ''}
+        </div>
+        <div class="form-row"><span>訂餐截止</span>
+          <div class="meal-cutoff"><select class="input" name="cutDays">${[0, 1, 2, 3, 4, 5, 6, 7].map((n) => `<option value="${n}"${String(n) === days ? ' selected' : ''}>${n ? '活動前 ' + n + ' 天' : '活動當天'}</option>`).join('')}</select>
+          <input class="input" type="time" name="cutTime" value="${esc(time)}"></div></div>
+        <p class="hint">過了截止還能報名，但不能點餐、改餐（小編在後台不受限制）。好幾天的活動，每一天各自算。</p>
+        <label class="form-row"><span>餐費轉帳說明（要收轉帳時填）</span>
+          <textarea class="input" name="mealPayInfo" rows="2" maxlength="300" placeholder="例：銀行代碼、帳號、戶名">${esc(s.mealPayInfo || '')}</textarea></label>
+        <p class="hint">有餐費時，報名的人可以選現場付現或轉帳；選轉帳的人報名後、在「查我的報名」才看得到這段。</p>
+      </div>`;
     }
 
     function segmented(name, options, value) {
@@ -874,7 +902,7 @@
       const f = body.querySelector('form');
       if (!f) return;
       const val = (n) => (f.elements[n] ? f.elements[n].value : undefined);
-      ['name', 'startTime', 'endTime', 'location', 'attire', 'description', 'start', 'end', 'groupType', 'group', 'deadline', 'stages', 'teachers', 'merge', 'lecturers', 'leaders', 'assistants', 'mealOptions'].forEach((k) => {
+      ['name', 'startTime', 'endTime', 'location', 'attire', 'description', 'start', 'end', 'groupType', 'group', 'deadline', 'stages', 'teachers', 'merge', 'lecturers', 'leaders', 'assistants', 'mealOptions', 'menuUrl', 'menuNote', 'mealPayInfo'].forEach((k) => {
         if (val(k) !== undefined) s[k] = val(k);
       });
       const radio = (n) => { const el = f.querySelector(`input[name="${n}"]:checked`); return el ? el.value : undefined; };
@@ -887,6 +915,8 @@
       if (radio('groupMode')) st.lunar.groupMode = radio('groupMode');
       if (f.elements.multi) s.multi = f.elements.multi.checked;
       if (f.elements.meal) s.meal = f.elements.meal.checked;
+      if (radio('mealMode') !== undefined) s.mealMode = radio('mealMode');
+      if (f.elements.cutDays) s.mealCutoff = val('cutDays') + '|' + (val('cutTime') || '12:00');
       if (f.elements.totalNeed) s.totalNeed = f.elements.totalNeed.value.trim();
       if (f.elements.leaderTitle) s.leaderTitle = f.elements.leaderTitle.value.trim();
       if (f.elements.layout) s.layout = f.elements.layout.checked ? '職司表' : '';
@@ -922,7 +952,7 @@
       // 會改變表單結構的選項：讀回目前的值後重畫
       f.addEventListener('change', (ev) => {
         const n = ev.target.name;
-        if (['mode', 'dateType', 'groupType', 'groupMode', 'rotation', 'category', 'quotaMode', 'layout', 'multiFreq', 'multi', 'meal'].indexOf(n) === -1) return;
+        if (['mode', 'dateType', 'groupType', 'groupMode', 'rotation', 'category', 'quotaMode', 'layout', 'multiFreq', 'multi', 'meal', 'mealMode'].indexOf(n) === -1) return;
         sync();
         if (n === 'groupType') { s.group = ''; st.lunar.rotation = []; st.lunar.rotationStart = 0; }
         if (n === 'dateType' && st.dateType === 'range' && !s.end) s.end = s.start;
@@ -955,6 +985,28 @@
         render();
       });
       f.querySelectorAll('[data-dm-del]').forEach((b) => b.addEventListener('click', () => { sync(); s.dm.splice(Number(b.dataset.dmDel), 1); render(); }));
+      const menuFile = f.querySelector('[data-menu-file]');
+      if (menuFile) menuFile.addEventListener('change', async (ev) => {
+        const files = [...ev.target.files].filter((x) => /^image\//.test(x.type)).slice(0, DM_MAX - s.menuPhotos.length);
+        ev.target.value = '';
+        if (!files.length) return;
+        sync();
+        Busy.show('上傳中⋯', '請不要關閉畫面');
+        try {
+          for (const file of files) {
+            const img = await shrinkImage(file);
+            const res = await Api.admin('adminUploadFile', { mime: img.mime, name: file.name, data: img.data });
+            s.menuPhotos.push({ id: res.id, name: file.name, mime: img.mime });
+          }
+          Busy.hide();
+        } catch (e) {
+          Busy.hide();
+          if (e.code === 'UNAUTHORIZED') { ctx.guard(e); return; }
+          alertError(e.message || '上傳失敗，請稍後再試');
+        }
+        render();
+      });
+      f.querySelectorAll('[data-menu-del]').forEach((b) => b.addEventListener('click', () => { sync(); s.menuPhotos.splice(Number(b.dataset.menuDel), 1); render(); }));
       function alertError(msg) { const box = f.querySelector('[data-error]'); box.textContent = msg; box.hidden = false; }
       const add = f.querySelector('[data-add-pos]');
       if (add) add.addEventListener('click', () => {
@@ -1004,7 +1056,13 @@
         stages: s.mode === '公告型' || isSimple(s.category) || s.layout !== '職司表' ? '' : (s.stages || ''),
         multi: s.mode === '公告型' ? false : !!(s.multi === true || s.multi === '是'),
         meal: s.mode !== '公告型' && (s.meal === true || s.meal === '是'),
-        mealOptions: s.mode !== '公告型' && (s.meal === true || s.meal === '是') ? String(s.mealOptions || '') : '',
+        mealOptions: s.mode !== '公告型' && (s.meal === true || s.meal === '是') && s.mealMode !== '自己點' ? String(s.mealOptions || '') : '',
+        mealMode: s.mealMode === '自己點' ? '自己點' : '',
+        menuUrl: String(s.menuUrl || '').trim(),
+        menuNote: String(s.menuNote || ''),
+        menuPhotos: s.menuPhotos,
+        mealCutoff: s.mealCutoff || '1|12:00',
+        mealPayInfo: String(s.mealPayInfo || ''),
         totalNeed: s.mode !== '公告型' && (s.multi === true || s.multi === '是') ? String(s.totalNeed || '') : '',
         leaderTitle: s.mode !== '公告型' && (s.category || '勤務') === '勤務' ? String(s.leaderTitle || '') : '',
         positions: s.mode === '公告型' ? [] : isSimple(s.category)

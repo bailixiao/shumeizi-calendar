@@ -366,6 +366,9 @@ function mealSummary_(duty, signups, date) {
   var out = { total: 0, items: [], fee: 0, paid: 0, unpaid: 0, notes: [], people: [] };
   var self = duty['點餐方式'] === MEAL_SELF;
   var groups = self ? [] : parseMealOptions_(duty['餐點選項']);
+  var rank = {};
+  groups.forEach(function (g, gi) { g.options.forEach(function (o, oi) { rank[groups.length > 1 ? g.name + '・' + o : o] = gi * 100 + oi; }); });
+  function optionRank_(n) { return rank[n] === undefined ? 9999 : rank[n]; }
   function add(name, qty) {
     if (!items[name]) { items[name] = 0; order.push(name); }
     items[name] += qty;
@@ -391,8 +394,10 @@ function mealSummary_(duty, signups, date) {
       pay: s['餐費付款'] || '', last5: s['餐費末五碼'] || '', paid: paid, note: s['餐點備註'] || ''
     });
   });
-  out.items = order.map(function (n) { return { name: n, qty: items[n] }; })
-    .sort(function (a, b) { return b.qty - a.qty; });
+  out.items = order.map(function (n) { return { name: n, qty: items[n] }; });
+  // 選項照後台填的順序（主餐、飲料⋯）；自己點的份數多的在前
+  if (self) out.items.sort(function (a, b) { return b.qty - a.qty; });
+  else out.items.sort(function (a, b) { return optionRank_(a.name) - optionRank_(b.name); });
   return out;
 }
 

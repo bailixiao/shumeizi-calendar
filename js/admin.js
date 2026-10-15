@@ -147,6 +147,7 @@
     if (sub === 'logs' && seesLogs()) return AdminPages.logs(shell('logs'), guard);
     if (sub === 'day' && seesRoster()) return AdminPages.day(shell('day'), guard);
     if (sub === 'push' && seesRoster()) return PushAdminPage.show(shell('push'), guard);
+    if (/^meals(\?|$)/.test(sub) && seesRoster()) return MealAdmin.show(shell('meals'), guard, sub); // 🍱 訂餐統計
     if (/^shop(\/|$)/.test(sub) && seesShop()) return ShopAdminPage.show(shell('shop'), guard, sub);
     return showRecent();
   }
@@ -155,13 +156,13 @@
   function shell(active) {
     const who = Api.adminWho();
     const T = term();
-    const tabs = [['', '近期' + T], ['duties', T + '管理'], ['members', '成員']].concat(Fmt.feature('groups') ? [['groups', '分組']] : [], [['stats', '統計'], ['logs', '操作紀錄'], ['day', '名單'], ['push', '📣 推播']]);
+    const tabs = [['', '近期' + T], ['duties', T + '管理'], ['members', '成員']].concat(Fmt.feature('groups') ? [['groups', '分組']] : [], [['stats', '統計'], ['logs', '操作紀錄'], ['day', '名單'], ['meals', '🍱 訂餐'], ['push', '📣 推播']]);
     if (Fmt.feature('venue') && ['總管理者', '唯讀'].indexOf(who.role) !== -1) tabs.push(['venue', '場地借用']);
     if (seesShop()) tabs.splice(1, 0, ['shop', '🛒 團購']);
     if (who.role === '總管理者') tabs.push(['accounts', '帳號']);
     if (who.role === '唯讀') tabs.splice(tabs.findIndex((t) => t[0] === 'duties'), 1); // 唯讀帳號：不顯示活動管理
     if (!seesLogs()) tabs.splice(tabs.findIndex((t) => t[0] === 'logs'), 1); // 操作紀錄只給總管理者
-    if (!seesRoster()) ['day', 'push'].forEach((k) => tabs.splice(tabs.findIndex((t) => t[0] === k), 1)); // 名單、推播：總管理者、勤務、道務、教育
+    if (!seesRoster()) ['day', 'meals', 'push'].forEach((k) => tabs.splice(tabs.findIndex((t) => t[0] === k), 1)); // 名單、推播：總管理者、勤務、道務、教育
     if (who.role === '場管') tabs.splice(0, tabs.length, ['venue', '場地借用']);
     tabs.push(['help', '📖 教學']);
     root.innerHTML = `
@@ -401,19 +402,24 @@
     }, body, preview);
   }
 
-  /** 吃飯統計（spec 第 0.5 節）：這天幾位、各選項幾份、有寫備註的人；只有後台看得到 */
+  /** 吃飯統計（spec 第 0.5 節＋訂餐重新設計）：這天幾位、各餐點幾份、餐費、有寫備註的人；只有後台看得到 */
   function mealStatsHtml(d, date) {
+    const sum = d.mealSummary && d.mealSummary[date];
     const st = d.mealStats && d.mealStats[date];
-    if (!st) return '';
+    if (!sum && !st) return '';
+    const total = sum ? sum.total : st.total;
     return `<div class="meal-stats">
-      <p><strong>🍱 吃飯 ${st.total} 位</strong>${st.total ? ' <button type="button" class="btn btn-small" data-meal-copy>📋 複製</button>' : ''}</p>
-      ${st.groups.map((g) => `<p>${esc(g.name)}：${g.counts.map((c) => `${esc(c.option)} <strong>${c.count}</strong>`).join('、')}</p>`).join('')}
-      ${st.notes.length ? `<p>備註：</p><ul>${st.notes.map((n) => `<li>${esc(n.name)}：${esc(n.note)}</li>`).join('')}</ul>` : ''}
+      <p><strong>🍱 吃飯 ${total} 位</strong>${total ? ' <button type="button" class="btn btn-small" data-meal-copy>📋 複製給店家</button>' : ''} <a class="btn btn-small" href="#/admin/meals?duty=${encodeURIComponent(d.id)}&date=${date}">訂餐統計 ›</a></p>
+      ${sum && sum.items.length ? `<p>${sum.items.map((x) => `${esc(x.name)} <strong>${x.qty}</strong>`).join('、')}</p>` : ''}
+      ${sum && sum.fee ? `<p>餐費 ${MealUI.money(sum.fee)}（已付 ${MealUI.money(sum.paid)}・未付 ${MealUI.money(sum.unpaid)}）</p>` : ''}
+      ${(sum || st).notes.length ? `<p>備註：</p><ul>${(sum || st).notes.map((n) => `<li>${esc(n.name)}：${esc(n.note)}</li>`).join('')}</ul>` : ''}
     </div>`;
   }
 
-  /** 複製給訂餐的人 */
+  /** 複製給店家：品項、份數、備註（不含名字、錢） */
   function mealStatsText(d, date) {
+    const sum = d.mealSummary && d.mealSummary[date];
+    if (sum) return MealAdmin.shopText(d.name, date, sum);
     const st = d.mealStats[date];
     return [`${d.name} ${Fmt.shortDate(date)}`, `吃飯 ${st.total} 位`]
       .concat(st.groups.map((g) => `${g.name}：${g.counts.filter((c) => c.count).map((c) => `${c.option} ${c.count}`).join('、') || '（沒有）'}`))
@@ -445,7 +451,7 @@
             <li class="person-row${past && s.attend === '未到' ? ' is-absent' : ''}">
               <span class="person"><span class="person-name">${s.leader ? '<span class="grid-star" title="組長">★</span>' : ''}${esc(s.name)}</span>${s.leader && d.leaderTitle ? `<span class="tag tag-leader">${esc(d.leaderTitle)}</span>` : ''}${s.temple ? `<span class="tag">${esc(s.temple)}</span>` : ''}
                 ${window.SITE.identity === false ? '' : s.identity ? `<span class="tag">${esc(s.identity)}</span>` : '<span class="tag tag-warn">未填身分</span>'}
-                ${s.meal ? `<span class="tag">🍱 ${esc(MealUI.label(d.mealOptions, s.mealChoice) || '吃飯')}</span>${s.mealNote ? `<span class="tag">備註：${esc(s.mealNote)}</span>` : ''}` : ''}
+                ${s.meal ? `<span class="tag">🍱 ${esc(s.mealLabel || MealUI.label(d.mealOptions, s.mealChoice) || '吃飯')}</span>${s.mealFee ? `<span class="tag${s.mealPaid ? ' tag-ok' : ''}">${MealUI.money(s.mealFee)} ${s.mealPaid ? '已付' : '未付'}</span>` : ''}${s.mealNote ? `<span class="tag">備註：${esc(s.mealNote)}</span>` : ''}` : ''}
                 ${s.accompany ? '<span class="tag">陪同</span>' : ''}
                 ${past && s.attend === '未到' ? '<span class="tag tag-warn">未到</span>' : ''}
                 ${s.note ? `<span class="tag">註：${esc(s.note)}</span>` : ''}
@@ -528,7 +534,9 @@
     body.querySelectorAll('[data-note]').forEach((b) => b.addEventListener('click', () => editNote(find(b.dataset.note))));
     body.querySelectorAll('[data-meal-edit]').forEach((b) => b.addEventListener('click', async () => {
       const s = find(b.dataset.mealEdit);
-      const res = await MealUI.edit({ title: '🍱 ' + s.name + ' 的吃飯', sub: Fmt.rocDate(s.date), groups: d.mealOptions, meal: s.meal, choice: s.mealChoice, note: s.mealNote,
+      const res = await MealUI.edit({ title: '🍱 ' + s.name + ' 的吃飯', sub: Fmt.rocDate(s.date) + '（小編不受訂餐截止限制）',
+        d: { mealMode: d.mealMode, mealOptions: d.mealOptions, menuUrl: d.menuUrl, menuNote: d.menuNote, menuPhotos: d.menuPhotos },
+        meal: s.meal, choice: s.mealChoice, order: s.mealOrder, note: s.mealNote, pay: s.mealPay, last5: s.mealLast5,
         submit: (body) => Api.admin('adminUpdateMeal', Object.assign({ signupId: s.id }, body)) });
       if (!res) return;
       dutyPage.flash = notice('success', '已更新吃飯', s.name);
@@ -537,7 +545,7 @@
     const mc = body.querySelector('[data-meal-copy]');
     if (mc) mc.addEventListener('click', async () => {
       mc.textContent = (await Share.copyText(mealStatsText(d, date))) ? '已複製 ✓' : '複製失敗';
-      setTimeout(() => { mc.textContent = '📋 複製'; }, 2500);
+      setTimeout(() => { mc.textContent = '📋 複製給店家'; }, 2500);
     });
     body.querySelectorAll('[data-acc]').forEach((b) => b.addEventListener('click', () => {
       const s = find(b.dataset.acc);
@@ -635,6 +643,7 @@
   /** 管理者加人：當天與過去叫「補登」（沒報名但有來的人，記為出席）；未來叫「幫人報名」（不受截止日限制） */
   function addAttendee(p, date) {
     const d = dutyPage.data;
+    const walkinOrder = [MealUI.blankLine()]; // 自己點的活動：幫他打要吃什麼
     const past = date <= d.today;
     const word = past ? '補登' : '報名';
     const noId = window.SITE.identity === false; // 書槑子：不選身分；第一次來的人選認識管道
@@ -656,7 +665,7 @@
           <label class="form-row" data-ref-row hidden><span>介紹人</span><input class="input" name="referrer" maxlength="20"></label>
           <label class="form-row" data-note-row hidden><span>在哪裡知道的（選填）</span><input class="input" name="sourceNote" maxlength="50"></label>
         </div>` : ''}
-        ${d.meal ? `<label class="check"><input type="checkbox" name="meal"> 🍱 會一起吃飯</label><div data-meal-area hidden>${MealUI.html(d.mealOptions, {}, '', 'walkin')}</div>` : ''}
+        ${d.meal ? `<label class="check"><input type="checkbox" name="meal"> 🍱 會一起吃飯</label><div data-meal-area hidden>${d.mealMode === MealUI.SELF ? MealUI.orderHtml(walkinOrder, '', 'walkin') : MealUI.html(d.mealOptions, {}, '', 'walkin')}</div>` : ''}
         ${d.layout === '職司表' ? '<label class="form-row"><span>註記（可空白）</span><input class="input" name="note" maxlength="100" placeholder="例：8:00-19:00、代理人"></label>' : ''}
         <div class="form-error" data-error hidden></div>
         <div class="modal-actions">
@@ -698,6 +707,7 @@
       onName();
     });
     if (d.meal) MealUI.bindChips(f);
+    if (d.meal && d.mealMode === MealUI.SELF) MealUI.bindOrder(f, () => walkinOrder, () => { const area = f.querySelector('[data-meal-area]'); const n = area.querySelector('[data-meal-note]'); area.innerHTML = MealUI.orderHtml(walkinOrder, n ? n.value : '', 'walkin'); });
     f.addEventListener('change', () => {
       if (f.elements.meal) f.querySelector('[data-meal-area]').hidden = !f.elements.meal.checked;
       if (f.elements.source) {
@@ -720,9 +730,9 @@
         : f.elements.source.value === '朋友介紹' && !f.elements.referrer.value.trim() ? '請填介紹人' : '';
       const mealOn = !!(f.elements.meal && f.elements.meal.checked);
       const mealVal = mealOn ? MealUI.read(f) : { mealChoice: {}, mealNote: '' };
-      const mealMiss = mealOn ? MealUI.missing(d.mealOptions, mealVal.mealChoice) : '';
+      const mealMiss = mealOn ? MealUI.problem(d, { mealChoice: mealVal.mealChoice, mealOrder: walkinOrder }) : '';
       if (!name || (!noId && !identity) || srcProblem || mealMiss) {
-        box.textContent = !name ? '請填姓名' : srcProblem || (mealMiss ? '請選「' + mealMiss + '」' : '請選道親、壇辦或未求道');
+        box.textContent = !name ? '請填姓名' : srcProblem || mealMiss || '請選道親、壇辦或未求道';
         box.hidden = false;
         return;
       }
@@ -730,7 +740,7 @@
       Busy.show(word + '中⋯');
       try {
         const res = await Api.admin('adminAddAttendee', { dutyId: d.id, positionId: p.id, date, name, temple: f.dataset.temple || '', identity: identity ? identity.value : '', accompany: f.elements.accompany.checked, note: f.elements.note ? f.elements.note.value.trim() : '',
-          meal: mealOn, mealChoice: mealVal.mealChoice, mealNote: mealVal.mealNote,
+          meal: mealOn, mealChoice: d.mealMode === MealUI.SELF ? {} : mealVal.mealChoice, mealOrder: d.mealMode === MealUI.SELF ? MealUI.orderPayload(walkinOrder) : [], mealNote: mealVal.mealNote,
           source: newcomer ? f.elements.source.value : '', referrer: newcomer ? f.elements.referrer.value.trim() : '', sourceNote: newcomer ? f.elements.sourceNote.value.trim() : '' });
         Busy.hide();
         m.close();

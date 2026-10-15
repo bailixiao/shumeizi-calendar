@@ -60,12 +60,14 @@
             <button type="button" class="btn" data-add>加入</button>
           </div>
           <div class="suggestions" data-suggestions aria-live="polite"></div>
+          ${duty.meal ? '<div data-meal-menu></div>' : ''}
           <ul class="name-list" data-names></ul>
           ${duty.leaderTitle ? '<div class="leader-pick" data-leader-pick></div>' : ''}
           <p class="hint">${NO_IDENTITY
             ? `想揪朋友一起來？可以連續加入好幾個名字 🙌${perPerson ? '，每個名字下面各自勾項目' : duty.positions.length > 1 ? '；有人要報不同的項目，按他名字下的<span class="nw">「這個人改報別的」</span>' : ''}。${SOURCES.length ? '第一次來的朋友，請幫他選一下<span class="nw">「怎麼認識我們」</span>。' : ''}`
             : `幫長輩或家人報名時，可以連續加入多個名字${perPerson ? '，每個名字下面各自勾項目' : duty.positions.length > 1 ? '；有人要報不同的項目，按他名字下的<span class="nw">「這個人改報別的」</span>' : ''}。每個名字都要選<span class="nw">「道親」</span><span class="nw">「壇辦」</span>或<span class="nw">「未求道」</span>（成員名單上已登記的會自動帶入，不能改）。壇辦可選<span class="nw">「陪同」</span>，陪同不佔名額。`}</p>
         </fieldset>
+        ${duty.meal ? '<div data-meal-pay-box></div>' : ''}
         <div class="form-error" data-error role="alert" hidden></div>
         <button type="submit" class="btn btn-primary btn-block" data-submit>${NO_IDENTITY ? '我要去！' : '確認報名'}</button>
       </form>`;
@@ -161,7 +163,47 @@
 
     // ---------- 名字 ----------
 
+    // ---------- 吃飯（規格 0.5 訂餐重新設計） ----------
+
+    const SELF_ORDER = duty.mealMode === MealUI.SELF;
+    /** 選的日期裡已經過了訂餐截止的第一天（沒有＝還能點餐） */
+    function mealClosedDate() {
+      if (!duty.meal) return '';
+      const dates = state.dates.size ? [...state.dates].sort() : [];
+      return dates.find((d) => !MealUI.isOpen(duty.mealCutoff, d)) || '';
+    }
+    function mealRow(e, i) {
+      const closed = mealClosedDate();
+      if (closed) {
+        e.meal = false;
+        return `<div class="option-row meal-row"><span class="option-label">吃飯</span><p class="muted">🍱 訂餐已經截止（${esc(MealUI.deadlineText(MealUI.deadline(duty.mealCutoff, closed)))}），這次不能點餐</p></div>`;
+      }
+      if (SELF_ORDER && !Array.isArray(e.mealOrder)) e.mealOrder = [MealUI.blankLine()];
+      const why = state.showMissing && e.meal ? MealUI.problem(duty, e) : '';
+      return `<div class="option-row meal-row"><span class="option-label">吃飯</span><div><label class="check"><input type="checkbox" data-meal="${i}"${e.meal ? ' checked' : ''}> 🍱 我會一起吃飯</label>
+        ${e.meal ? (SELF_ORDER ? MealUI.orderHtml(e.mealOrder, e.mealNote, i, !!why) : MealUI.html(duty.mealOptions, e.mealChoice, e.mealNote, i, state.showMissing)) : ''}</div></div>`;
+    }
+    /** 這次報名的餐費：每個人每一天 */
+    function mealTotal() {
+      if (!duty.meal || mealClosedDate()) return 0;
+      const days = Math.max(1, state.dates.size);
+      return state.entries.reduce((a, e) => a + (e.meal ? MealUI.feeOf(duty, e) : 0), 0) * days;
+    }
+    /** 名字上面的菜單、下面的付款 */
+    function renderMealExtra() {
+      if (!duty.meal) return;
+      const anyMeal = state.entries.some((e) => e.meal) && !mealClosedDate();
+      const menu = $('[data-meal-menu]');
+      if (menu) menu.innerHTML = anyMeal ? MealUI.menuHtml(duty) : '';
+      const payBox = $('[data-meal-pay-box]');
+      if (!payBox) return;
+      const total = mealTotal();
+      const days = state.dates.size;
+      payBox.innerHTML = MealUI.payHtml(total, state.mealPay, state.mealLast5, days > 1 ? days + ' 天一起算' : '');
+    }
+
     function renderNames() {
+      setTimeout(renderMealExtra, 0);
       $('[data-names]').innerHTML = state.entries.map((e, i) => {
         const missing = state.showMissing && !NO_IDENTITY && !e.identity;
         const srcMissing = state.showMissing && sourceProblem(e);
@@ -184,8 +226,7 @@
               </div>`}
             </div>`}
             ${SOURCES.length && e.known === false ? sourceHtml(e, i) : ''}
-            ${duty.meal ? `<div class="option-row meal-row"><span class="option-label">吃飯</span><div><label class="check"><input type="checkbox" data-meal="${i}"${e.meal ? ' checked' : ''}> 🍱 我會一起吃飯</label>
-              ${e.meal ? MealUI.html(duty.mealOptions, e.mealChoice, e.mealNote, i, state.showMissing) : ''}</div></div>` : ''}
+            ${duty.meal ? mealRow(e, i) : ''}
             ${duty.positions.length > 1 ? (e.custom ? `<div class="option-row">
               <span class="option-label">項目</span>
               <div>
@@ -485,11 +526,14 @@
         state.showMissing = true;
         renderNames();
       }
-      if (duty.meal && state.entries.some((e) => e.meal && MealUI.missing(duty.mealOptions, e.mealChoice))) {
-        problems.push('會一起吃飯的人，請選' + (duty.mealOptions || []).map((g) => '「' + g.name + '」').join(''));
+      const mealWhy = duty.meal && !mealClosedDate() ? state.entries.filter((e) => e.meal).map((e) => MealUI.problem(duty, e)).find(Boolean) : '';
+      if (mealWhy) {
+        problems.push(SELF_ORDER ? '會一起吃飯的人，' + mealWhy : '會一起吃飯的人，請選' + (duty.mealOptions || []).map((g) => '「' + g.name + '」').join(''));
         state.showMissing = true;
         renderNames();
       }
+      if (mealTotal() && !state.mealPay) problems.push('請選餐費怎麼付（現場付現或轉帳）');
+      if (mealTotal() && state.mealPay === '轉帳' && state.mealLast5 && !/^\d{5}$/.test(state.mealLast5)) problems.push('轉帳末五碼要是 5 個數字');
       if (!NO_IDENTITY && state.entries.some((e) => !e.identity)) {
         problems.push('請為每個名字選擇「道親」「壇辦」或「未求道」');
         state.showMissing = true;
@@ -514,8 +558,10 @@
         positionId: chosen[0].id,
         positionIds: chosen.map((p) => p.id),
         dates: Array.from(state.dates).sort(),
+        mealPay: mealTotal() ? state.mealPay || '' : '',
+        mealLast5: mealTotal() && state.mealPay === '轉帳' ? state.mealLast5 || '' : '',
         entries: state.entries.map((e) => ({ name: e.name, temple: e.temple || '', identity: e.identity, accompany: e.accompany,
-          meal: !!duty.meal && !!e.meal, mealChoice: duty.meal && e.meal ? e.mealChoice || {} : {}, mealNote: duty.meal && e.meal ? String(e.mealNote || '').trim() : '', source: e.known === false ? e.source || '' : '', referrer: e.known === false && e.source === '朋友介紹' ? normalize(e.referrer) : '',
+          meal: !!duty.meal && !!e.meal && !mealClosedDate(), mealChoice: duty.meal && e.meal && !SELF_ORDER ? e.mealChoice || {} : {}, mealOrder: duty.meal && e.meal && SELF_ORDER ? MealUI.orderPayload(e.mealOrder) : undefined, mealNote: duty.meal && e.meal ? String(e.mealNote || '').trim() : '', source: e.known === false ? e.source || '' : '', referrer: e.known === false && e.source === '朋友介紹' ? normalize(e.referrer) : '',
           sourceNote: e.known === false && e.source === '其他' ? normalize(e.sourceNote) : '', birthday: e.known === false ? e.birthday || '' : '', leader: !!duty.leaderTitle && !e.accompany && e.name === state.leader, note: duty.layout === '職司表' ? String(e.note || '').trim() : '', positionIds: duty.positions.filter((p) => e.positionIds.has(p.id)).map((p) => p.id) }))
       };
       // 每個人報的項目不一樣時，成功訊息逐人列出
@@ -642,7 +688,7 @@
         else state.dates.delete(ev.target.value);
         renderDates();
         renderPositions();
-        if (perPerson) renderNames();
+        if (perPerson || duty.meal) renderNames();
       });
     }
 
@@ -716,7 +762,7 @@
       }
       if (t.dataset.meal !== undefined) {
         state.entries[Number(t.dataset.meal)].meal = t.checked;
-        if ((duty.mealOptions || []).length || t.checked) renderNames(); // 勾了才出現餐點選項、備註
+        renderNames(); // 勾了才出現點餐、備註、菜單、付款
         return;
       }
       if (t.dataset.mealPick !== undefined) {
@@ -747,7 +793,18 @@
       if (t.dataset.sourceNote !== undefined) state.entries[Number(t.dataset.sourceNote)].sourceNote = t.value;
       if (t.dataset.birthday !== undefined) state.entries[Number(t.dataset.birthday)].birthday = t.value;
       if (t.dataset.mealNote !== undefined) state.entries[Number(t.dataset.mealNote)].mealNote = t.value;
+      if (t.dataset.mealLast5 !== undefined) state.mealLast5 = t.value.trim();
     });
+    // 餐費付款方式（在名字外面）
+    form.addEventListener('change', (ev) => {
+      if (ev.target.dataset.mealPay === undefined) return;
+      state.mealPay = ev.target.value;
+      renderMealExtra();
+    });
+    // 自己點：打字不重畫，只更新小計和餐費
+    if (duty.meal && SELF_ORDER) {
+      MealUI.bindOrder($('[data-names]'), (key) => state.entries[Number(key)].mealOrder, () => renderNames(), renderMealExtra);
+    }
     form.addEventListener('submit', submit);
 
     renderPositions();

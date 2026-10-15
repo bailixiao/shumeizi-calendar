@@ -73,6 +73,8 @@ function adminDuty_(body) {
       s.mealNote = row['餐點備註'] || '';
       s.mealFee = Number(row['餐費']) || 0;
       s.mealPaid = row['餐費已付'] === '是';
+      s.mealPay = row['餐費付款'] || '';
+      s.mealLast5 = row['餐費末五碼'] || '';
     }
   });
   // 吃飯統計：每天各選項幾份、有寫備註的人（Meal.gs）
@@ -87,7 +89,7 @@ function adminDuty_(body) {
     });
     data.mealMode = dutyRow['點餐方式'] === MEAL_SELF ? MEAL_SELF : '';
     // 名單標籤：自己點的寫「素便當×2・紅茶」
-    if (data.mealMode) data.signups.forEach(function (s) { if (s.meal) { s.mealLabel = mealLabelOf_(dutyRow, (byId[s.id] || {})['餐點']); s.mealChoice = {}; } });
+    if (data.mealMode) data.signups.forEach(function (s) { if (s.meal) { s.mealLabel = mealLabelOf_(dutyRow, (byId[s.id] || {})['餐點']); s.mealOrder = parseMealOrder_((byId[s.id] || {})['餐點']); s.mealChoice = {}; } });
   }
   data.groupContact = adminGroupContact_(data.groupType, data.group);
   return data;

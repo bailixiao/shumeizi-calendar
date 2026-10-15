@@ -112,6 +112,26 @@ const SHOTS = [
       const meal = document.querySelector('[data-meal]'); if (meal && !meal.checked) meal.click(); await __wait(300);
       const pk = (g, o) => { const r = document.querySelector('input[data-meal-group="' + g + '"][value="' + o + '"]'); if (r) r.click(); }; pk('主餐', '素便當'); await __wait(200); pk('飲料', '紅茶'); await __wait(300);`,
     clip: `const h = [...document.querySelectorAll('#view-duty h2')].find((x) => x.textContent.includes('我要報名')); h.scrollIntoView(); const r2 = h.getBoundingClientRect(); const end = document.querySelector('[data-submit]').getBoundingClientRect(); return { x: 0, y: r2.top + scrollY - 8, width: innerWidth, height: end.bottom - r2.top + 20 };` },
+  // 訂餐（2026/10/16）：自己點（槑青韜課館，示範資料是「自己點」）
+  { name: 'meal-self', hash: null, js: `const d = (await __g({ action: 'getEvents', from: '${SUN}', to: '${SUN}' })).data.duties.find((x) => x.name.includes('韜課館'));
+      location.hash = '#/duty/' + encodeURIComponent(d.id) + '?date=${SUN}'; await __wait(2500);
+      const inp = document.querySelector('[data-name-input]'); inp.value = '王小明'; inp.dispatchEvent(new Event('input', { bubbles: true }));
+      document.querySelector('[data-add]').click(); await __wait(2500);
+      const meal = document.querySelector('[data-meal]'); if (meal && !meal.checked) meal.click(); await __wait(300);
+      const set = (sel, i, v) => { const e = document.querySelectorAll(sel)[i]; e.value = v; e.dispatchEvent(new Event('input', { bubbles: true })); };
+      set('[data-of="name"]', 0, '咖哩飯'); set('[data-of="price"]', 0, '90');
+      document.querySelector('[data-order-add]').click(); await __wait(300);
+      set('[data-of="name"]', 1, '豆漿'); set('[data-of="price"]', 1, '25'); set('[data-of="qty"]', 1, '2'); await __wait(300);`,
+    clip: `const a = document.querySelector('.meal-menu-box'); a.scrollIntoView(); const r = a.getBoundingClientRect(); const b = document.querySelector('[data-meal-pay-box]').getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 8, width: innerWidth, height: b.bottom - r.top + 16 };` },
+  // 訂餐：有餐費時選付款（靈魂健身房，選項有價錢）
+  { name: 'meal-pay', hash: null, js: `const d = (await __g({ action: 'getEvents', from: '${GYM}', to: '${GYM}' })).data.duties.find((x) => x.name.includes('靈魂健身房'));
+      location.hash = '#/duty/' + encodeURIComponent(d.id) + '?date=${GYM}'; await __wait(2500);
+      const inp = document.querySelector('[data-name-input]'); inp.value = '王小明'; inp.dispatchEvent(new Event('input', { bubbles: true }));
+      document.querySelector('[data-add]').click(); await __wait(2500);
+      const meal = document.querySelector('[data-meal]'); if (meal && !meal.checked) meal.click(); await __wait(300);
+      const pk = (g, o) => { const r = document.querySelector('input[data-meal-group="' + g + '"][value="' + o + '"]'); if (r) r.click(); }; pk('主餐', '素麵'); await __wait(200); pk('飲料', '紅茶'); await __wait(300);
+      document.querySelector('[data-meal-pay][value="轉帳"]').click(); await __wait(300);`,
+    clip: `const a = document.querySelector('.meal-pick'); a.scrollIntoView(); const r = a.getBoundingClientRect(); const b = document.querySelector('[data-submit]').getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 8, width: innerWidth, height: b.bottom - r.top + 16 };` },
   { name: 'mine-list', hash: '#/mine', js: `localStorage.setItem('shumeizi:mine-name', '測試甲'); location.hash = '#/'; await __wait(200); location.hash = '#/mine'; await __wait(2000);`,
     clip: `return { x: 0, y: 0, width: innerWidth, height: 1000 };` },
   { name: 'mine-multi', hash: '#/mine', js: `localStorage.setItem('shumeizi:mine-name', '測試甲'); location.hash = '#/'; await __wait(200); location.hash = '#/mine'; await __wait(2000);
@@ -147,6 +167,14 @@ const SHOTS = [
   { name: 'adm-meal', admin: true, hash: '#/admin', js: `const d = (await __g({ action: 'getEvents', from: '${GYM}', to: '${GYM}' })).data.duties.find((x) => x.name.includes('靈魂健身房'));
       location.hash = '#/admin/duty/' + encodeURIComponent(d.id); await __wait(3000);`,
     clip: `const a = document.querySelector('.meal-stats'); a.scrollIntoView(); const r = a.getBoundingClientRect(); const b = a.parentElement.querySelector('.position-list').getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 8, width: innerWidth, height: b.bottom - r.top + 16 };` },
+  // 後台：點餐設定（槑青韜課館，自己點＋菜單）
+  { name: 'adm-meal-setup', admin: true, hash: '#/admin', js: `const d = (await __g({ action: 'getEvents', from: '${SUN}', to: '${SUN}' })).data.duties.find((x) => x.name.includes('韜課館'));
+      location.hash = '#/admin/duties/edit/' + encodeURIComponent(d.id); await __wait(3000);`,
+    clip: `const a = document.querySelector('.meal-toggle'); a.scrollIntoView(); const r = a.getBoundingClientRect(); const b = document.querySelector('.meal-setup').getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 8, width: innerWidth, height: b.bottom - r.top + 16 };` },
+  // 後台：🍱 訂餐統計
+  { name: 'adm-meal-orders', admin: true, hash: '#/admin', js: `const d = (await __g({ action: 'getEvents', from: '${SUN}', to: '${SUN}' })).data.duties.find((x) => x.name.includes('韜課館'));
+      location.hash = '#/admin/meals?duty=' + encodeURIComponent(d.id) + '&date=${SUN}'; await __wait(3000);`,
+    clip: `window.scrollTo(0, 0); const b = document.querySelector('.meal-people').getBoundingClientRect(); return { x: 0, y: 0, width: innerWidth, height: b.bottom + scrollY + 20 };` },
   { name: 'adm-venue', admin: true, hash: '#/admin/venue', js: `await __wait(2000);`,
     clip: `const el = document.querySelector('.venue-reqs'); return __box(el.closest('[data-body]') || el, 4);` }
 ];

@@ -32,9 +32,9 @@ async function seedDemo(call, get) {
   };
   const join = { name: '參加', min: '0' };
   const duties = [
-    ...[gym, gym2, addDays(gym, 28)].map((d) => ({ name: '槑子的靈魂健身房', category: '道務', nature: '課程', start: d, startTime: '19:30', endTime: '21:30', location: '竹北', meal: true, mealOptions: '主餐：素便當、素麵\n飲料：紅茶、綠茶、不用',
+    ...[gym, gym2, addDays(gym, 28)].map((d) => ({ name: '槑子的靈魂健身房', category: '道務', nature: '課程', start: d, startTime: '19:30', endTime: '21:30', location: '竹北', meal: true, mealOptions: '主餐：素便當 $80、素麵 $70\n飲料：紅茶 $25、綠茶 $25、不用', mealCutoff: '0|17:00', mealPayInfo: '（示範）轉帳帳號：測試銀行 000-0000000-000',
       description: '用我們的筆，寫出我們的故事 ✍️\n18:30 可以提早來一起吃飯 🍱', positions: [join] })),
-    ...[sun, addDays(sun, 14)].map((d) => ({ name: '槑青韜課館', category: '教育', nature: '課程', start: d, startTime: '11:30', endTime: '15:00', location: '安東彌勒山（厚德樓）', meal: true,
+    ...[sun, addDays(sun, 14)].map((d) => ({ name: '槑青韜課館', category: '教育', nature: '課程', start: d, startTime: '11:30', endTime: '15:00', location: '安東彌勒山（厚德樓）', meal: true, mealMode: '自己點', menuUrl: 'https://www.google.com/maps/search/%E7%B4%A0%E9%A3%9F', menuNote: '（示範）這次吃巷口的素食小館，全素不含五辛；看菜單打要吃什麼、價錢', mealCutoff: '1|20:00', mealPayInfo: '（示範）轉帳帳號：測試銀行 000-0000000-000',
       description: '11:30 先吃飯，12:30 開課', positions: [join] })),
     ...[sun, sun2].map((d) => ({ name: '植素園出攤', category: '植素', nature: '出攤', start: d, startTime: '09:00', endTime: '13:00', location: '宏宗聖堂道學院',
       description: '植素園的蔬食與手作，歡迎來逛逛、取團購 🌿', positions: [join] })),
@@ -45,17 +45,17 @@ async function seedDemo(call, get) {
   if (!r.ok) throw new Error('示範活動建立失敗：' + JSON.stringify(r.error));
   const all = (await get({ action: 'getEvents', from: today, to: addDays(today, 60) })).data.duties;
   const find = (name, date) => all.find((d) => d.name === name && d.start === date);
-  const signup = async (d, date, entries, positionId) => {
-    const res = await call({ action: 'signup', dutyId: d.id, positionId: positionId || d.positions[0].id, dates: [date], entries });
+  const signup = async (d, date, entries, positionId, extra) => {
+    const res = await call(Object.assign({ action: 'signup', dutyId: d.id, positionId: positionId || d.positions[0].id, dates: [date], entries }, extra));
     if (!res.ok) throw new Error('示範報名失敗：' + JSON.stringify(res.error));
   };
   await signup(find('槑子的靈魂健身房', gym), gym, [
     { name: '測試甲', source: '朋友介紹', referrer: '王小明', meal: true, mealChoice: { 主餐: '素便當', 飲料: '紅茶' }, mealNote: '不吃辣' },
     { name: '王小明', source: '官方 LINE', meal: true, mealChoice: { 主餐: '素麵', 飲料: '不用' } },
     { name: '測試乙', source: 'Instagram' }
-  ]);
-  await signup(find('槑子的靈魂健身房', gym2), gym2, [{ name: '測試甲', meal: true, mealChoice: { 主餐: '素便當', 飲料: '綠茶' } }]);
-  await signup(find('槑青韜課館', sun), sun, [{ name: '測試甲', meal: true }, { name: '測試丙', source: '官網', meal: true }]);
+  ], '', { mealPay: '轉帳', mealLast5: '12345' });
+  await signup(find('槑子的靈魂健身房', gym2), gym2, [{ name: '測試甲', meal: true, mealChoice: { 主餐: '素便當', 飲料: '綠茶' } }], '', { mealPay: '現場' });
+  await signup(find('槑青韜課館', sun), sun, [{ name: '測試甲', meal: true, mealOrder: [{ name: '咖哩飯', price: 90, qty: 1 }, { name: '豆漿', price: 25, qty: 1 }] }, { name: '測試丙', source: '官網', meal: true, mealOrder: [{ name: '炒麵', price: 75, qty: 2 }], mealNote: '一份不要香菇' }], '', { mealPay: '現場' });
   const vol = find('植素園出攤志工', sun);
   await signup(vol, sun, [{ name: '王小明' }], vol.positions[0].id);
   await signup(find('植素園出攤', sun), sun, [{ name: '測試乙' }]);

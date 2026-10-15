@@ -19,14 +19,14 @@ function setup(mealOptions) {
 
 test('餐點選項：一行一組，整理格式；不合格的擋下', () => {
   const { d, call } = setup('主餐：素便當、素麵\n飲料: 紅茶，綠茶，不用');
-  assert.deepEqual(d.mealOptions, [{ name: '主餐', options: ['素便當', '素麵'] }, { name: '飲料', options: ['紅茶', '綠茶', '不用'] }]);
+  assert.deepEqual(d.mealOptions, [{ name: '主餐', options: ['素便當', '素麵'], prices: [0, 0] }, { name: '飲料', options: ['紅茶', '綠茶', '不用'], prices: [0, 0, 0] }]);
   assert.equal(call('adminDutyForEdit', { id: d.id }).data.duty.mealOptions, '主餐：素便當、素麵\n飲料：紅茶、綠茶、不用');
   const bad = call('adminCreateDuties', { duties: [{ name: '測試活動', category: '道務', nature: '課程', start: '2026-10-17', meal: true, mealOptions: '主餐：素便當', positions: [{ name: '參加', min: '0' }] }] });
   assert.equal(bad.ok, false);
   assert.match(JSON.stringify(bad.error), /至少要有 2 個選項/);
   // 沒寫組名＝餐點；沒開吃飯就不留
   const { d: d2 } = setup('素便當、素麵');
-  assert.deepEqual(d2.mealOptions, [{ name: '餐點', options: ['素便當', '素麵'] }]);
+  assert.deepEqual(d2.mealOptions, [{ name: '餐點', options: ['素便當', '素麵'], prices: [0, 0] }]);
 });
 
 test('報名勾吃飯：每組要選一個，備註選填；後台看得到統計，大家看不到各人選什麼', () => {
@@ -76,7 +76,7 @@ test('查我的報名改吃飯：改選項、改成不吃；當天以後不能�
   const mine = env.post({ action: 'mySignups', name: '測試甲' }).data.items[0];
   assert.equal(mine.mealOn, true);
   assert.deepEqual(mine.mealChoice, { 主餐: '素便當' });
-  assert.deepEqual(mine.mealOptions, [{ name: '主餐', options: ['素便當', '素麵'] }]);
+  assert.deepEqual(mine.mealOptions, [{ name: '主餐', options: ['素便當', '素麵'], prices: [0, 0] }]);
 
   assert.equal(env.post({ action: 'updateMeal', signupId: id, meal: true, mealChoice: { 主餐: '漢堡' } }).error.code, 'VALIDATION');
   const r = env.post({ action: 'updateMeal', signupId: id, meal: true, mealChoice: { 主餐: '素麵' }, mealNote: '大碗' });

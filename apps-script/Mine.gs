@@ -42,9 +42,21 @@ function mySignups_(body) {
     if (d['有吃飯'] === '是') {
       item.mealOn = true;
       item.meal = s['吃飯'] === '是';
-      item.mealOptions = parseMealOptions_(d['餐點選項']);
-      item.mealChoice = parseMealChoice_(s['餐點']);
+      item.mealMode = d['點餐方式'] === MEAL_SELF ? MEAL_SELF : '';
+      item.mealOptions = item.mealMode ? [] : parseMealOptions_(d['餐點選項']);
+      var mo = mealOfRow_(d, s);
+      if (mo.mealOrder) item.mealOrder = mo.mealOrder; else item.mealChoice = mo.mealChoice;
       item.mealNote = s['餐點備註'] || '';
+      item.menuUrl = d['菜單連結'] || '';
+      item.menuNote = d['菜單說明'] || '';
+      item.menuPhotos = parseDm_(d['菜單照片']);
+      item.mealDeadline = mealDeadline_(d, s['日期']); // 訂餐截止（過了不能改餐，末五碼還能補）
+      item.mealOpen = item.canChange && mealOpen_(d, s['日期'], nowString_());
+      item.fee = Number(s['餐費']) || 0; // 餐費（0＝不用付）
+      item.pay = s['餐費付款'] || '';
+      item.last5 = s['餐費末五碼'] || '';
+      item.paid = s['餐費已付'] === '是';
+      if (item.fee && item.pay === '轉帳') item.payInfo = d['餐費轉帳說明'] || '';
     }
     return item;
   });

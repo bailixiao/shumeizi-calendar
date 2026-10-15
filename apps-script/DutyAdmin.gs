@@ -301,6 +301,7 @@ function dutyInputFromRow_(d, positions, counts) {
   input.mode = input.mode || '報名型';
   input.category = input.category || '勤務';
   input.dm = parseDm_(d['DM']);
+  input.menuPhotos = parseDm_(d['菜單照片']); // 訂餐的菜單照片（和 DM 分開）
   input.positions = positions.map(function (p) {
     return {
       id: p['了愿項目ID'], name: p['了愿項目名稱'], slot: p['時段'], min: p['最少'], max: p['最多'],

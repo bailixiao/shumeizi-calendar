@@ -17,7 +17,8 @@ var DUTY_FIELD_MAP_ = {
   startTime: '開始時間', endTime: '結束時間', location: '地點',
   groupType: '分組類型', group: '負責組', attire: '服裝', description: '說明', deadline: '報名截止日', multi: '可兼任', totalNeed: '共需人數', leaderTitle: '組長職稱', category: '類別', dm: 'DM',
   layout: '版面', stages: '階段', teachers: '師資', merge: '合併顯示',
-  lecturers: '講師', leaders: '帶班', assistants: '助理帶班', meal: '有吃飯', mealOptions: '餐點選項'
+  lecturers: '講師', leaders: '帶班', assistants: '助理帶班', meal: '有吃飯', mealOptions: '餐點選項',
+  mealMode: '點餐方式', menuUrl: '菜單連結', menuNote: '菜單說明', menuPhotos: '菜單照片', mealCutoff: '訂餐截止', mealPayInfo: '餐費轉帳說明' // 訂餐（Meal.gs）
 };
 
 // 道務的負責人員欄位（統計「負責人員」用）
@@ -96,9 +97,21 @@ function normalizeDutyInput_(input, ctx) {
   // 有吃飯：報名時每個人可以勾「我會一起吃飯」（是／空白）
   duty['有吃飯'] = input.meal === true || input.meal === '是' || input.meal === 'true' ? '是' : '';
   // 餐點選項：有吃飯時才留（一行一組「組名：選項、選項」）
-  var mealOpts = normalizeMealOptions_(duty['有吃飯'] ? input.mealOptions : '');
+  // 點餐方式：空白＝選項；自己點＝看菜單自己打（Meal.gs）
+  var eat = duty['有吃飯'] === '是';
+  duty['點餐方式'] = eat && cleanText_(input.mealMode) === MEAL_SELF ? MEAL_SELF : '';
+  var mealOpts = normalizeMealOptions_(eat && !duty['點餐方式'] ? input.mealOptions : '');
   duty['餐點選項'] = mealOpts.text;
   errors = errors.concat(mealOpts.errors);
+  // 菜單（連結、說明、照片）、訂餐截止、餐費轉帳說明：有吃飯時才留
+  duty['菜單連結'] = eat ? cleanText_(input.menuUrl) : '';
+  if (duty['菜單連結'] && !/^https?:\/\/\S+$/.test(duty['菜單連結'])) errors.push('菜單連結請貼完整網址（http 開頭）');
+  if (duty['菜單連結'].length > 500) errors.push('菜單連結太長');
+  duty['菜單說明'] = eat ? String(input.menuNote === undefined || input.menuNote === null ? '' : input.menuNote).replace(/^\s+|\s+$/g, '').slice(0, MEAL_MENU_NOTE_MAX) : '';
+  duty['菜單照片'] = eat ? cleanDm_(input.menuPhotos) : '';
+  var cut = String(input.mealCutoff || '').split('|');
+  duty['訂餐截止'] = eat ? normalizeMealCutoff_(cut[0], cut[1]) : '';
+  duty['餐費轉帳說明'] = eat ? String(input.mealPayInfo === undefined || input.mealPayInfo === null ? '' : input.mealPayInfo).replace(/^\s+|\s+$/g, '').slice(0, MEAL_PAY_INFO_MAX) : '';
   // 共需人數：可兼任時這一天總共需要幾位（不重複的人）；空白＝照各項目最少人數
   var need = String(input.totalNeed === undefined || input.totalNeed === null ? '' : input.totalNeed).trim();
   if (need && !/^\d{1,3}$/.test(need)) errors.push('共需人數請填數字');
@@ -259,7 +272,9 @@ function mergeBulkInput_(target, targetPositions, sourceOldName, sourceOldPositi
     totalNeed: has('positions') ? src['共需人數'] : target['共需人數'],
     leaderTitle: has('positions') ? src['組長職稱'] : target['組長職稱'],
     meal: target['有吃飯'] || '', // 有沒有吃飯每筆各自設定，一起改時不動
-    mealOptions: target['餐點選項'] || ''
+    mealOptions: target['餐點選項'] || '',
+    mealMode: target['點餐方式'] || '', menuUrl: target['菜單連結'] || '', menuNote: target['菜單說明'] || '',
+    menuPhotos: parseDm_(target['菜單照片']), mealCutoff: target['訂餐截止'] || '', mealPayInfo: target['餐費轉帳說明'] || ''
   };
 
   var current = targetPositions.map(function (p) {

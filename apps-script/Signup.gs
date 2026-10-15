@@ -57,12 +57,23 @@ function signup_(body) {
     entryPids.forEach(function (p) { p.forEach(function (id) { if (positionIds.indexOf(id) === -1) positionIds.push(id); }); });
     var now = nowString_();
     var signupRows = [];
-    // 吃飯：活動有餐點選項時每組要選一個
+    // 吃飯：活動有餐點選項時每組要選一個；過了訂餐截止就不能點餐（還是可以報名）
     var meals = entries.map(function (e) { return duty ? mealFields_(duty, e) : {}; });
     var logRows = [];
     var created = [];
     var errors = [];
     meals.forEach(function (m, i) { if (m.error) errors.push({ name: normalizeName_(entries[i].name), message: m.error }); });
+    if (duty && meals.some(function (m) { return m['吃飯'] === '是'; })) {
+      var closed = dates.filter(function (d) { return !mealOpen_(duty, d, now); });
+      if (closed.length) errors.push({ message: closed.map(Fmt_shortDate_).join('、') + ' 的訂餐已經截止，這次不能點餐（取消勾選「我會一起吃飯」就能報名）' });
+    }
+    // 餐費：有人要付錢就要選付款方式（一次報的人一起套用）
+    var mealPay = String(body.mealPay || '');
+    var mealLast5 = String(body.mealLast5 || '').trim();
+    if (meals.some(function (m) { return Number(m['餐費']); })) {
+      var payErr = mealPayError_(mealPay, mealLast5);
+      if (payErr) errors.push({ message: payErr });
+    }
     positionIds.forEach(function (pid) {
       var group = entries.filter(function (e, i) { return entryPids[i].indexOf(pid) !== -1; });
       // 前面幾個項目這次要新增的也算進去（名額、重複檢查才正確）
@@ -101,6 +112,9 @@ function signup_(body) {
             '吃飯': meal ? '是' : '',
             '餐點': mf['餐點'] || '',
             '餐點備註': mf['餐點備註'] || '',
+            '餐費': mf['餐費'] || '',
+            '餐費付款': mealPayFields_(mf['餐費'], mealPay, mealLast5)['餐費付款'],
+            '餐費末五碼': mealPayFields_(mf['餐費'], mealPay, mealLast5)['餐費末五碼'],
             '陪同': accompany ? '是' : '否',
             '出席': '出席',
             '狀態': '有效',
@@ -116,7 +130,10 @@ function signup_(body) {
             '內容摘要': [name + (e.identity ? '（' + e.identity + (accompany ? '・陪同' : '') + '）' : '') + (meal ? '🍱' : ''), date, duty['名稱'], position['了愿項目名稱']].join('｜'),
             '還原用的前一版資料': ''
           });
-          created.push({ id: id, date: date, name: name, identity: e.identity || '', accompany: accompany, meal: meal, mealChoice: parseMealChoice_(mf['餐點']), mealNote: mf['餐點備註'] || '', positionId: position['了愿項目ID'] });
+          var made = { id: id, date: date, name: name, identity: e.identity || '', accompany: accompany, meal: meal, mealNote: mf['餐點備註'] || '', fee: Number(mf['餐費']) || 0, positionId: position['了愿項目ID'] };
+          var mo = mealOfRow_(duty, mf);
+          if (mo.mealOrder) made.mealOrder = mo.mealOrder; else made.mealChoice = mo.mealChoice;
+          created.push(made);
         });
       });
     });
@@ -151,8 +168,21 @@ function signup_(body) {
     invalidateTable_(SHEETS.SIGNUPS);
 
     var all = signups.concat(signupRows);
+    // 餐費：這次要付的總額（同一個人同一天報好幾項只算一次）；選轉帳的附上轉帳說明
+    var feeSeen = {};
+    var mealFee = 0;
+    signupRows.forEach(function (r) {
+      var k = r['姓名'] + '|' + r['日期'];
+      if (feeSeen[k] || !Number(r['餐費'])) return;
+      feeSeen[k] = true;
+      mealFee += Number(r['餐費']);
+    });
     return {
       created: created,
+      mealFee: mealFee,
+      mealPay: mealFee ? mealPay : '',
+      mealPayInfo: mealFee && mealPay === '轉帳' ? duty['餐費轉帳說明'] || '' : '',
+      mealLast5: mealFee && mealPay === '轉帳' ? mealLast5 : '',
       days: daysStatus_(duty, positions, all.filter(function (s) { return s['狀態'] !== '已取消'; }), dates)
     };
   } finally {

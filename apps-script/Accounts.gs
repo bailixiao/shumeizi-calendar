@@ -76,10 +76,10 @@ function currentTokenKey_(account) {
 
 // 所有角色都能用的讀取
 var ADMIN_READ_ACTIONS = ['adminPing', 'adminLogout', 'adminMe', 'adminRecent', 'adminDuty', 'adminLogs', 'adminDay', 'adminRoster',
-  'adminDutyList', 'adminDutyForEdit', 'adminStats', 'adminMembers', 'adminGroups', 'adminGoals', 'adminVenue', 'adminPushList', 'adminFaq', 'adminRepairs', 'adminShop', 'adminShopGroup', 'adminMealMenus', 'adminShopStock', 'adminShopStockReport', 'adminShopStall', 'adminShopLedger', 'adminShopStockCount'];
+  'adminDutyList', 'adminDutyForEdit', 'adminStats', 'adminMembers', 'adminGroups', 'adminGoals', 'adminVenue', 'adminPushList', 'adminFaq', 'adminRepairs', 'adminShop', 'adminShopGroup', 'adminMealMenus', 'adminMealOrders', 'adminShopStock', 'adminShopStockReport', 'adminShopStall', 'adminShopLedger', 'adminShopStockCount'];
 // 依勤務類別判斷的寫入（勤務／道務／教育帳號只能動自己類別）
 var ADMIN_CATEGORY_ACTIONS = ['adminCancel', 'adminReschedule', 'adminRestore', 'adminCreateDuties', 'adminUpdateDuty',
-  'adminDeleteDuty', 'adminSetAttendance', 'adminAddAttendee', 'adminDraftFromImages', 'adminUpdateStatsSheet', 'adminSetTeachers', 'adminSaveGoals', 'adminVenueDecide', 'adminPushSave', 'adminPushDelete', 'adminAutoPushSave', 'adminRollcallLink', 'adminImportAttendance', 'adminSetMemberExtra', 'adminSplitSignup', 'adminUpdateMeal'];
+  'adminDeleteDuty', 'adminSetAttendance', 'adminAddAttendee', 'adminDraftFromImages', 'adminUpdateStatsSheet', 'adminSetTeachers', 'adminSaveGoals', 'adminVenueDecide', 'adminPushSave', 'adminPushDelete', 'adminAutoPushSave', 'adminRollcallLink', 'adminImportAttendance', 'adminSetMemberExtra', 'adminSplitSignup', 'adminUpdateMeal', 'adminMealPaid'];
 
 // 團購的寫入：總管理者與植素（植素園工作坊）帳號（規格 0.6）
 var SHOP_ADMIN_ACTIONS = ['adminShopSaveProduct', 'adminShopSaveGroup', 'adminShopDeleteGroup', 'adminShopOrder', 'adminShopOrderSet', 'adminShopStockMove', 'adminShopStockDelete', 'adminShopStockUpdate', 'adminShopStockCountSave', 'adminShopDeleteProduct', 'adminShopStallSave', 'adminShopStockImport', 'adminShopLedgerSave', 'adminShopLedgerDelete', 'adminShopLedgerTransfer', 'adminShopLedgerOpening', 'adminShopSavePromo', 'adminShopDeletePromo'];

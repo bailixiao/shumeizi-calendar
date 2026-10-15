@@ -71,6 +71,8 @@ function adminDuty_(body) {
     if (s.meal) {
       s.mealChoice = parseMealChoice_(row['餐點']); // 吃飯選的（只給後台）
       s.mealNote = row['餐點備註'] || '';
+      s.mealFee = Number(row['餐費']) || 0;
+      s.mealPaid = row['餐費已付'] === '是';
     }
   });
   // 吃飯統計：每天各選項幾份、有寫備註的人（Meal.gs）
@@ -78,7 +80,14 @@ function adminDuty_(body) {
   if (dutyRow && dutyRow['有吃飯'] === '是') {
     var rows = readTableCached_(SHEETS.SIGNUPS).filter(function (r) { return r['勤務ID'] === data.id; });
     data.mealStats = {};
-    datesInRange_(data.start, data.end).forEach(function (date) { data.mealStats[date] = mealStats_(dutyRow, rows, date); });
+    data.mealSummary = {}; // 兩種點餐方式都有：各餐點份數、金額、已付未付（Meal.gs mealSummary_）
+    datesInRange_(data.start, data.end).forEach(function (date) {
+      data.mealStats[date] = mealStats_(dutyRow, rows, date);
+      data.mealSummary[date] = mealSummary_(dutyRow, rows, date);
+    });
+    data.mealMode = dutyRow['點餐方式'] === MEAL_SELF ? MEAL_SELF : '';
+    // 名單標籤：自己點的寫「素便當×2・紅茶」
+    if (data.mealMode) data.signups.forEach(function (s) { if (s.meal) { s.mealLabel = mealLabelOf_(dutyRow, (byId[s.id] || {})['餐點']); s.mealChoice = {}; } });
   }
   data.groupContact = adminGroupContact_(data.groupType, data.group);
   return data;
@@ -243,7 +252,7 @@ function adminDay_(body) {
             people: rows.filter(function (s) { return s['了愿項目ID'] === p.id; }).map(function (s) {
               var o = { name: s['姓名'], accompany: s['陪同'] === '是' };
               if (d.meal) o.meal = s['吃飯'] === '是'; // 有吃飯的活動：會一起吃飯
-              if (o.meal && s['餐點']) o.mealChoice = mealLabel_(s['餐點']);
+              if (o.meal && s['餐點']) o.mealChoice = d.mealMode === MEAL_SELF ? mealLabelOf_({ '點餐方式': MEAL_SELF }, s['餐點']) : mealLabel_(s['餐點']);
               if (o.meal && s['餐點備註']) o.mealNote = s['餐點備註'];
               return o;
             })
@@ -314,6 +323,8 @@ function adminRun_(body) {
     case 'adminCancel': return cancelSignup_(body, { admin: true });
     case 'adminUpdateMeal': return updateMeal_(body, { admin: true });
     case 'adminMealMenus': return adminMealMenus_();
+    case 'adminMealOrders': return adminMealOrders_(body); // 🍱 訂餐統計
+    case 'adminMealPaid': return adminMealPaid_(body);
     case 'adminReschedule': return rescheduleSignup_(body, { admin: true });
     case 'adminLogs': return adminLogs_(body);
     case 'adminRestore': return adminRestore_(body);

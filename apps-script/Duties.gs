@@ -208,7 +208,12 @@ function dutyToJson_(d, positions) {
     deadline: d['報名截止日'] || '',
     multi: d['可兼任'] === '是',
     meal: d['有吃飯'] === '是', // 報名時可以勾「我會一起吃飯」
-    mealOptions: d['有吃飯'] === '是' ? parseMealOptions_(d['餐點選項']) : [], // [{ name, options }]：勾了吃飯每組選一個
+    mealOptions: d['有吃飯'] === '是' && d['點餐方式'] !== MEAL_SELF ? parseMealOptions_(d['餐點選項']) : [], // [{ name, options, prices }]：勾了吃飯每組選一個
+    mealMode: d['有吃飯'] === '是' && d['點餐方式'] === MEAL_SELF ? MEAL_SELF : '', // 自己點：看菜單自己打名稱、單價、份數
+    menuUrl: d['有吃飯'] === '是' ? d['菜單連結'] || '' : '',
+    menuNote: d['有吃飯'] === '是' ? d['菜單說明'] || '' : '',
+    menuPhotos: d['有吃飯'] === '是' ? parseDm_(d['菜單照片']) : [],
+    mealCutoff: d['有吃飯'] === '是' ? mealCutoff_(d) : null, // { days, time }：每一天的前幾天幾點截止點餐（餐費轉帳說明不公開）
     leaderTitle: d['組長職稱'] || '', // 每天要一位組長（例：勤務組長），空白＝不需要
     totalNeed: d['可兼任'] === '是' ? Number(d['共需人數']) || 0 : 0, // 可兼任時這一天總共需要幾位（0＝照各項目最少人數）
     start: d['開始日'],

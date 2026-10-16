@@ -199,7 +199,7 @@
       if (!payBox) return;
       const total = mealTotal();
       const days = state.dates.size;
-      payBox.innerHTML = MealUI.payHtml(total, state.mealPay, state.mealLast5, days > 1 ? days + ' 天一起算' : '');
+      payBox.innerHTML = MealUI.payHtml(total, days > 1 ? days + ' 天一起算' : '');
     }
 
     function renderNames() {
@@ -532,8 +532,7 @@
         state.showMissing = true;
         renderNames();
       }
-      if (mealTotal() && !state.mealPay) problems.push('請選餐費怎麼付（現場付現或轉帳）');
-      if (mealTotal() && state.mealPay === '轉帳' && state.mealLast5 && !/^\d{5}$/.test(state.mealLast5)) problems.push('轉帳末五碼要是 5 個數字');
+
       if (!NO_IDENTITY && state.entries.some((e) => !e.identity)) {
         problems.push('請為每個名字選擇「道親」「壇辦」或「未求道」');
         state.showMissing = true;
@@ -558,8 +557,6 @@
         positionId: chosen[0].id,
         positionIds: chosen.map((p) => p.id),
         dates: Array.from(state.dates).sort(),
-        mealPay: mealTotal() ? state.mealPay || '' : '',
-        mealLast5: mealTotal() && state.mealPay === '轉帳' ? state.mealLast5 || '' : '',
         entries: state.entries.map((e) => ({ name: e.name, temple: e.temple || '', identity: e.identity, accompany: e.accompany,
           meal: !!duty.meal && !!e.meal && !mealClosedDate(), mealChoice: duty.meal && e.meal && !SELF_ORDER ? e.mealChoice || {} : {}, mealOrder: duty.meal && e.meal && SELF_ORDER ? MealUI.orderPayload(e.mealOrder) : undefined, mealNote: duty.meal && e.meal ? String(e.mealNote || '').trim() : '', source: e.known === false ? e.source || '' : '', referrer: e.known === false && e.source === '朋友介紹' ? normalize(e.referrer) : '',
           sourceNote: e.known === false && e.source === '其他' ? normalize(e.sourceNote) : '', birthday: e.known === false ? e.birthday || '' : '', leader: !!duty.leaderTitle && !e.accompany && e.name === state.leader, note: duty.layout === '職司表' ? String(e.note || '').trim() : '', positionIds: duty.positions.filter((p) => e.positionIds.has(p.id)).map((p) => p.id) }))
@@ -793,13 +790,6 @@
       if (t.dataset.sourceNote !== undefined) state.entries[Number(t.dataset.sourceNote)].sourceNote = t.value;
       if (t.dataset.birthday !== undefined) state.entries[Number(t.dataset.birthday)].birthday = t.value;
       if (t.dataset.mealNote !== undefined) state.entries[Number(t.dataset.mealNote)].mealNote = t.value;
-      if (t.dataset.mealLast5 !== undefined) state.mealLast5 = t.value.trim();
-    });
-    // 餐費付款方式（在名字外面）
-    form.addEventListener('change', (ev) => {
-      if (ev.target.dataset.mealPay === undefined) return;
-      state.mealPay = ev.target.value;
-      renderMealExtra();
     });
     // 自己點：打字不重畫，只更新小計和餐費
     if (duty.meal && SELF_ORDER) {

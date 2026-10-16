@@ -8,8 +8,8 @@
  *   - 勤務「點餐方式」：空白＝選項（上面那種，選項可以帶價錢「素便當 $80」）；「自己點」＝看菜單自己打「名稱、單價、份數」。
  *   - 勤務「菜單連結」「菜單說明」「菜單照片」（JSON，和 DM 同格式）：報名時顯示在點餐上面。
  *   - 勤務「訂餐截止」：「天數|時間」＝活動那天的前幾天幾點（空白＝前 1 天 12:00）；過了只能報名、不能點餐改餐（管理者不限）。
- *   - 勤務「餐費轉帳說明」：選轉帳的人報名後、查我的報名才看得到。
- *   - 報名「餐費」（這筆的金額）、「餐費付款」（現場／轉帳）、「餐費末五碼」、「餐費已付」（是／空白，後台勾）。
+ *   - 報名「餐費」（這筆的金額）、「餐費已付」（是／空白，小編當天收到錢在後台勾）。不選付款方式（當天現場看怎麼給）；
+ *     「勤務」餐費轉帳說明、「報名」餐費付款／餐費末五碼三欄留著但不用。
  *   - 自己點的「餐點」存成「素便當 $80×2；紅茶 $25×1」。
  */
 
@@ -18,7 +18,6 @@ var MEAL_ORDER_MAX_LINES = 10;
 var MEAL_ORDER_NAME_MAX = 30;
 var MEAL_PRICE_MAX = 9999;
 var MEAL_QTY_MAX = 20;
-var MEAL_PAY = ['現場', '轉帳'];
 var MEAL_CUTOFF_DEFAULT = { days: 1, time: '12:00' };
 var MEAL_MENU_NOTE_MAX = 500;
 var MEAL_PAY_INFO_MAX = 300;
@@ -212,18 +211,6 @@ function mealOpen_(duty, date, now) {
   return String(now || '').slice(0, 16) < mealDeadline_(duty, date);
 }
 
-/** 餐費付款欄位：fee＞0 才記付款方式、末五碼 */
-function mealPayFields_(fee, pay, last5) {
-  if (!Number(fee)) return { '餐費付款': '', '餐費末五碼': '' };
-  return { '餐費付款': pay, '餐費末五碼': pay === '轉帳' ? String(last5 || '') : '' };
-}
-
-/** 檢查付款方式、末五碼；回傳錯誤訊息或 '' */
-function mealPayError_(pay, last5) {
-  if (MEAL_PAY.indexOf(pay) === -1) return '請選餐費怎麼付（現場付現或轉帳）';
-  if (last5 && !/^\d{5}$/.test(String(last5))) return '轉帳末五碼要是 5 個數字';
-  return '';
-}
 
 /** 標籤用：「素便當・紅茶」 */
 function mealLabel_(value) {
@@ -251,17 +238,7 @@ function updateMeal_(body, opts) {
     }
     var f = mealFields_(duty, { meal: !!body.meal, mealChoice: body.mealChoice, mealOrder: body.mealOrder, mealNote: body.mealNote });
     if (f.error) throw new ApiError_('VALIDATION', f.error);
-    if (Number(f['餐費'])) {
-      var pay = body.mealPay || row['餐費付款'];
-      var payErr = mealPayError_(pay, body.mealLast5);
-      if (payErr) throw new ApiError_('VALIDATION', payErr);
-      var p = mealPayFields_(f['餐費'], pay, body.mealLast5 || row['餐費末五碼']);
-      f['餐費付款'] = p['餐費付款'];
-      f['餐費末五碼'] = p['餐費末五碼'];
-    } else {
-      f['餐費付款'] = '';
-      f['餐費末五碼'] = '';
-    }
+
     var before = rowSnapshot_(SHEETS.SIGNUPS, row);
     var now = nowString_();
     f['更新時間'] = now;
@@ -275,10 +252,9 @@ function updateMeal_(body, opts) {
     }]);
     SpreadsheetApp.flush();
     invalidateTable_(SHEETS.SIGNUPS);
-    var out = { signupId: row['報名ID'], meal: f['吃飯'] === '是', mealNote: f['餐點備註'], fee: Number(f['餐費']) || 0, pay: f['餐費付款'], last5: f['餐費末五碼'] };
+    var out = { signupId: row['報名ID'], meal: f['吃飯'] === '是', mealNote: f['餐點備註'], fee: Number(f['餐費']) || 0, paid: row['餐費已付'] === '是' };
     var m = mealOfRow_(duty, f);
     if (m.mealOrder) out.mealOrder = m.mealOrder; else out.mealChoice = m.mealChoice;
-    if (out.pay === '轉帳') out.payInfo = duty['餐費轉帳說明'] || '';
     return out;
   });
 }
@@ -337,22 +313,6 @@ function mealLabelOf_(duty, value) {
   return mealLabel_(value);
 }
 
-/**
- * 轉帳後補餐費末五碼（查我的報名）：body = { signupId, last5 }。訂餐截止後也可以補，活動當天以前都行。
- */
-function mealSetLast5_(body) {
-  var last5 = String(body.last5 || '').trim();
-  if (!/^\d{5}$/.test(last5)) throw new ApiError_('VALIDATION', '轉帳末五碼要是 5 個數字');
-  return withSignupLock_(function () {
-    var row = findActiveSignup_(readTable_(SHEETS.SIGNUPS), body.signupId);
-    if (row['吃飯'] !== '是' || !Number(row['餐費'])) throw new ApiError_('BAD_REQUEST', '這筆報名沒有餐費');
-    updateRow_(SHEETS.SIGNUPS, row, { '餐費付款': '轉帳', '餐費末五碼': last5, '更新時間': nowString_() });
-    writeDutyLog_('餐費補末五碼', row['姓名'] + '｜' + row['日期'] + '｜末五碼 ' + last5);
-    SpreadsheetApp.flush();
-    invalidateTable_(SHEETS.SIGNUPS);
-    return { last5: last5 };
-  });
-}
 
 /**
  * 某一天的訂餐整理（後台名單上方、訂餐統計頁共用）：同一個人同一天報好幾項只算第一筆。

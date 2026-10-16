@@ -63,7 +63,6 @@ function doPost(e) {
       case 'signup': return signup_(body);
       case 'cancel': return cancelSignup_(body);
       case 'updateMeal': return updateMeal_(body);
-      case 'mealSetLast5': return mealSetLast5_(body); // 餐費轉帳補末五碼
       case 'reschedule': return rescheduleSignup_(body);
       case 'mySignups': return mySignups_(body);
       case 'requestVenue': return requestVenue_(body);

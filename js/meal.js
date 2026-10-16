@@ -1,4 +1,4 @@
-// 吃飯（spec 第 0.5 節＋2026/10/16 訂餐重新設計）：勾了「我會一起吃飯」後點餐＋備註，有餐費時選付款方式。
+// 吃飯（spec 第 0.5 節＋2026/10/16 訂餐重新設計）：勾了「我會一起吃飯」後點餐＋備註，有價錢的算好餐費（當天現場收，不選付款方式）。
 //   - 選項（mealMode 空白）：每組選一個；選項可以帶價錢（prices 和 options 一一對應）。
 //   - 自己點（mealMode＝'自己點'）：看菜單自己一行一行打「要吃什麼、單價、份數」。
 // 報名頁、查我的報名、後台幫人報名共用。groups＝[{ name, options, prices }]（活動的 mealOptions）。
@@ -133,7 +133,7 @@ window.MealUI = (function () {
     });
   }
 
-  // ---------- 餐費、付款 ----------
+  // ---------- 餐費 ----------
 
   /** 一個人一天的餐費。d＝{ mealMode, mealOptions }；e＝{ mealChoice, mealOrder } */
   function feeOf(d, e) {
@@ -147,17 +147,12 @@ window.MealUI = (function () {
     return sum;
   }
 
-  /** 付款方式（現場付現／轉帳）＋末五碼；total＝要付的錢 */
-  function payHtml(total, pay, last5, line) {
+  /** 餐費共多少（當天現場給小編）；total＝要付的錢，line＝補充說明（例：2 天一起算） */
+  function payHtml(total, line) {
     if (!total) return '';
     return `<div class="meal-pay">
       <p class="meal-pay-total">🍱 餐費共 <strong>${money(total)}</strong>${line ? `<small>（${esc(line)}）</small>` : ''}</p>
-      <div class="pos-chips" role="radiogroup" aria-label="餐費怎麼付">
-        ${[['現場', '💵 現場付現'], ['轉帳', '🏦 轉帳']].map(([v, l]) => `<label class="pos-chip${pay === v ? ' is-checked' : ''}"><input type="radio" name="meal-pay" value="${v}" data-meal-pay${pay === v ? ' checked' : ''}>${l}</label>`).join('')}
-      </div>
-      ${pay === '轉帳' ? `<label class="meal-last5"><span>轉帳末五碼（轉好再填，也可以之後在「查我的報名」補）</span>
-        <input class="input" inputmode="numeric" maxlength="5" pattern="\\d{5}" placeholder="例：12345" value="${esc(last5 || '')}" data-meal-last5></label>
-        <p class="hint">轉帳帳號會在報名成功後顯示。</p>` : ''}
+      <p class="hint">當天再給小編就好 😊</p>
     </div>`;
   }
 
@@ -204,7 +199,7 @@ window.MealUI = (function () {
   function bindChips(root) {
     root.addEventListener('change', (ev) => {
       const t = ev.target;
-      if (t.dataset.mealPick === undefined && t.dataset.mealPay === undefined) return;
+      if (t.dataset.mealPick === undefined) return;
       root.querySelectorAll(`input[name="${CSS.escape(t.name)}"]`).forEach((r) => r.closest('.pos-chip').classList.toggle('is-checked', r.checked));
       const g = t.closest('.meal-group');
       if (g) g.classList.remove('is-missing');
@@ -213,13 +208,13 @@ window.MealUI = (function () {
 
   /**
    * 改吃飯的對話框（查我的報名、後台）。
-   * opts = { title, sub, d: { mealMode, mealOptions, menuUrl, menuNote, menuPhotos }, meal, choice, order, note, pay, last5, submit(body) → Promise }
-   * body = { meal, mealChoice, mealOrder, mealNote, mealPay, mealLast5 }；成功回傳 submit 的結果，按返回回傳 null。
+   * opts = { title, sub, d: { mealMode, mealOptions, menuUrl, menuNote, menuPhotos }, meal, choice, order, note, submit(body) → Promise }
+   * body = { meal, mealChoice, mealOrder, mealNote }；成功回傳 submit 的結果，按返回回傳 null。
    */
   function edit(opts) {
     const d = opts.d || { mealOptions: opts.groups || [] };
     const self = d.mealMode === SELF;
-    const st = { meal: !!opts.meal, choice: Object.assign({}, opts.choice), order: (opts.order || []).map((l) => Object.assign({}, l)), pay: opts.pay || '', last5: opts.last5 || '' };
+    const st = { meal: !!opts.meal, choice: Object.assign({}, opts.choice), order: (opts.order || []).map((l) => Object.assign({}, l)) };
     if (!st.order.length) st.order.push(blankLine());
     return new Promise((resolve) => {
       let done = false;
@@ -241,7 +236,7 @@ window.MealUI = (function () {
         </form>`, () => { if (!done) resolve(null); });
       const f = m.el.querySelector('form');
       const fee = () => (st.meal ? feeOf(d, { mealChoice: st.choice, mealOrder: st.order }) : 0);
-      const renderPay = () => { f.querySelector('[data-pay-area]').innerHTML = payHtml(fee(), st.pay, st.last5); };
+      const renderPay = () => { f.querySelector('[data-pay-area]').innerHTML = payHtml(fee()); };
       const noteVal = () => { const n = f.querySelector('[data-meal-note]'); return n ? n.value : opts.note; };
       renderPay();
       bindChips(f);
@@ -250,18 +245,15 @@ window.MealUI = (function () {
         const t = ev.target;
         if (t.name === 'meal') { st.meal = t.checked; f.querySelector('[data-meal-area]').hidden = !st.meal; renderPay(); }
         if (t.dataset.mealPick !== undefined) { st.choice[t.dataset.mealGroup] = t.value; renderPay(); }
-        if (t.dataset.mealPay !== undefined) { st.pay = t.value; renderPay(); }
       });
-      f.addEventListener('input', (ev) => { if (ev.target.dataset.mealLast5 !== undefined) st.last5 = ev.target.value.trim(); });
       m.el.querySelector('[data-close]').addEventListener('click', () => m.close());
       f.addEventListener('submit', async (ev) => {
         ev.preventDefault();
         const box = f.querySelector('[data-error]');
         const note = String(noteVal() || '').trim();
         const why = st.meal ? problem(d, { mealChoice: st.choice, mealOrder: st.order }) : '';
-        const payWhy = st.meal && fee() && !st.pay ? '請選餐費怎麼付' : st.last5 && !/^\d{5}$/.test(st.last5) ? '轉帳末五碼要是 5 個數字' : '';
-        if (why || payWhy) {
-          box.textContent = why || payWhy;
+        if (why) {
+          box.textContent = why;
           box.hidden = false;
           if (!self && why) f.querySelectorAll('.meal-group').forEach((g, i) => g.classList.toggle('is-missing', !st.choice[d.mealOptions[i].name]));
           return;
@@ -273,9 +265,7 @@ window.MealUI = (function () {
             meal: st.meal,
             mealChoice: st.meal && !self ? st.choice : {},
             mealOrder: st.meal && self ? orderPayload(st.order) : [],
-            mealNote: st.meal ? note : '',
-            mealPay: st.meal && fee() ? st.pay : '',
-            mealLast5: st.meal && fee() && st.pay === '轉帳' ? st.last5 : ''
+            mealNote: st.meal ? note : ''
           });
           Busy.hide();
           done = true;

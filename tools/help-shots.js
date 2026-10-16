@@ -130,7 +130,7 @@ const SHOTS = [
       document.querySelector('[data-add]').click(); await __wait(2500);
       const meal = document.querySelector('[data-meal]'); if (meal && !meal.checked) meal.click(); await __wait(300);
       const pk = (g, o) => { const r = document.querySelector('input[data-meal-group="' + g + '"][value="' + o + '"]'); if (r) r.click(); }; pk('主餐', '素麵'); await __wait(200); pk('飲料', '紅茶'); await __wait(300);
-      document.querySelector('[data-meal-pay][value="轉帳"]').click(); await __wait(300);`,
+`,
     clip: `const a = document.querySelector('.meal-pick'); a.scrollIntoView(); const r = a.getBoundingClientRect(); const b = document.querySelector('[data-submit]').getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 8, width: innerWidth, height: b.bottom - r.top + 16 };` },
   { name: 'mine-list', hash: '#/mine', js: `localStorage.setItem('shumeizi:mine-name', '測試甲'); location.hash = '#/'; await __wait(200); location.hash = '#/mine'; await __wait(2000);`,
     clip: `return { x: 0, y: 0, width: innerWidth, height: 1000 };` },

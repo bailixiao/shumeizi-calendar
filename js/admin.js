@@ -536,7 +536,7 @@
       const s = find(b.dataset.mealEdit);
       const res = await MealUI.edit({ title: '🍱 ' + s.name + ' 的吃飯', sub: Fmt.rocDate(s.date) + '（小編不受訂餐截止限制）',
         d: { mealMode: d.mealMode, mealOptions: d.mealOptions, menuUrl: d.menuUrl, menuNote: d.menuNote, menuPhotos: d.menuPhotos },
-        meal: s.meal, choice: s.mealChoice, order: s.mealOrder, note: s.mealNote, pay: s.mealPay, last5: s.mealLast5,
+        meal: s.meal, choice: s.mealChoice, order: s.mealOrder, note: s.mealNote,
         submit: (body) => Api.admin('adminUpdateMeal', Object.assign({ signupId: s.id }, body)) });
       if (!res) return;
       dutyPage.flash = notice('success', '已更新吃飯', s.name);

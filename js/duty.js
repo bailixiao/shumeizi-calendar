@@ -385,37 +385,10 @@
     }, many ? `加到行事曆：${Fmt.shortDate(date)}` : '加到手機行事曆')).join('')}</div>`;
   }
 
-  /** 報名成功的餐費：金額、付款方式；轉帳的顯示轉帳說明，可以當場補末五碼 */
+  /** 報名成功的餐費：只寫金額（當天現場看怎麼給） */
   function mealPaid(res) {
     if (!res || !res.mealFee) return '';
-    const transfer = res.mealPay === '轉帳';
-    return `<div class="meal-paid">
-      <p>🍱 餐費 <strong>${MealUI.money(res.mealFee)}</strong>・${transfer ? '轉帳' : '現場付現'}</p>
-      ${transfer && res.mealPayInfo ? `<p class="pay-info">${esc(res.mealPayInfo).replace(/\n/g, '<br>')}</p>` : ''}
-      ${transfer ? (res.mealLast5 ? `<p>末五碼：${esc(res.mealLast5)} ✓</p>` : `<form class="last5-form" data-meal-last5-form data-ids="${esc(res.created.filter((c) => c.fee).map((c) => c.id).join(','))}">
-        <input class="input" inputmode="numeric" maxlength="5" placeholder="轉帳末五碼" aria-label="轉帳末五碼"><button type="submit" class="btn btn-small">送出末五碼</button>
-        <p class="hint">轉好再填就可以；之後也能在「查我的報名」補。</p></form>`) : ''}
-    </div>`;
-  }
-
-  /** 報名成功畫面上補末五碼 */
-  function bindLast5(root) {
-    const f = root && root.querySelector('[data-meal-last5-form]');
-    if (!f) return;
-    f.addEventListener('submit', async (ev) => {
-      ev.preventDefault();
-      const v = f.querySelector('input').value.trim();
-      if (!/^\d{5}$/.test(v)) { alert('轉帳末五碼要是 5 個數字'); return; }
-      Busy.show('送出中⋯');
-      try {
-        for (const id of f.dataset.ids.split(',').filter(Boolean)) await Api.mealSetLast5(id, v);
-        Busy.hide();
-        f.outerHTML = `<p>末五碼：${esc(v)} ✓</p>`;
-      } catch (err) {
-        Busy.hide();
-        alert(err.message || '送出失敗，請稍後再試');
-      }
-    });
+    return `<div class="meal-paid"><p>🍱 餐費 <strong>${MealUI.money(res.mealFee)}</strong>（當天再給小編就好）</p></div>`;
   }
 
   function onSignedUp(result, res) {
@@ -443,7 +416,6 @@
     DutyCache.set(page.data.id, page.data);
     render(flash);
     const box = document.getElementById('duty-flash');
-    bindLast5(box);
     if (box) box.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 

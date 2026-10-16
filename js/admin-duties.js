@@ -726,9 +726,7 @@
           <div class="meal-cutoff"><select class="input" name="cutDays">${[0, 1, 2, 3, 4, 5, 6, 7].map((n) => `<option value="${n}"${String(n) === days ? ' selected' : ''}>${n ? '活動前 ' + n + ' 天' : '活動當天'}</option>`).join('')}</select>
           <input class="input" type="time" name="cutTime" value="${esc(time)}"></div></div>
         <p class="hint">過了截止還能報名，但不能點餐、改餐（小編在後台不受限制）。好幾天的活動，每一天各自算。</p>
-        <label class="form-row"><span>餐費轉帳說明（要收轉帳時填）</span>
-          <textarea class="input" name="mealPayInfo" rows="2" maxlength="300" placeholder="例：銀行代碼、帳號、戶名">${esc(s.mealPayInfo || '')}</textarea></label>
-        <p class="hint">有餐費時，報名的人可以選現場付現或轉帳；選轉帳的人報名後、在「查我的報名」才看得到這段。</p>
+        <p class="hint">有價錢的話，報名時會算好「餐費共多少」，當天現場收；收到錢在「🍱 訂餐」勾已付。</p>
       </div>`;
     }
 
@@ -902,7 +900,7 @@
       const f = body.querySelector('form');
       if (!f) return;
       const val = (n) => (f.elements[n] ? f.elements[n].value : undefined);
-      ['name', 'startTime', 'endTime', 'location', 'attire', 'description', 'start', 'end', 'groupType', 'group', 'deadline', 'stages', 'teachers', 'merge', 'lecturers', 'leaders', 'assistants', 'mealOptions', 'menuUrl', 'menuNote', 'mealPayInfo'].forEach((k) => {
+      ['name', 'startTime', 'endTime', 'location', 'attire', 'description', 'start', 'end', 'groupType', 'group', 'deadline', 'stages', 'teachers', 'merge', 'lecturers', 'leaders', 'assistants', 'mealOptions', 'menuUrl', 'menuNote'].forEach((k) => {
         if (val(k) !== undefined) s[k] = val(k);
       });
       const radio = (n) => { const el = f.querySelector(`input[name="${n}"]:checked`); return el ? el.value : undefined; };
@@ -1062,7 +1060,6 @@
         menuNote: String(s.menuNote || ''),
         menuPhotos: s.menuPhotos,
         mealCutoff: s.mealCutoff || '1|12:00',
-        mealPayInfo: String(s.mealPayInfo || ''),
         totalNeed: s.mode !== '公告型' && (s.multi === true || s.multi === '是') ? String(s.totalNeed || '') : '',
         leaderTitle: s.mode !== '公告型' && (s.category || '勤務') === '勤務' ? String(s.leaderTitle || '') : '',
         positions: s.mode === '公告型' ? [] : isSimple(s.category)

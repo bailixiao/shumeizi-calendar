@@ -73,8 +73,6 @@ function adminDuty_(body) {
       s.mealNote = row['餐點備註'] || '';
       s.mealFee = Number(row['餐費']) || 0;
       s.mealPaid = row['餐費已付'] === '是';
-      s.mealPay = row['餐費付款'] || '';
-      s.mealLast5 = row['餐費末五碼'] || '';
     }
   });
   // 吃飯統計：每天各選項幾份、有寫備註的人（Meal.gs）

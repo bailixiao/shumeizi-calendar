@@ -56,11 +56,11 @@ window.MealAdmin = (function () {
       ${sel.items.length ? `<table class="stock-table"><thead><tr><th>餐點</th><th>份數</th></tr></thead><tbody>${sel.items.map((x) => `<tr><td>${esc(x.name)}</td><td>${x.qty}</td></tr>`).join('')}</tbody></table>` : '<p class="muted">還沒有人點。</p>'}
       ${sel.notes.length ? `<h3>備註</h3><ul class="meal-notes">${sel.notes.map((n) => `<li>${esc(n.name)}：${esc(n.note)}</li>`).join('')}</ul>` : ''}
       <h3>每個人</h3>
-      ${sel.people.length ? `<div class="stock-table-wrap"><table class="stock-table meal-people"><thead><tr><th>名字</th><th>點了什麼</th><th>餐費・付款</th></tr></thead><tbody>
+      ${sel.people.length ? `<div class="stock-table-wrap"><table class="stock-table meal-people"><thead><tr><th>名字</th><th>點了什麼</th><th>餐費</th></tr></thead><tbody>
         ${sel.people.map((p) => `<tr>
           <td>${esc(p.name)}</td>
           <td>${esc(p.label || '（只勾吃飯）')}${p.note ? `<br><small class="muted">備註：${esc(p.note)}</small>` : ''}</td>
-          <td class="meal-fee-cell">${p.fee ? `<strong>${money(p.fee)}</strong><br><small>${esc(p.pay === '轉帳' ? '轉帳' + (p.last5 ? '（' + p.last5 + '）' : '（還沒填末五碼）') : '現場付現')}</small><br><label class="check"><input type="checkbox" data-paid="${esc(p.signupId)}"${p.paid ? ' checked' : ''}> 已付</label>` : '—'}</td>
+          <td class="meal-fee-cell">${p.fee ? `<strong>${money(p.fee)}</strong><br><label class="check"><input type="checkbox" data-paid="${esc(p.signupId)}"${p.paid ? ' checked' : ''}> 已付</label>` : '—'}</td>
         </tr>`).join('')}
       </tbody></table></div>` : '<p class="muted">還沒有人要吃飯。</p>'}`;
 

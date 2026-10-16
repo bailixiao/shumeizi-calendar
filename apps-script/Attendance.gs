@@ -88,7 +88,7 @@ function adminAddAttendee_(body) {
       '報名ID': newId_('S'), '勤務ID': duty['勤務ID'], '日期': body.date, '了愿項目ID': body.positionId,
       '姓名': normalizeName_(entry.name), '身分': entry.identity || '', '佛堂': entry.temple || '', '陪同': entry.accompany ? '是' : '否',
       '吃飯': mf['吃飯'] || '', '餐點': mf['餐點'] || '', '餐點備註': mf['餐點備註'] || '',
-      '餐費': mf['餐費'] || '', '餐費付款': Number(mf['餐費']) ? (MEAL_PAY.indexOf(body.mealPay) !== -1 ? body.mealPay : '現場') : '',
+      '餐費': mf['餐費'] || '',
       '出席': '出席', '狀態': '有效', '建立時間': now, '更新時間': now
     };
     if (duty['版面'] === '職司表' && body.note) row['註記'] = cleanText_(body.note).slice(0, 100);

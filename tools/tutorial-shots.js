@@ -145,7 +145,7 @@ const SUB = {
   '12': '打一兩個字，跳出名字就點它；沒有就打完整名字按「加入」',
   '13': '只有第一次要選；朋友介紹的話，填一下介紹人',
   '14': '靈魂健身房、槑青韜課館、植素園工作坊不用選項目',
-  '15': '有一起吃飯的活動才會出現；每組選一個（有價錢的會算餐費，最下面選現場付現或轉帳），特別需求寫在備註',
+  '15': '有一起吃飯的活動才會出現；每組選一個（有價錢的會算好餐費，當天再給），特別需求寫在備註',
   '16': '想揪朋友？名字一個一個加進來就好',
   '17': '名字都加好了，按這裡送出',
   '18': '可以按「加到手機行事曆」，前一天會提醒你',
@@ -251,7 +251,7 @@ async function main() {
     await shoot(c, '15');
     await run(c, `await addName('測試己', '朋友介紹', '測試戊'); ${frame('16', '', '[data-names]')}`);
     await shoot(c, '16');
-    await run(c, `const pay = $('[data-meal-pay][value="現場"]'); if (pay) { pay.click(); await W(300); } ${frame('17', '', '[data-submit]')}`); // 有餐費：選現場付現
+    await run(c, `${frame('17', '', '[data-submit]')}`);
     await shoot(c, '17');
     await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); $('[data-submit]').click(); for (let i = 0; i < 30 && !$('.notice-success'); i++) await W(500); if (!$('.notice-success')) throw new Error('報名沒有成功：' + (($('[data-error]') || {}).textContent || '')); await W(500); ${frame('18', '', '.notice-success')}`);
     await shoot(c, '18');

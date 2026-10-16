@@ -152,7 +152,6 @@
     box.querySelectorAll('[data-cancel]').forEach((btn) => btn.addEventListener('click', () => cancel(find(btn.dataset.cancel))));
     box.querySelectorAll('[data-reschedule]').forEach((btn) => btn.addEventListener('click', () => reschedule(find(btn.dataset.reschedule))));
     box.querySelectorAll('[data-meal-edit]').forEach((btn) => btn.addEventListener('click', () => editMeal(find(btn.dataset.mealEdit))));
-    box.querySelectorAll('[data-meal-last5]').forEach((f) => f.addEventListener('submit', (ev) => { ev.preventDefault(); setLast5(find(f.dataset.mealLast5), f.querySelector('input').value.trim()); }));
     const picks = () => [...box.querySelectorAll('[data-pick]')];
     const all = box.querySelector('[data-pick-all]');
     if (all) all.addEventListener('click', () => picks().forEach((c) => { c.checked = true; }));
@@ -196,29 +195,9 @@
     return it.mealMode === MealUI.SELF ? MealUI.labelOf({ mealOrder: it.mealOrder || [] }) : MealUI.label(it.mealOptions, it.mealChoice);
   }
 
-  /** 餐費：金額、付款方式、付了沒；轉帳的顯示轉帳說明、可以補末五碼 */
+  /** 餐費：金額、小編收到了沒 */
   function feeHtml(it) {
-    const transfer = it.pay === '轉帳';
-    return `<div class="mine-fee">
-      <p>💰 餐費 <strong>${MealUI.money(it.fee)}</strong>・${transfer ? '轉帳' : '現場付現'}${it.paid ? '<span class="tag tag-ok">已付款</span>' : ''}</p>
-      ${transfer && !it.paid && it.payInfo ? `<p class="pay-info">${esc(it.payInfo).replace(/\n/g, '<br>')}</p>` : ''}
-      ${transfer ? (it.last5 ? `<p class="muted">末五碼：${esc(it.last5)}</p>` : `<form class="last5-form" data-meal-last5="${esc(it.signupId)}"><input class="input" inputmode="numeric" maxlength="5" placeholder="轉帳末五碼" aria-label="轉帳末五碼"><button type="submit" class="btn btn-small">送出末五碼</button></form>`) : ''}
-    </div>`;
-  }
-
-  async function setLast5(it, v) {
-    if (!it) return;
-    if (!/^\d{5}$/.test(v)) { alert('轉帳末五碼要是 5 個數字'); return; }
-    Busy.show('送出中⋯');
-    try {
-      await Api.mealSetLast5(it.signupId, v);
-      Busy.hide();
-      it.last5 = v;
-      render('<div class="notice notice-success" role="status"><p>收到末五碼了，謝謝 🙏</p></div>');
-    } catch (err) {
-      Busy.hide();
-      alert(err.message || '送出失敗，請稍後再試');
-    }
+    return `<div class="mine-fee"><p>💰 餐費 <strong>${MealUI.money(it.fee)}</strong>${it.paid ? '<span class="tag tag-ok">已付</span>' : '（當天再給小編）'}</p></div>`;
   }
 
   /** 🍱 改吃飯：吃不吃、點什麼、備註、餐費付款 */
@@ -226,10 +205,10 @@
     if (!it) return;
     const res = await MealUI.edit({ title: '🍱 改吃飯', sub: `${Fmt.shortDate(it.date)} ${it.dutyName}・${MealUI.deadlineText(it.mealDeadline || it.date + ' 12:00')} 前可以改`,
       d: { mealMode: it.mealMode, mealOptions: it.mealOptions, menuUrl: it.menuUrl, menuNote: it.menuNote, menuPhotos: it.menuPhotos },
-      meal: it.meal, choice: it.mealChoice, order: it.mealOrder, note: it.mealNote, pay: it.pay, last5: it.last5,
+      meal: it.meal, choice: it.mealChoice, order: it.mealOrder, note: it.mealNote,
       submit: (body) => Api.updateMeal(Object.assign({ signupId: it.signupId }, body)) });
     if (!res) return;
-    Object.assign(it, { meal: res.meal, mealChoice: res.mealChoice, mealOrder: res.mealOrder, mealNote: res.mealNote, fee: res.fee, pay: res.pay, last5: res.last5, payInfo: res.payInfo || it.payInfo });
+    Object.assign(it, { meal: res.meal, mealChoice: res.mealChoice, mealOrder: res.mealOrder, mealNote: res.mealNote, fee: res.fee, paid: res.paid });
     if (window.CalendarPage) CalendarPage.refresh(); // 活動頁的吃飯人數
     render(`<div class="notice notice-success" role="status"><p>已更新吃飯：${it.meal ? '🍱 ' + esc(mealText(it) || '會一起吃飯') + (it.fee ? '・餐費 ' + MealUI.money(it.fee) : '') : '不吃飯'}</p></div>`);
   }

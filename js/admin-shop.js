@@ -53,7 +53,7 @@
         <span class="shop-group-name">${esc(g.name)}</span>
         <span class="badge ${g.status === '結束' ? 'badge-full' : g.closed ? 'badge-notice' : 'badge-ok'}">${g.status === '結束' ? '已結束' : g.closed ? '已截止' : '開放中'}</span>
         <span class="shop-group-meta">${g.link ? `截止 ${esc(g.deadline)}・🛒 在賣貨便下單` : `截止 ${esc(g.deadline)}・${g.orders} 張訂單・${money(g.total)}${g.pickups.length ? '<br>取貨：' + g.pickups.map((p) => esc(Fmt.shortDate(p.date))).join('、') : ''}`}</span>
-      </a></li>`).join('')}</ul>` : '<p class="panel-empty">還沒有團購。先「🆕 新增商品」，再按「＋ 開團」。</p>';
+      </a></li>`).join('')}</ul>` : '<p class="panel-empty">還沒有團購。先用「➕ 商品增加」加商品，再按「＋ 開團」。</p>';
     // 📦 庫存：編號、照片、成本、售價、目前庫存（點了修改商品）
     const stockHtml = st.products.length ? `<ul class="stock-list">${st.products.map((p) => `
       <li class="stock-row${p.active ? '' : ' is-inactive'}">
@@ -65,7 +65,7 @@
           ${p.variants ? `<span class="stock-variants">${p.variants.map((x) => `<span class="stock-variant${x.stock - (x.reserved || 0) <= 0 ? ' is-low' : ''}">${esc(x.option || '未分規格')} <b>${x.stock}</b>${x.reserved ? `<i>預留 ${x.reserved}・可賣 ${x.stock - x.reserved}</i>` : ''}</span>`).join('')}</span>` : p.reserved ? `<span class="stock-variants"><span class="stock-variant${p.stock - p.reserved <= 0 ? ' is-low' : ''}">訂單預留 <b>${p.reserved}</b><i>可賣 ${p.stock - p.reserved}</i></span></span>` : ''}
         </button>
         <span class="stock-qty${p.stock <= 0 ? ' is-low' : ''}"><b>${p.stock}</b><small>${esc(p.unit || '份')}</small></span>
-      </li>`).join('')}</ul>` : '<p class="panel-empty">還沒有商品，按上面「🆕 新增商品」。</p>';
+      </li>`).join('')}</ul>` : '<p class="panel-empty">還沒有商品，按上面「➕ 商品增加」，在商品選單選「🆕 新商品」。</p>';
     // 📜 進出紀錄
     const recHtml = st.records.length ? `<ul class="stock-recs">${st.records.map((r) => `
       <li class="stock-rec">
@@ -83,7 +83,6 @@
       ${edit ? `<div class="stock-actions">
         <a class="btn stock-btn is-in" href="#/admin/shop/stock/in">➕ 商品增加</a>
         <a class="btn stock-btn is-out" href="#/admin/shop/stock/out">➖ 商品減少</a>
-        <button type="button" class="btn stock-btn" data-new-product>🆕 新增商品</button>
       </div>` : ''}
       <div class="seg shop-tabs">${[['stock', '📦 庫存'], ['groups', '🛒 團購'], ['records', '📜 進出紀錄']].map(([v, l]) => `<label class="seg-item"><input type="radio" name="shoptab" value="${v}"${state.tab === v ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div>
       ${state.tab === 'groups' ? `
@@ -105,8 +104,6 @@
     flash = '';
     bindZoom(body);
     body.querySelectorAll('input[name=shoptab]').forEach((r) => r.addEventListener('change', () => { state.tab = r.value; renderList(body, guard, data, false); }));
-    const np = body.querySelector('[data-new-product]');
-    if (np) np.addEventListener('click', () => editProduct(null, guard, () => showList(body, guard)));
     body.querySelectorAll('[data-product]').forEach((b) => b.addEventListener('click', () => {
       editProduct(st.products.find((p) => p.id === b.dataset.product), guard, () => showList(body, guard));
     }));
@@ -144,7 +141,7 @@
     try { st = await Api.admin('adminShopStock', {}, true); } catch (e) { guard(e, body); return; }
     const isIn = type === 'in';
     const methods = isIn ? st.inMethods : st.outMethods;
-    const products = st.products.filter((p) => p.active || !isIn);
+    let products = st.products.filter((p) => p.active || !isIn);
     const blank = () => ({ id: '', option: '', qty: '', cost: '', price: '', amount: '', method: isIn ? '買進' : '售出', note: '' });
     const variantStock = (p, o) => { const v = (p.variants || []).find((x) => x.option === o); return v ? v.stock : 0; };
     let date = st.today; // 這次的日期（可以補登以前的）
@@ -172,7 +169,7 @@
             <legend>第 ${i + 1} 列${rows.length > 1 ? `<button type="button" class="btn btn-small btn-quiet-danger stock-line-del" data-del="${i}">刪除這列</button>` : ''}</legend>
             <div class="stock-line-top">
               <span class="stock-line-img">${p ? thumb(p.photo, p.name) : '<span class="shop-thumb shop-noimg" aria-hidden="true">🌿</span>'}</span>
-              <label class="form-row stock-line-pick"><span>編號／商品</span><select class="input" data-k="id" data-i="${i}"><option value="">（選商品）</option>${products.map((x) => `<option value="${esc(x.id)}"${x.id === r.id ? ' selected' : ''}>${esc(x.code || '—')}　${esc(x.name)}（庫存 ${x.stock}）</option>`).join('')}</select></label>
+              <label class="form-row stock-line-pick"><span>編號／商品</span><select class="input" data-k="id" data-i="${i}"><option value="">（選商品）</option>${isIn ? '<option value="__new">🆕 新商品（還沒在清單上的）</option>' : ''}${products.map((x) => `<option value="${esc(x.id)}"${x.id === r.id ? ' selected' : ''}>${esc(x.code || '—')}　${esc(x.name)}（庫存 ${x.stock}）</option>`).join('')}</select></label>
             </div>
             ${p && p.options ? `<label class="form-row"><span>${esc(p.options.label)}</span><select class="input" data-k="option" data-i="${i}"><option value="">（選${esc(p.options.label)}）</option>${p.options.options.map((o) => `<option value="${esc(o.name)}"${o.name === r.option ? ' selected' : ''}>${esc(o.name)}（庫存 ${variantStock(p, o.name)}）</option>`).join('')}</select></label>` : ''}
             <div class="stock-line-grid">
@@ -205,6 +202,24 @@
         const r = rows[Number(x.dataset.i)];
         r[x.dataset.k] = x.value;
         if (x.dataset.k === 'method') draw();
+        if (x.dataset.k === 'id' && x.value === '__new') {
+          // 新商品：跳出商品表單（不填數量），存好帶回這一列（2026/10/21 新增商品併進商品增加）
+          r.id = '';
+          x.value = '';
+          editProduct(null, guard, async (np) => {
+            if (!np || !np.id) return;
+            try {
+              const again = await Api.admin('adminShopStock', {}, true);
+              products = again.products.filter((p) => p.active);
+            } catch (e) { if (e.code === 'UNAUTHORIZED') { guard(e); return; } }
+            const p = products.find((y) => y.id === np.id);
+            r.id = np.id;
+            r.option = p && p.options && p.options.options.length === 1 ? p.options.options[0].name : '';
+            setPrices(r, p);
+            draw();
+          });
+          return;
+        }
         if (x.dataset.k === 'id') {
           // 選了商品：帶入商品現在的成本、售價（有規格的選了規格再帶）
           const p = products.find((y) => y.id === x.value);
@@ -344,9 +359,9 @@
             <label class="form-row"><span>成本（元，選填；只有後台看得到）</span><input class="input" name="cost" inputmode="numeric" maxlength="6" value="${esc(v.cost === null || v.cost === undefined ? '' : v.cost)}" placeholder="例：35" data-cost></label>
           </div>
           <p class="hint" data-margin></p>
-          <label class="form-row"><span>${p ? '目前庫存（改了會自動記盤盈／盤虧）' : '數量（選填；記成初存）'}</span><input class="input" name="stock" inputmode="numeric" maxlength="6" value="${esc(baseStock0)}" placeholder="例：20"></label>
+          ${p ? `<label class="form-row"><span>目前庫存（改了會自動記盤盈／盤虧）</span><input class="input" name="stock" inputmode="numeric" maxlength="6" value="${esc(baseStock0)}" placeholder="例：20"></label>` : '<p class="hint">數量存好後在「商品增加」那一列填（買進的會自動記帳）。</p>'}
         </div>
-        <p class="hint" data-opt-note hidden>有規格：售價、成本、數量填在下面每個規格。</p>
+        <p class="hint" data-opt-note hidden>有規格：售價、成本${p ? '、庫存' : ''}填在下面每個規格。</p>
         <label class="form-row"><span>單位（選填）</span><input class="input" name="unit" maxlength="6" value="${esc(v.unit)}" placeholder="例：盒、罐、包"></label>
         <label class="form-row"><span>說明（選填）</span><textarea class="input textarea" name="description" rows="3" maxlength="300" placeholder="例：當天現做，冷藏 3 天">${esc(v.description)}</textarea></label>
         <div class="form-row"><span>照片（選填，最多 6 張；第一張是封面）</span>
@@ -357,7 +372,7 @@
           <label class="form-row"><span>規格名稱</span><input class="input" name="optLabel" maxlength="10" value="${esc(opt.label)}" placeholder="例：口味"></label>
           <div data-opt-rows></div>
           <button type="button" class="btn btn-small" data-opt-add>＋ 加一個選項</button>
-          <p class="hint">有填選項的話，大家下單要選一個；每個選項的庫存分開算。${p ? '數量＝目前庫存，改了會自動記盤盈／盤虧。' : '數量會記成初存。'}限量、每人最多照商品算（各選項加總）。</p>
+          <p class="hint">有填選項的話，大家下單要選一個；每個選項的庫存分開算。${p ? '庫存＝目前庫存，改了會自動記盤盈／盤虧。' : '數量存好後在「商品增加」選口味填。'}限量、每人最多照商品算（各選項加總）。</p>
         </fieldset>
         <label class="form-row"><span>排序（小的在前）</span><input class="input" name="order" inputmode="numeric" maxlength="4" value="${esc(v.order || 0)}"></label>
         ${p ? `<label class="check"><input type="checkbox" name="active"${v.active ? ' checked' : ''}> 啟用（取消勾選＝停用）</label>` : ''}
@@ -405,7 +420,7 @@
         <div class="shop-opt-nums">
           <label><span>售價</span><input class="input" data-opt="price" data-i="${i}" inputmode="numeric" maxlength="6" value="${esc(r.price)}" placeholder="元"></label>
           <label><span>成本</span><input class="input" data-opt="cost" data-i="${i}" inputmode="numeric" maxlength="6" value="${esc(r.cost)}" placeholder="元"></label>
-          <label><span>${p && r.was ? '庫存' : '數量'}</span><input class="input" data-opt="stock" data-i="${i}" inputmode="numeric" maxlength="6" value="${esc(r.stock)}" placeholder="0"></label>
+          ${p && r.was ? `<label><span>庫存</span><input class="input" data-opt="stock" data-i="${i}" inputmode="numeric" maxlength="6" value="${esc(r.stock)}" placeholder="0"></label>` : ''}
         </div></div>`).join('');
       box2.querySelectorAll('[data-opt]').forEach((x) => x.addEventListener('input', () => { opt.rows[Number(x.dataset.i)][x.dataset.opt] = x.value; if (x.dataset.opt === 'name') syncBase(); }));
       box2.querySelectorAll('[data-opt-del]').forEach((b) => b.addEventListener('click', () => { opt.rows.splice(Number(b.dataset.optDel), 1); drawOpts(); syncBase(); }));
@@ -461,16 +476,16 @@
       ev.preventDefault();
       Busy.show('存檔中⋯');
       try {
-        await Api.admin('adminShopSaveProduct', { product: {
+        const saved = await Api.admin('adminShopSaveProduct', { product: {
           id: p ? p.id : '', code: f.elements.code.value.trim(), category: f.elements.category.value.trim(), name: f.elements.name.value, unit: f.elements.unit.value,
-          ...(opt.rows.some((r) => r.name.trim()) ? { price: '', cost: '' } : { price: f.elements.price.value.trim(), cost: f.elements.cost.value.trim(), stock: f.elements.stock.value.trim() !== baseStock0 ? f.elements.stock.value.trim() : '' }),
+          ...(opt.rows.some((r) => r.name.trim()) ? { price: '', cost: '' } : { price: f.elements.price.value.trim(), cost: f.elements.cost.value.trim(), stock: f.elements.stock && f.elements.stock.value.trim() !== baseStock0 ? f.elements.stock.value.trim() : '' }),
           description: f.elements.description.value, photo: photos[0] || '', photos: photos.slice(1), order: f.elements.order.value.trim(), active: f.elements.active ? f.elements.active.checked : true,
           options: { label: f.elements.optLabel.value.trim(), options: opt.rows.filter((r) => r.name.trim()).map((r) => ({ name: r.name.trim(), was: r.was || '', price: String(r.price).trim(), cost: String(r.cost).trim(), stock: String(r.stock).trim() !== r.stock0 ? String(r.stock).trim() : '' })) }
         } });
         Busy.hide();
         m.close();
         AdminPage.clearMemo();
-        after();
+        after(saved && saved.product); // 商品增加裡建的新商品：帶回那一列
       } catch (e) {
         Busy.hide();
         if (e.code === 'UNAUTHORIZED') { m.close(); guard(e); return; }
@@ -544,7 +559,7 @@
                 <label class="check shop-stock-limit"><input type="checkbox" data-stock-limit${!s || s.limit === 'stock' ? ' checked' : ''}> 📦 限量照庫存（目前 ${p.stock !== undefined ? p.stock : '—'}${p.variants ? '：' + p.variants.filter((x) => x.option).map((x) => esc(x.option) + ' ' + x.stock).join('、') : ''}）</label>
                 <small class="shop-three-hint">價格空白＝照商品庫的價格。照庫存：能賣的＝庫存－還沒取貨的訂單，每個口味分開算，賣完就顯示已售完；不勾的話限量自己填（空白＝不限）。每人最多空白＝不限。</small>
               </div>
-            </div>`; }).join('')}</div>` : '<p class="muted">商品庫是空的，先到「📦 商品庫」新增商品。</p>'}
+            </div>`; }).join('')}</div>` : '<p class="muted">商品庫是空的，先到「➕ 商品增加」選「🆕 新商品」建商品。</p>'}
         </fieldset>
         <div class="form-error" data-error hidden></div>
         <div class="admin-actions">

@@ -744,3 +744,24 @@ test('年度結帳：對帳檢查（還沒付款、確認、取貨的訂單、�
   assert.equal(call('adminShopStockDelete', { id: rec.id }).error.code, 'LOCKED_YEAR');
   assert.equal(call('adminShopStockCountSave', { date: '2026-10-01', rows: [{ id: tofu.id, actual: 3 }] }).error.code, 'LOCKED_YEAR');
 });
+
+test('初存改成買進：同一天合成一筆進貨記帳、庫存不變；已經改過的、出貨的不動', () => {
+  const { call, ok, tofu, jam } = setup();
+  ok(call('adminShopStockMove', { type: 'in', rows: [{ id: tofu.id, qty: 10, cost: 30, method: '初存' }, { id: jam.id, qty: 4, cost: 90, method: '初存' }] }));
+  ok(call('adminShopStockMove', { type: 'in', rows: [{ id: jam.id, qty: 2, cost: 90, method: '了願' }] }));
+  const recs = () => ok(call('adminShopStock', {})).records;
+  const first = recs().filter((r) => r.method === '初存').map((r) => r.id);
+  assert.equal(first.length, 2);
+  assert.match(JSON.stringify(call('adminShopStockToBuy', { ids: first }).error), /錢怎麼付/);
+  const res = ok(call('adminShopStockToBuy', { ids: first.concat(recs().find((r) => r.method === '了願').id), pay: '銀行存款' }));
+  assert.equal(res.count, 2, '了願的不會被改');
+  assert.equal(res.amount, 300 + 360);
+  assert.equal(res.days, 1);
+  assert.equal(recs().filter((r) => r.method === '買進').length, 2);
+  assert.equal(ok(call('adminShopStock', {})).products.find((p) => p.id === tofu.id).stock, 10, '庫存不變');
+  const bank = ok(call('adminShopLedger', { year: 2026 })).accounts.find((a) => a.name === '銀行存款').entries.filter((e) => e.category === '進貨');
+  assert.equal(bank.length, 1);
+  assert.equal(bank[0].amount, 660);
+  // 改過一次就不能再改
+  assert.equal(call('adminShopStockToBuy', { ids: first, pay: '零用金' }).error.code, 'NOT_FOUND');
+});

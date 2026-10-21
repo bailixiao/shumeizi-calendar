@@ -88,6 +88,7 @@
       ${state.tab === 'groups' ? `
         ${edit ? '<div class="admin-actions"><a class="btn btn-primary" href="#/admin/shop/new">＋ 開團</a></div>' : ''}
         ${groupsHtml}` : state.tab === 'records' ? `
+        ${edit && st.records.some((r) => r.type === '進' && r.method === '初存' && !r.orderId) ? '<div class="admin-actions"><button type="button" class="btn" data-to-buy>🔁 初存改成買進</button></div>' : ''}
         ${recHtml}
         <p class="hint">團購一下單就自動記「售出」，改單跟著改、取消訂單會還回去；手動記的記錯了可以「修改」或刪除。</p>` : `
         ${stockHtml}
@@ -114,6 +115,64 @@
       Busy.show('刪除中⋯');
       try { await Api.admin('adminShopStockDelete', { id: r.id }); Busy.hide(); AdminPage.clearMemo(); showList(body, guard); } catch (e) { Busy.hide(); if (!guard(e)) alert(e.message || '刪除失敗'); }
     }));
+    const tb = body.querySelector('[data-to-buy]');
+    if (tb) tb.addEventListener('click', () => toBuy(st.records.filter((r) => r.type === '進' && r.method === '初存' && !r.orderId), guard, (res) => {
+      AdminPage.clearMemo();
+      flash = AdminPage.notice(res.noCost.length ? 'error' : 'success', '改成買進了', `共 ${res.count} 筆、${money(res.amount)}，記帳補上 ${res.days} 筆進貨${res.noCost.length ? `；這幾樣沒有成本，金額是 0：${res.noCost.join('、')}（到紀錄按「修改」補金額）` : ''}`);
+      showList(body, guard);
+    }));
+  }
+
+  /**
+   * 🔁 初存改成買進（2026/10/21）：勾花錢買的初存紀錄、選錢怎麼付 → 變成買進，記帳補進貨（同一天合成一筆）；庫存不變。
+   */
+  function toBuy(list, guard, done) {
+    let pay = '零用金';
+    const m = Modal.open(`
+      <form class="modal-form" novalidate>
+        <h2 class="modal-title">🔁 初存改成買進</h2>
+        <p class="modal-note">勾<strong>花錢買的</strong>那幾筆。改好後記帳會補上「進貨」（同一天的合成一筆，日期照原本的），庫存數量不變。本來就有的貨就不要勾。</p>
+        <div class="to-buy-tools"><button type="button" class="btn btn-small" data-all>全選</button><button type="button" class="btn btn-small" data-none>全不選</button></div>
+        <ul class="to-buy-list">${list.map((r) => `<li><label class="check"><input type="checkbox" value="${esc(r.id)}"> <span><strong>${esc(r.code ? r.code + ' ' : '')}${esc(r.name)}</strong> ×${r.qty}<br><small class="muted">${esc(r.date)}・金額 ${money(r.amount)}${r.amount ? '' : '（沒有成本）'}</small></span></label></li>`).join('')}</ul>
+        <div class="form-row"><span>💰 錢怎麼付</span>
+          <div class="seg">${[['零用金', '💵 零用金'], ['銀行存款', '🏦 銀行'], ['應付帳款', '🧾 還沒付']].map(([v, l]) => `<label class="seg-item"><input type="radio" name="pay" value="${v}"${v === pay ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div></div>
+        <p class="hint" data-sum>勾了 0 筆</p>
+        <div class="form-error" data-error hidden></div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-block btn-primary">改成買進</button>
+          <button type="button" class="btn btn-block" data-close>返回</button>
+        </div>
+      </form>`);
+    const f = m.el.querySelector('form');
+    const boxes = () => [...f.querySelectorAll('.to-buy-list input')];
+    const sum = () => {
+      const picked = boxes().filter((c) => c.checked).map((c) => list.find((r) => r.id === c.value));
+      f.querySelector('[data-sum]').textContent = `勾了 ${picked.length} 筆，共 ${money(picked.reduce((n, r) => n + (Number(r.amount) || 0), 0))}`;
+    };
+    f.addEventListener('change', (ev) => { if (ev.target.name === 'pay') pay = ev.target.value; sum(); });
+    f.querySelector('[data-all]').addEventListener('click', () => { boxes().forEach((c) => { c.checked = true; }); sum(); });
+    f.querySelector('[data-none]').addEventListener('click', () => { boxes().forEach((c) => { c.checked = false; }); sum(); });
+    m.el.querySelector('[data-close]').addEventListener('click', () => m.close());
+    f.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const ids = boxes().filter((c) => c.checked).map((c) => c.value);
+      const err = f.querySelector('[data-error]');
+      if (!ids.length) { err.textContent = '請勾要改的紀錄'; err.hidden = false; return; }
+      m.el.setAttribute('data-locked', '');
+      Busy.show('改成買進中⋯');
+      try {
+        const res = await Api.admin('adminShopStockToBuy', { ids, pay });
+        Busy.hide();
+        m.close();
+        done(res);
+      } catch (e) {
+        Busy.hide();
+        m.el.removeAttribute('data-locked');
+        if (e.code === 'UNAUTHORIZED') { m.close(); guard(e); return; }
+        err.textContent = e.message || '沒有改成功，請再試一次';
+        err.hidden = false;
+      }
+    });
   }
 
   // ---------- 💰 記帳：開 Google 試算表「植素園記帳」（apps-script/LedgerSheet.gs） ----------

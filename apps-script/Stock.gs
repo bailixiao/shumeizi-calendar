@@ -336,6 +336,47 @@ function adminShopStockUpdate_(body) {
   });
 }
 
+/**
+ * 初存改成買進（2026/10/21）：之前新增商品時填的數量記成「初存」，其實是花錢買的 → 改成「買進」，記帳補上進貨。
+ * body = { ids: [紀錄ID], pay: 零用金／銀行存款／應付帳款 }。同一天的合成一批（記帳一筆進貨），日期照原本的；庫存數量不變。
+ */
+function adminShopStockToBuy_(body) {
+  var ids = Array.isArray(body.ids) ? body.ids.map(String) : [];
+  if (!ids.length) throw new ApiError_('VALIDATION', '請勾要改的紀錄');
+  var pay = ['零用金', '銀行存款', '應付帳款'].indexOf(body.pay) !== -1 ? body.pay : '';
+  if (!pay) throw new ApiError_('VALIDATION', '請選錢怎麼付（零用金、銀行或還沒付）');
+  return withSignupLock_(function () {
+    var rows = readTable_(SHEETS.SHOP_STOCK).filter(function (r) {
+      return ids.indexOf(r['紀錄ID']) !== -1 && r['類型'] === '進' && r['方式'] === '初存' && !r['訂單ID'];
+    });
+    if (!rows.length) throw new ApiError_('NOT_FOUND', '找不到這些初存紀錄，可能已經改過了');
+    rows.forEach(function (r) { ledgerLockCheck_(stockDate_(r), '那一年的進出貨'); });
+    var byDate = {};
+    rows.forEach(function (r) { (byDate[stockDate_(r)] = byDate[stockDate_(r)] || []).push(r); });
+    var now = nowString_();
+    var batches = [];
+    var noCost = [];
+    var products = readTable_(SHEETS.SHOP_PRODUCTS);
+    Object.keys(byDate).sort().forEach(function (date) {
+      var batch = newId_('K');
+      byDate[date].forEach(function (r) {
+        updateRow_(SHEETS.SHOP_STOCK, r, { '方式': '買進', '批次ID': batch, '更新時間': now });
+        if (!stockAmount_(r)) {
+          var p = findById_(products, '商品ID', r['商品ID']);
+          noCost.push((p ? p['名稱'] : r['商品ID']) + (r['規格'] ? '（' + r['規格'] + '）' : ''));
+        }
+      });
+      batches.push(batch);
+    });
+    SpreadsheetApp.flush();
+    invalidateTable_(SHEETS.SHOP_STOCK);
+    batches.forEach(function (b) { ledgerSyncStockBatch_(b, pay); });
+    var amount = rows.reduce(function (n, r) { return n + stockAmount_(r); }, 0);
+    writeDutyLog_('團購初存改買進', rows.length + ' 筆｜' + amount + ' 元｜' + pay + adminTag_());
+    return { count: rows.length, amount: amount, days: batches.length, noCost: noCost };
+  });
+}
+
 /** 刪一筆手動的進出紀錄（記錯時）。body = { id }；訂單自動記的要從訂單取消「已取貨」 */
 function adminShopStockDelete_(body) {
   return withSignupLock_(function () {

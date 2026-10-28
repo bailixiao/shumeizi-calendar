@@ -569,6 +569,7 @@
     const v = {
       name: g ? (id ? g.name : g.name + '（新）') : '', description: g ? g.description : '', deadline: g && id ? g.deadline : '',
       pickups: g && id ? g.pickupIds : [], payInfo: g ? g.payInfo : '', status: g && id ? g.status : '開放',
+      bank: (g && g.bank) || (base && base.lastBank) || { bank: '', branch: '', account: '', holder: '' }, // 匯款帳號（分欄；開新團帶入上次的）
       items: g ? g.itemSettings : [],
       // 新開團預設賣貨便（2026/10/10）；修改、另存舊的團購照原本的方式
       mode: g && !g.link ? '行事曆' : '賣貨便', link: g ? g.link || '' : '', cover: g ? g.cover || '' : ''
@@ -597,7 +598,16 @@
           <div class="form-row"><span>封面照片（選填，例如商品合照；團購頁、官網會顯示）</span>
             <div class="shop-photo" data-cover-box></div>
             <label class="btn btn-small">📷 選照片<input type="file" accept="image/*" hidden data-cover></label></div>
-          <label class="form-row" data-for-mode="行事曆"${v.mode === '行事曆' ? '' : ' hidden'}><span>付款說明（轉帳帳號等；只在下單後、我的團購顯示給轉帳的人）</span><textarea class="input textarea" name="payInfo" rows="3" maxlength="300" placeholder="例：郵局 700 帳號 0000000-0000000，戶名 ○○○；轉好請填末五碼">${esc(v.payInfo)}</textarea></label>
+          <div class="form-row shop-bank" data-for-mode="行事曆"${v.mode === '行事曆' ? '' : ' hidden'}><span>🏦 匯款帳號（只在下單後、我的訂單給選轉帳的人看）</span>
+            <div class="shop-two">
+              <label class="form-row"><span>銀行名稱</span><input class="input" name="bankName" maxlength="30" value="${esc(v.bank.bank)}" placeholder="例：○○銀行"></label>
+              <label class="form-row"><span>分行名稱</span><input class="input" name="bankBranch" maxlength="30" value="${esc(v.bank.branch)}" placeholder="例：○○分行"></label>
+            </div>
+            <div class="shop-two">
+              <label class="form-row"><span>銀行帳號</span><input class="input" name="bankAccount" inputmode="numeric" maxlength="20" value="${esc(v.bank.account)}" placeholder="數字，可以有 -"></label>
+              <label class="form-row"><span>戶名</span><input class="input" name="bankHolder" maxlength="40" value="${esc(v.bank.holder)}"></label>
+            </div></div>
+          <label class="form-row" data-for-mode="行事曆"${v.mode === '行事曆' ? '' : ' hidden'}><span>付款補充說明（選填）</span><textarea class="input textarea" name="payInfo" rows="2" maxlength="300" placeholder="例：轉好記得按「通知小編」填末五碼">${esc(v.payInfo)}</textarea></label>
           ${id ? `<div class="form-row"><span>狀態</span><div class="seg">${['開放', '結束'].map((s) => `<label class="seg-item"><input type="radio" name="status" value="${s}"${v.status === s ? ' checked' : ''}><span>${s === '結束' ? '結束（大家看不到了）' : '開放'}</span></label>`).join('')}</div></div>` : ''}
         </fieldset>
         ${v.pickups.length ? `<fieldset class="form-block" data-for-mode="行事曆"${v.mode === '行事曆' ? '' : ' hidden'}><legend>取貨場次（在哪幾場可以取貨）</legend>
@@ -676,7 +686,9 @@
       const mode = f.querySelector('input[name=mode]:checked').value;
       const group = {
         id, mode, link: mode === '賣貨便' ? f.elements.link.value.trim() : '', cover, name: f.elements.name.value, description: f.elements.description.value, deadline: f.elements.deadline.value,
-        payInfo: f.elements.payInfo.value, status: f.querySelector('input[name=status]:checked') ? f.querySelector('input[name=status]:checked').value : '開放',
+        payInfo: f.elements.payInfo.value,
+        bank: { bank: f.elements.bankName.value.trim(), branch: f.elements.bankBranch.value.trim(), account: f.elements.bankAccount.value.trim(), holder: f.elements.bankHolder.value.trim() },
+        status: f.querySelector('input[name=status]:checked') ? f.querySelector('input[name=status]:checked').value : '開放',
         pickups: [...f.querySelectorAll('input[name=pickup]:checked')].map((x) => x.value),
         items: [...f.querySelectorAll('[data-item]')].filter((x) => x.querySelector('[data-item-on]').checked).map((x) => ({
           id: x.dataset.item, price: x.querySelector('[data-k=price]').value.trim(), limit: x.querySelector('[data-stock-limit]').checked ? 'stock' : x.querySelector('[data-k=limit]').value.trim(), perPerson: x.querySelector('[data-k=perPerson]').value.trim()
@@ -763,6 +775,21 @@
       </div>
       <ul class="shop-sold">${g.items.map((it) => `<li>${thumb(it.photo, it.name, 'shop-thumb-sm')}<span>${esc(it.name)}</span><strong>${it.sold}${it.unit ? ' ' + esc(it.unit) : ''}</strong>${it.stockMode ? `<small>${it.left ? `可賣 ${it.left}` : '已售完'}（照庫存${it.options ? '：' + it.options.options.map((o) => esc(o.name) + ' ' + o.left).join('、') : ''}）</small>` : it.limit !== null ? `<small>${it.left ? `剩 ${it.left}` : '已售完'}／限量 ${it.limit}</small>` : ''}</li>`).join('')}</ul>
 
+      ${(() => {
+        // 💰 對帳（2026/10/28）：轉帳、填了末五碼、還沒付款的訂單
+        const todo = d.orders.filter((o) => o.status !== '已取消' && o.pay === '轉帳' && o.last5 && !o.paid);
+        const wait = d.orders.filter((o) => o.status !== '已取消' && o.pay === '轉帳' && !o.last5 && !o.paid).length;
+        return `<section class="stats-section shop-recon">
+        <h3 class="admin-sub">💰 對帳<span class="h2-sub">${todo.length ? '有 ' + todo.length + ' 張等你對' : '目前沒有要對的'}${wait ? '・還有 ' + wait + ' 張轉帳沒通知' : ''}</span></h3>
+        ${todo.length ? `<ul class="shop-recon-list">${todo.map((o) => `<li class="shop-recon-item">
+          <div class="shop-recon-main"><strong>${esc(o.name)}</strong><span class="shop-recon-amt">${money(o.total)}</span></div>
+          <p>匯款日期 <b>${esc(o.transferDate ? Fmt.shortDate(o.transferDate) : '—')}</b>・末五碼 <b class="shop-recon-l5">${esc(o.last5)}</b></p>
+          ${edit ? `<div class="shop-recon-acts"><button type="button" class="btn btn-small btn-primary" data-recon-ok="${esc(o.id)}">✅ 對帳 OK</button><button type="button" class="btn btn-small btn-quiet-danger" data-recon-bad="${esc(o.id)}">↩️ 對不到</button></div>` : ''}
+        </li>`).join('')}</ul>
+        <p class="hint">對帳 OK＝已付款＋訂單已確認（記帳自動記銷貨收入），買的人看到「出貨中」；對不到＝清掉末五碼請他再確認。有開手機提醒的人會收到通知。</p>` : ''}
+      </section>`;
+      })()}
+
       <section class="stats-section">
         <h3 class="admin-sub">📦 備貨清單<span class="h2-sub">${g.pickups.length ? '每一場要帶幾份' : '要準備幾份'}</span></h3>
         ${d.prep.map((p) => `<div class="shop-prep">
@@ -782,7 +809,7 @@
             <div class="shop-order-head"><strong>${esc(o.name)}</strong><span>${money(o.total)}</span></div>
             <p>${esc(itemsText(o.items))}</p>
             ${(o.discounts || []).length ? `<p class="shop-order-promo">${o.discounts.map((x) => `🏷️ ${esc(x.name)} －${money(x.discount)}`).join('、')}</p>` : ''}
-            <p class="muted">${o.pay === '轉帳' ? `轉帳${o.last5 ? '・末五碼 ' + esc(o.last5) : '・還沒填末五碼'}` : '取貨付現'}${o.note ? '・' + esc(o.note) : ''}${o.status === '已取消' ? '・已取消' : ''}</p>
+            <p class="muted">${o.pay === '轉帳' ? `轉帳${o.last5 ? '・' + (o.transferDate ? esc(Fmt.shortDate(o.transferDate)) + ' ' : '') + '末五碼 ' + esc(o.last5) : '・還沒填末五碼'}` : '取貨付現'}${o.note ? '・' + esc(o.note) : ''}${o.status === '已取消' ? '・已取消' : ''}</p>
             ${o.status === '已取消' ? (edit ? `<button type="button" class="btn btn-small" data-restore="${esc(o.id)}">恢復這張訂單</button>` : '') : `
             <div class="shop-order-actions">
               <label class="check"><input type="checkbox" data-confirmed="${esc(o.id)}"${o.confirmed ? ' checked' : ''}${edit ? '' : ' disabled'}> 訂單已確認</label>
@@ -815,6 +842,22 @@
     body.querySelectorAll('[data-confirmed]').forEach((c) => c.addEventListener('change', () => set(c.dataset.confirmed, { confirmed: c.checked }, '存檔中')));
     body.querySelectorAll('[data-paid]').forEach((c) => c.addEventListener('change', () => set(c.dataset.paid, { paid: c.checked }, '存檔中')));
     body.querySelectorAll('[data-restore]').forEach((b) => b.addEventListener('click', () => set(b.dataset.restore, { cancel: false }, '恢復中')));
+    const recon = async (orderId, ok) => {
+      const o = d.orders.find((x) => x.id === orderId);
+      if (!ok && !(await Confirm.open({ title: '對不到這筆轉帳？', rows: [['姓名', o.name], ['金額', money(o.total)], ['末五碼', o.last5]], note: '會清掉末五碼和匯款日期，請他到「我的訂單」再確認一次（有開手機提醒的會收到通知）。', confirmText: '對不到' }))) return;
+      Busy.show(ok ? '對帳中⋯' : '存檔中⋯');
+      try {
+        const res = await Api.admin('adminShopReconcile', { orderId, ok });
+        Busy.hide();
+        flash = AdminPage.notice('success', ok ? `✅ ${o.name} 對帳 OK` : `↩️ 已請 ${o.name} 再確認`, res.pushed ? '已經推播通知他了' : '他沒有開手機提醒，記得跟他說一聲');
+        reload();
+      } catch (e) {
+        Busy.hide();
+        if (!guard(e)) { flash = AdminPage.notice('error', e.message, ''); reload(); }
+      }
+    };
+    body.querySelectorAll('[data-recon-ok]').forEach((b) => b.addEventListener('click', () => recon(b.dataset.reconOk, true)));
+    body.querySelectorAll('[data-recon-bad]').forEach((b) => b.addEventListener('click', () => recon(b.dataset.reconBad, false)));
     body.querySelectorAll('[data-cancel]').forEach((b) => b.addEventListener('click', async () => {
       const o = d.orders.find((x) => x.id === b.dataset.cancel);
       const ok = await Confirm.open({ title: '取消這張訂單？', rows: [['姓名', o.name], ['品項', itemsText(o.items)], ['金額', money(o.total)]], confirmText: '確定取消', danger: true,

@@ -95,7 +95,7 @@ const PREP = `
 const SEED = `window.__seeded = true;`;
 
 const SHOTS = [
-  { name: 'cal-day', hash: '#/', js: `document.querySelector('[data-view=month]').click(); await __wait(800);
+  { name: 'cal-day', hash: '#/', js: `document.querySelector('[data-view=month]').click(); await __wait(800); if (!document.querySelector('.fc-daygrid-day[data-date="${SUN}"]')) { document.getElementById('cal-next').click(); await __wait(800); } // 下個星期日在下個月：翻到下個月
 `, tap: '.fc-daygrid-day[data-date="' + SUN + '"]',
     clip: `const a = document.querySelector('#fc').getBoundingClientRect(); const b = document.querySelector('#day-panel').getBoundingClientRect(); return { x: 0, y: a.top + scrollY - 8, width: innerWidth, height: Math.min(1500, b.bottom - a.top + 16) };` },
   { name: 'filter', hash: '#/', js: `document.querySelector('[data-view=recent]').click(); await __wait(600);`,
@@ -148,6 +148,9 @@ const SHOTS = [
   // 我的訂單：分頁、訂單卡、待付總額
   { name: 'shop-orders', hash: null, js: `localStorage.setItem('shumeizi:mine-name', '測試甲'); location.hash = '#/shop/orders'; await __wait(2500); window.scrollTo(0, 0);`,
     clip: `return { x: 0, y: 0, width: innerWidth, height: innerHeight };` },
+  // 團購轉帳：我們的匯款帳號（測試乙是轉帳、已通知小編）
+  { name: 'shop-bank', hash: null, js: `localStorage.setItem('shumeizi:mine-name', '測試乙'); location.hash = '#/'; await __wait(500); location.hash = '#/shop/orders'; await __wait(2500); const d = document.querySelector('.shop-bank-fold'); if (d) d.open = true; await __wait(300);`,
+    clip: `return __box('.shop-bank-card', 8);` },
   { name: 'venue-pick', hash: '#/venue', js: `await __wait(1500); const chip = [...document.querySelectorAll('#view-venue button, #view-venue label')].find((b) => /早上/.test(b.textContent)); if (chip) chip.click(); await __wait(300);`,
     clip: `const s = document.querySelector('#view-venue .venue-step, #view-venue section, #view-venue form'); return { x: 0, y: 0, width: innerWidth, height: 1100 };` },
   { name: 'venue-form', hash: '#/venue', js: `await __wait(1500); const f = document.querySelector('#view-venue form'); f.elements.name.value = '測試甲'; f.elements.phone.value = '0900-000000'; f.elements.purpose.value = '讀書會'; f.elements.people.value = '15'; f.elements.note.value = '要用投影機';`,
@@ -175,6 +178,9 @@ const SHOTS = [
   { name: 'adm-meal-orders', admin: true, hash: '#/admin', js: `const d = (await __g({ action: 'getEvents', from: '${SUN}', to: '${SUN}' })).data.duties.find((x) => x.name.includes('韜課館'));
       location.hash = '#/admin/meals?duty=' + encodeURIComponent(d.id) + '&date=${SUN}'; await __wait(3000);`,
     clip: `window.scrollTo(0, 0); const b = document.querySelector('.meal-people').getBoundingClientRect(); return { x: 0, y: 0, width: innerWidth, height: b.bottom + scrollY + 20 };` },
+  // 後台團購：💰 對帳
+  { name: 'adm-shop-recon', admin: true, hash: '#/admin/shop', js: `await __wait(2000); document.querySelector('input[name=shoptab][value=groups]').click(); await __wait(300); document.querySelector('.shop-group-card').click(); await __wait(2500);`,
+    clip: `return __box('.shop-recon', 6);` },
   { name: 'adm-venue', admin: true, hash: '#/admin/venue', js: `await __wait(2000);`,
     clip: `const el = document.querySelector('.venue-reqs'); return __box(el.closest('[data-body]') || el, 4);` }
 ];

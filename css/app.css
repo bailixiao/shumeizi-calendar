@@ -2872,3 +2872,27 @@ span.shop-thumb { cursor: default; }
 .to-buy-list li { padding: 8px 10px; border-bottom: 1px dashed var(--line); }
 .to-buy-list li:last-child { border-bottom: 0; }
 .to-buy-list .check { align-items: flex-start; }
+
+/* 🏦 團購匯款帳號、對帳（2026/10/28） */
+.shop-bank-card { display: grid; gap: 10px; margin: 12px 0; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.shop-bank-title { margin: 0; font-weight: 700; font-size: 1.1rem; }
+.shop-bank-hint { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); }
+.shop-bank-rows { margin: 0; display: grid; gap: 8px; }
+.shop-bank-rows div { display: grid; gap: 2px; }
+.shop-bank-rows dt { font-weight: 700; font-size: .92rem; }
+.shop-bank-rows dd { margin: 0; color: var(--ink-2); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; overflow-wrap: anywhere; }
+.shop-bank-note { margin: 0; color: var(--ink-2); overflow-wrap: anywhere; }
+.shop-bank-form { display: grid; gap: 8px; }
+.shop-bank-form .btn { justify-self: start; }
+.shop-bank-form .muted { margin: 0; }
+.shop-bank-ok { margin: 0; color: var(--ok); font-weight: 700; }
+.shop-bank-fold { margin: 8px 0; }
+.shop-bank-fold > summary { cursor: pointer; font-weight: 700; color: var(--teal); padding: 6px 0; }
+.shop-bank-fold .shop-bank-card { margin-top: 4px; }
+.shop-recon-list { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 8px; }
+.shop-recon-item { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.shop-recon-main { display: flex; justify-content: space-between; gap: 8px; }
+.shop-recon-amt { font-weight: 700; }
+.shop-recon-item p { margin: 4px 0; }
+.shop-recon-l5 { letter-spacing: .1em; }
+.shop-recon-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }

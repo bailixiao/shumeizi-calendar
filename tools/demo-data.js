@@ -70,7 +70,8 @@ async function seedDemo(call, get) {
   const pickups = [find('植素園出攤', sun).id, find('植素園出攤', sun2).id];
   const g = await admin('adminShopSaveGroup', { group: {
     name: '植素園十月團購', description: '這次有新鮮的手工豆腐、果醬和饅頭 🌿 在出攤時取貨', deadline: addDays(sun2, -1) + ' 22:00', pickups,
-    payInfo: '（示範）轉帳帳號：測試銀行 000-0000000-000，轉好請填末五碼',
+    payInfo: '（示範）轉好記得按「通知小編」',
+    bank: { bank: '測試銀行', branch: '示範分行', account: '000-0000000-000', holder: '示範帳戶' },
     items: [{ id: tofu, price: '', limit: '', perPerson: '' }, { id: jam, price: '', limit: '10', perPerson: '2' }, { id: bread, price: '', limit: '', perPerson: '' }]
   } });
   if (!g.ok) throw new Error('示範團購建立失敗：' + JSON.stringify(g.error));
@@ -79,7 +80,10 @@ async function seedDemo(call, get) {
   const order = (name, pickup, items, pay) => call({ action: 'shopOrder', groupId: g.data.id, name, pickupId: pickup, items, pay: pay || '現場' });
   await order('測試甲', pickups[0], [{ id: tofu, qty: 2 }, { id: jam, option: '桑葚', qty: 1 }], '轉帳');
   await order('王小明', pickups[0], [{ id: bread, qty: 3 }]);
-  await order('測試乙', pickups[1], [{ id: jam, option: '鳳梨', qty: 2 }, { id: tofu, qty: 1 }]);
+  await order('測試乙', pickups[1], [{ id: jam, option: '鳳梨', qty: 2 }, { id: tofu, qty: 1 }], '轉帳');
+  // 測試乙轉帳了、通知小編（後台「💰 對帳」會出現）
+  const o2 = (await admin('adminShopGroup', { id: g.data.id })).data.orders.find((o) => o.name === '測試乙');
+  if (o2) await call({ action: 'shopSetLast5', orderId: o2.id, name: '測試乙', last5: '24680', date: today });
   // 記帳：期初、進貨（銀行付）、攤位費、隨喜；測試甲的訂單已付款（自動記銷貨收入）
   const year = today.slice(0, 4);
   await admin('adminShopLedgerOpening', { year, balances: { 零用金: 3000, 銀行存款: 20000 } });

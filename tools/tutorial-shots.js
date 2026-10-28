@@ -161,7 +161,7 @@ const SUB = {
   '28': '照片下面有價格、已經賣了幾份；有寫「剩 N」的是限量',
   '29': '照片可以左右滑；有口味、大小的要先選一個',
   '30': '下面「🛒 購物車」的數字是放了幾件；轉帳的送出後會看到帳號',
-  '31': '在下面「📋 我的訂單」可以改數量、取消、補轉帳末五碼'
+  '31': '在下面「📋 我的訂單」可以改數量、取消；轉帳的在那裡通知小編'
 };
 const sub = (n, dev) => { const s = SUB[n]; return Array.isArray(s) ? s[dev === 'ios' ? 0 : 1] : (s || ''); };
 // target：CSS 選擇器字串，或「$(」開頭的一段程式（直接放進頁面裡算）
@@ -224,7 +224,7 @@ async function main() {
     await shoot(c, '08');
     await run(c, `${frame('09', '', '.recent-alert')}`);
     await shoot(c, '09');
-    await run(c, `$('[data-view=month]').click(); await W(800); window.scrollTo(0, 0);`);
+    await run(c, `$('[data-view=month]').click(); await W(800); if (!$('.fc-daygrid-day[data-date="${SUN}"]')) { $('#cal-next').click(); await W(800); } window.scrollTo(0, 0);`); // 下個星期日在下個月：翻到下個月
     const p = await run(c, `const el = document.querySelector('.fc-daygrid-day[data-date="${SUN}"]'); el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 };`);
     for (const t of ['mouseMoved', 'mousePressed', 'mouseReleased']) await c.send('Input.dispatchMouseEvent', { type: t, x: p.x, y: p.y, button: 'left', clickCount: 1 });
     await sleep(900);

@@ -557,35 +557,67 @@
         ${p ? `<p>📦 ${esc(pickupText(p))} 取貨</p>` : ''}
         ${p ? `<div class="addcal-row">${AddCal.button({ name: '取團購：' + g.name, location: p.location, start: p.date, end: p.date, startTime: p.startTime, endTime: p.endTime || '', dutyId: p.id, date: p.date }, '加到手機行事曆（取貨那天）')}</div>` : ''}
       </div>
-      ${o.pay === '轉帳' ? `<div class="notice shop-payinfo"><p><strong>🏦 轉帳資訊</strong></p><p>${esc(o.payInfo || '請問小編轉帳帳號').replace(/\n/g, '<br>')}</p><form class="shop-last5-inline" data-last5-form novalidate>
-          <label for="done-last5">轉帳末五碼${o.last5 ? '（已填，可以改）' : '（轉好後填，小編才對得到帳 🙏）'}</label>
-          <div class="shop-last5-row"><input class="input" id="done-last5" name="last5" inputmode="numeric" maxlength="5" value="${esc(o.last5 || '')}" placeholder="例：12345"><button type="submit" class="btn btn-primary">${o.last5 ? '改末五碼' : '存檔'}</button></div>
-          <p class="form-error" data-error hidden></p>
-          <p class="muted">還沒轉也沒關係，之後在「我的訂單」補也可以。</p>
-        </form></div>` : ''}
+      ${o.pay === '轉帳' ? bankCard(o) : ''}
       <p class="hint">截止前（${esc(g.deadline)}）都可以到「我的訂單」改數量或取消。</p>
       <a class="btn btn-block btn-primary" href="#/shop/orders">📋 看我的訂單</a>
       <a class="btn btn-block" href="#/shop/${encodeURIComponent(g.id)}">繼續逛</a>
       </div>
       ${tabbar('cart', g)}`;
     window.scrollTo(0, 0);
-    // 轉帳末五碼直接在這裡填（2026/10/13）
-    const lf = root.querySelector('[data-last5-form]');
-    if (lf) lf.addEventListener('submit', async (ev) => {
-      ev.preventDefault();
-      const v = lf.elements.last5.value.replace(/\D/g, '');
-      const box = lf.querySelector('[data-error]');
-      if (!/^\d{5}$/.test(v)) { box.textContent = '要 5 個數字'; box.hidden = false; return; }
-      Busy.show('存檔中⋯');
-      try {
-        await Api.shopSetLast5(o.id, o.name, v);
-        Busy.hide();
-        o.last5 = v;
-        box.hidden = true;
-        lf.querySelector('label').textContent = '轉帳末五碼（已填，可以改）';
-        lf.querySelector('button').textContent = '改末五碼';
-        lf.querySelector('.muted').textContent = '✅ 末五碼 ' + v + ' 存好了，謝謝 😊';
-      } catch (e) { Busy.hide(); box.textContent = e.message || '存檔失敗'; box.hidden = false; }
+    // 轉帳：匯款日期＋末五碼直接在這裡通知小編（2026/10/28）
+    bindBankCards(root, [o], o.name, () => done(g, res));
+  }
+
+  // ---------- 🏦 我們的匯款帳號（2026/10/28，下單完成頁、我的訂單共用） ----------
+
+  const todayStr = () => new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+
+  /** 轉帳訂單的匯款帳號卡片：銀行、分行、帳號（可複製）、戶名；填匯款日期＋末五碼「通知小編」 */
+  function bankCard(o) {
+    const b = o.bank;
+    const rows = b ? [['銀行名稱', b.bank], ['分行名稱', b.branch], ['銀行帳號', b.account], ['戶名', b.holder]].filter((r) => r[1]) : [];
+    return `<div class="shop-bank-card" data-bank-card="${esc(o.id)}">
+      <p class="shop-bank-title">🏦 我們的匯款帳號</p>
+      ${o.paid ? '' : `<p class="shop-bank-hint">匯款後，請填<strong>匯款日期</strong>和<strong>末五碼</strong>，按「通知小編」 🙏</p>`}
+      ${rows.length ? `<dl class="shop-bank-rows">${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}${k === '銀行帳號' ? ` <button type="button" class="btn btn-small" data-copy-acct="${esc(v)}">複製</button>` : ''}</dd></div>`).join('')}</dl>` : ''}
+      ${o.payInfo ? `<p class="shop-bank-note">${esc(o.payInfo).replace(/\n/g, '<br>')}</p>` : rows.length ? '' : '<p class="shop-bank-note">請問小編轉帳帳號</p>'}
+      ${o.paid ? '<p class="shop-bank-ok">✅ 小編已經對好帳了，謝謝！</p>' : `<form class="shop-bank-form" novalidate>
+        <label class="form-row"><span>匯款日期</span><input class="input" type="date" name="date" max="${todayStr()}" value="${esc(o.transferDate || todayStr())}"></label>
+        <label class="form-row"><span>匯款帳號末五碼</span><input class="input" name="last5" inputmode="numeric" maxlength="5" value="${esc(o.last5 || '')}" placeholder="例：12345"></label>
+        <p class="form-error" data-error hidden></p>
+        <button type="submit" class="btn btn-primary">${o.last5 ? '更新通知' : '通知小編'}</button>
+        ${o.last5 ? `<p class="muted">✅ 已通知（${esc(o.transferDate ? Fmt.shortDate(o.transferDate) + '・' : '')}末五碼 ${esc(o.last5)}），等小編對帳</p>` : '<p class="muted">還沒轉也沒關係，之後在「我的訂單」也可以通知。</p>'}
+      </form>`}
+    </div>`;
+  }
+
+  /** 卡片的事件：複製帳號、通知小編。after() 成功後重畫 */
+  function bindBankCards(scope, orders, name, after) {
+    scope.querySelectorAll('[data-copy-acct]').forEach((b) => b.addEventListener('click', async () => {
+      const ok = await Share.copyText(b.dataset.copyAcct);
+      b.textContent = ok ? '已複製 ✓' : '複製失敗';
+      setTimeout(() => { b.textContent = '複製'; }, 2000);
+    }));
+    scope.querySelectorAll('[data-bank-card]').forEach((card) => {
+      const o = orders.find((x) => x.id === card.dataset.bankCard);
+      const f = card.querySelector('form');
+      if (!o || !f) return;
+      f.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const v = f.elements.last5.value.replace(/\D/g, '');
+        const date = f.elements.date.value;
+        const box = f.querySelector('[data-error]');
+        if (!/^\d{5}$/.test(v)) { box.textContent = '末五碼要 5 個數字'; box.hidden = false; return; }
+        if (!date || date > todayStr()) { box.textContent = '請選匯款日期（不能是以後的日子）'; box.hidden = false; return; }
+        Busy.show('通知小編⋯');
+        try {
+          const r = await Api.shopSetLast5(o.id, name, v, date);
+          Busy.hide();
+          o.last5 = r.last5;
+          o.transferDate = r.date;
+          after();
+        } catch (e) { Busy.hide(); box.textContent = e.message || '沒有送出，請再試一次'; box.hidden = false; }
+      });
     });
   }
 
@@ -597,9 +629,14 @@
   /** 訂單狀態：已完成（取貨了）／待取貨（付了還沒取）／未付款 */
   function orderStatus(o) {
     if (o.picked) return { label: '已完成', cls: 'badge-full' };
-    if (o.paid) return { label: o.confirmed ? '已確認・待取貨' : '待取貨', cls: 'badge-ok' };
-    if (o.confirmed) return { label: '已確認・未付款', cls: 'badge-notice' };
-    return { label: '未付款', cls: 'badge-notice' };
+    // 轉帳：待付款 → 待對帳 → 出貨中（對帳 OK，等取貨）→ 已完成（2026/10/28）
+    if (o.pay === '轉帳') {
+      if (o.paid) return { label: '出貨中', cls: 'badge-ok' };
+      if (o.last5) return { label: '待對帳', cls: 'badge-notice' };
+      return { label: '待付款', cls: 'badge-notice' };
+    }
+    if (o.paid) return { label: '已付款・待取貨', cls: 'badge-ok' };
+    return { label: o.confirmed ? '已確認・待取貨' : '待取貨', cls: 'badge-ok' };
   }
   const inTab = (o, tab) => tab === 'all' || (tab === 'unpaid' ? !o.paid && !o.picked : tab === 'topick' ? !o.picked : o.picked);
 
@@ -657,13 +694,12 @@
             <span class="shop-ocard-img">${first.photo ? `<img src="${esc(photoUrl(first.photo))}" alt="" loading="lazy">` : '<span class="shop-noimg" aria-hidden="true">🌿</span>'}</span>
             <div class="shop-ocard-items">${o.items.map((it) => `<p><span>${esc(it.name)}</span><span>${money(it.price)} × ${it.qty}</span></p>`).join('')}</div>
           </div>
-          <p class="shop-ocard-meta">${o.pickup ? '📦 ' + esc(pickupText(o.pickup)) + ' 取貨・' : ''}${o.pay === '轉帳' ? `轉帳${o.last5 ? '（末五碼 ' + esc(o.last5) + '）' : '・還沒填末五碼'}` : '付現'}${o.paid ? '・✅ 已付款' : ''}</p>
+          <p class="shop-ocard-meta">${o.pickup ? '📦 ' + esc(pickupText(o.pickup)) + ' 取貨・' : ''}${o.pay === '轉帳' ? `轉帳${o.last5 ? '（' + (o.transferDate ? esc(Fmt.shortDate(o.transferDate)) + ' ' : '') + '末五碼 ' + esc(o.last5) + '）' : '・還沒通知小編'}` : '付現'}${o.paid ? '・✅ 已付款' : ''}</p>
           ${(o.discounts || []).length ? `<div class="shop-ocard-promo">${promoRows(o.discounts)}</div>` : ''}
           <p class="shop-ocard-total">應付總額 <b>${money(o.total)}</b></p>
-          ${o.pay === '轉帳' && o.payInfo && !o.paid ? `<p class="shop-payinfo-small">🏦 ${esc(o.payInfo).replace(/\n/g, '<br>')}</p>` : ''}
+          ${o.pay === '轉帳' && !o.paid && !o.picked ? `<details class="shop-bank-fold"${o.last5 ? '' : ' open'}><summary>🏦 匯款帳號・${o.last5 ? '改通知內容' : '通知小編'}</summary>${bankCard(o)}</details>` : ''}
           ${o.picked ? '' : `<div class="shop-order-actions">
             ${o.confirmed ? '<span class="muted">✅ 小編已確認，要改請找小編</span>' : o.closed ? '<span class="muted">已截止，要改請找小編</span>' : `<button type="button" class="btn btn-small" data-edit="${esc(o.id)}">改數量</button><button type="button" class="btn btn-small btn-quiet-danger" data-cancel="${esc(o.id)}">取消</button>`}
-            ${o.pay === '轉帳' && !o.paid ? `<button type="button" class="btn btn-small" data-l5="${esc(o.id)}">${o.last5 ? '改末五碼' : '填轉帳末五碼'}</button>` : ''}
           </div>`}
         </li>`;
       }).join('')}</ul>` : `<div class="notice shop-empty"><p>${ordersState.tab === 'all' ? '最近 90 天沒有團購訂單' : '這裡沒有訂單'}</p></div>`}
@@ -675,7 +711,7 @@
     const find = (id) => d.orders.find((x) => x.id === id);
     root.querySelectorAll('[data-cancel]').forEach((b) => b.addEventListener('click', () => cancelOrder(find(b.dataset.cancel))));
     root.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => editOrder(find(b.dataset.edit))));
-    root.querySelectorAll('[data-l5]').forEach((b) => b.addEventListener('click', () => last5Order(find(b.dataset.l5))));
+    bindBankCards(root, d.orders, d.name, () => renderOrders('<div class="notice notice-success" role="status"><p>✅ 已通知小編，對好帳會變「出貨中」 😊</p></div>'));
   }
 
   const reloadOrders = async (flash) => {
@@ -736,32 +772,6 @@
     });
   }
 
-  function last5Order(o) {
-    const m = Modal.open(`
-      <form class="modal-form" novalidate>
-        <h2 class="modal-title">填轉帳末五碼</h2>
-        <p class="modal-note">${esc(o.groupName)}・${money(o.total)}</p>
-        <input class="input" name="last5" inputmode="numeric" maxlength="5" value="${esc(o.last5 || '')}" placeholder="轉帳帳號末五碼" aria-label="轉帳末五碼">
-        <div class="form-error" data-error hidden></div>
-        <div class="modal-actions"><button type="submit" class="btn btn-block btn-primary">存檔</button><button type="button" class="btn btn-block" data-close>返回</button></div>
-      </form>`);
-    const f = m.el.querySelector('form');
-    f.elements.last5.focus();
-    m.el.querySelector('[data-close]').addEventListener('click', () => m.close());
-    f.addEventListener('submit', async (ev) => {
-      ev.preventDefault();
-      const v = f.elements.last5.value.replace(/\D/g, '');
-      const box = f.querySelector('[data-error]');
-      if (!/^\d{5}$/.test(v)) { box.textContent = '要 5 個數字'; box.hidden = false; return; }
-      Busy.show('存檔中⋯');
-      try {
-        await Api.shopSetLast5(o.id, ordersState.data.name, v);
-        Busy.hide();
-        m.close();
-        reloadOrders('<div class="notice notice-success" role="status"><p>末五碼存好了，謝謝 😊</p></div>');
-      } catch (e) { Busy.hide(); box.textContent = e.message || '存檔失敗'; box.hidden = false; }
-    });
-  }
 
   // ---------- 查我的報名：🛒 我的團購（簡短版，詳細到「我的訂單」） ----------
 

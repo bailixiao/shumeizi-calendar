@@ -126,12 +126,13 @@ function shopGroupView_(g, products, orders, opts) {
   var out = {
     id: g['團購ID'], name: g['名稱'], description: g['說明'] || '', deadline: g['截止時間'], status: g['狀態'] || '開放',
     closed: g['狀態'] === '結束' || (g['截止時間'] && now > g['截止時間']),
-    pickups: shopPickups_(g), items: items, hasPayInfo: !!g['付款說明'],
+    pickups: shopPickups_(g), items: items, hasPayInfo: !!(g['付款說明'] || g['匯款帳號']),
     link: g['賣場連結'] || '', cover: g['封面'] || '', // 賣場連結：賣貨便（有填＝到賣貨便下單）；封面：封面照片
     promos: g['賣場連結'] ? [] : promosForItems_(items) // 買多優惠（Promo.gs）
   };
   if (opts && opts.admin) {
     out.payInfo = g['付款說明'] || '';
+    out.bank = shopBankOf_(g);
     // 成本（只給後台）：照商品庫現在的成本
     out.items.forEach(function (it) { var p = findById_(products, '商品ID', it.id); it.cost = p && p['成本'] !== '' && p['成本'] !== undefined ? Number(p['成本']) : null; });
   }
@@ -216,6 +217,7 @@ function shopOrderOut_(o, group, withPay) {
     id: o['訂單ID'], groupId: o['團購ID'], name: o['姓名'], pickupId: o['取貨活動ID'], pickupDate: o['取貨日期'],
     items: shopJson_(o['品項'], []), total: Number(o['金額']) || 0, discounts: shopJson_(o['優惠'], []), pay: o['付款方式'], last5: o['末五碼'] || '',
     paid: o['已付款'] === '是', picked: o['已取貨'] === '是', confirmed: o['已確認'] === '是', status: o['狀態'] || '有效', note: o['備註'] || '',
+    transferDate: o['匯款日期'] || '',
     createdAt: o['建立時間'], updatedAt: o['更新時間']
   };
   if (group) {
@@ -224,9 +226,15 @@ function shopOrderOut_(o, group, withPay) {
     out.closed = group['狀態'] === '結束' || (group['截止時間'] && shopNowMinute_() > group['截止時間']);
     var pk = shopPickups_(group).filter(function (p) { return p.id === o['取貨活動ID']; })[0];
     if (pk) out.pickup = pk;
-    if (withPay && o['付款方式'] === '轉帳') out.payInfo = group['付款說明'] || '';
+    if (withPay && o['付款方式'] === '轉帳') { out.payInfo = group['付款說明'] || ''; out.bank = shopBankOf_(group); }
   }
   return out;
+}
+
+/** 團購的匯款帳號（分欄）：{ bank, branch, account, holder }；都沒填＝null */
+function shopBankOf_(g) {
+  var b = { bank: g['匯款銀行'] || '', branch: g['匯款分行'] || '', account: g['匯款帳號'] || '', holder: g['匯款戶名'] || '' };
+  return b.bank || b.account ? b : null;
 }
 
 /** 名字＋別名對應成主要名字（同報名） */
@@ -386,18 +394,65 @@ function shopCancel_(body) {
   });
 }
 
-/** body = { orderId, name, last5 }：轉帳後補末五碼（截止後也可以，取貨前都行） */
+/** body = { orderId, name, last5, date? }：轉帳後通知小編（末五碼＋匯款日期，日期空白＝今天；截止後也可以，取貨前都行） */
 function shopSetLast5_(body) {
   var last5 = String(body.last5 || '').trim();
   if (!/^\d{5}$/.test(last5)) throw new ApiError_('VALIDATION', '轉帳末五碼要是 5 個數字');
+  var today = todayString_();
+  var date = String(body.date || '').trim() || today;
+  if (!isDateString_(date) || date > today) throw new ApiError_('VALIDATION', '匯款日期不對（不能是以後的日子）');
   return withSignupLock_(function () {
     var o = shopOwnOrder_(readTable_(SHEETS.SHOP_ORDERS), body);
-    updateRow_(SHEETS.SHOP_ORDERS, o, { '付款方式': '轉帳', '末五碼': last5, '更新時間': nowString_() });
-    writeDutyLog_('團購補末五碼', o['姓名'] + '｜末五碼 ' + last5);
+    if (o['已付款'] === '是') throw new ApiError_('FORBIDDEN', '小編已經對好帳了，不用再填');
+    updateRow_(SHEETS.SHOP_ORDERS, o, { '付款方式': '轉帳', '末五碼': last5, '匯款日期': date, '更新時間': nowString_() });
+    writeDutyLog_('團購補末五碼', o['姓名'] + '｜' + date + '｜末五碼 ' + last5);
     SpreadsheetApp.flush();
     invalidateTable_(SHEETS.SHOP_ORDERS);
-    return { last5: last5 };
+    return { last5: last5, date: date };
   });
+}
+
+/**
+ * 後台對帳（2026/10/28）：body = { orderId, ok }
+ *   ok＝true：對帳 OK → 已付款＋訂單已確認（記帳自動記銷貨收入），買的人狀態變「出貨中」，推播「付款確認了」；
+ *   ok＝false：對不到 → 清掉末五碼、匯款日期，推播請他再確認。
+ * 推播送給手機提醒「我是誰」是這個人的手機。
+ */
+function adminShopReconcile_(body) {
+  var ok = body.ok === true || body.ok === 'true';
+  return withSignupLock_(function () {
+    var o = findById_(readTable_(SHEETS.SHOP_ORDERS), '訂單ID', body.orderId);
+    if (!o) throw new ApiError_('NOT_FOUND', '找不到這張訂單');
+    if (o['狀態'] === '已取消') throw new ApiError_('FORBIDDEN', '這張訂單已經取消了');
+    var g = findById_(readTable_(SHEETS.SHOP_GROUPS), '團購ID', o['團購ID']);
+    var gname = g ? g['名稱'] : '團購';
+    var now = nowString_();
+    var before = rowSnapshot_(SHEETS.SHOP_ORDERS, o);
+    if (ok) {
+      ledgerLockCheck_(o['建立時間'], '那一年的團購訂單');
+      updateRow_(SHEETS.SHOP_ORDERS, o, { '已付款': '是', '已確認': '是', '更新時間': now });
+      ledgerSyncOrder_(o);
+    } else {
+      updateRow_(SHEETS.SHOP_ORDERS, o, { '末五碼': '', '匯款日期': '', '更新時間': now });
+    }
+    writeDutyLog_('團購對帳', o['姓名'] + '｜' + (ok ? '對帳 OK' : '對不到（清掉末五碼）') + '｜' + o['金額'] + ' 元' + adminTag_(), before);
+    SpreadsheetApp.flush();
+    invalidateTable_(SHEETS.SHOP_ORDERS);
+    var pk = g ? shopPickups_(g).filter(function (p) { return p.id === o['取貨活動ID']; })[0] : null;
+    var pushed = shopPushToName_(o['姓名'],
+      ok ? '💰 付款確認了' : '🏦 轉帳末五碼對不到',
+      ok ? '「' + gname + '」' + o['金額'] + ' 元收到了，謝謝！' + (pk ? Number(pk.date.slice(5, 7)) + '/' + Number(pk.date.slice(8, 10)) + ' 取貨見 😊' : '')
+         : '「' + gname + '」的轉帳小編對不到，請到「我的訂單」再確認一次匯款日期和末五碼 🙏');
+    return { order: shopOrderOut_(o, null, false), pushed: pushed };
+  });
+}
+
+/** 推播給手機提醒「我是誰」是這個人的手機；回傳送了幾支 */
+function shopPushToName_(name, title, text) {
+  var who = normalizeName_(name);
+  var targets = readTable_(SHEETS.PUSH).filter(function (r) { return r['啟用'] !== '否' && r['名字'] && normalizeName_(r['名字']) === who && r['端點']; });
+  pushMessageTo_(targets, title, text, '#/shop/orders');
+  return targets.length;
 }
 
 // ---------- 後台 ----------
@@ -627,6 +682,11 @@ function adminShopSaveGroup_(body) {
   if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(deadline) || !isDateString_(deadline.slice(0, 10))) errors.push('請填截止時間（日期和幾點）');
   if (cleanText_(g.description).length > 500) errors.push('說明太長（最多 500 字）');
   if (String(g.payInfo || '').length > 300) errors.push('付款說明太長（最多 300 字）');
+  var bank = g.bank || {};
+  var bankVals = { '匯款銀行': cleanText_(bank.bank).slice(0, 30), '匯款分行': cleanText_(bank.branch).slice(0, 30),
+    '匯款帳號': cleanText_(bank.account).replace(/\s+/g, ''), '匯款戶名': cleanText_(bank.holder).slice(0, 40) };
+  if (bankVals['匯款帳號'] && !/^[0-9-]{6,20}$/.test(bankVals['匯款帳號'])) errors.push('銀行帳號請填數字（可以有 -）');
+  if (bankVals['匯款帳號'] && !bankVals['匯款銀行']) errors.push('有填帳號，請也填銀行名稱');
   if (g.status && SHOP_GROUP_STATUS.indexOf(g.status) === -1) errors.push('狀態只能是開放或結束');
   // 賣貨便：貼賣場連結，不用選取貨場次、商品、付款說明（下單、付款、取貨都在賣貨便）
   var link = String(g.link || '').trim();
@@ -660,7 +720,8 @@ function adminShopSaveGroup_(body) {
     var now = nowString_();
     var values = { '名稱': name, '說明': cleanText_(g.description), '截止時間': deadline, '取貨場次': pickups.join(','), '商品設定': JSON.stringify(items),
       '付款說明': external ? '' : String(g.payInfo || '').trim(), '狀態': g.status || '開放', '更新時間': now,
-      '賣場連結': external ? link : '', '封面': cover };
+      '賣場連結': external ? link : '', '封面': cover,
+      '匯款銀行': external ? '' : bankVals['匯款銀行'], '匯款分行': external ? '' : bankVals['匯款分行'], '匯款帳號': external ? '' : bankVals['匯款帳號'], '匯款戶名': external ? '' : bankVals['匯款戶名'] };
     var warnings = [];
     var row;
     if (g.id) {

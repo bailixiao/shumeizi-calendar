@@ -765,3 +765,51 @@ test('初存改成買進：同一天合成一筆進貨記帳、庫存不變；�
   // 改過一次就不能再改
   assert.equal(call('adminShopStockToBuy', { ids: first, pay: '零用金' }).error.code, 'NOT_FOUND');
 });
+
+test('轉帳對帳：分欄帳號下單後才看得到、通知小編填匯款日期＋末五碼、對帳 OK＝已付款＋已確認並推播、對不到清掉', () => {
+  const { env, call, ok, gid, ids, tofu, order } = setup();
+  env.fn('ensurePushKeys_')();
+  const g = ok(call('adminShopGroup', { id: gid })).group;
+  const save = (bank) => call('adminShopSaveGroup', { group: { id: gid, name: g.name, description: g.description, deadline: g.deadline, pickups: ids, payInfo: '轉好請通知', items: g.itemSettings, bank } });
+  assert.match(JSON.stringify(save({ bank: '測試銀行', account: '12ab' }).error), /銀行帳號請填數字/);
+  ok(save({ bank: '測試銀行', branch: '測試分行', account: '000-1234567', holder: '測試帳戶' }));
+  assert.deepEqual(ok(call('adminShopGroup', { id: gid })).group.bank, { bank: '測試銀行', branch: '測試分行', account: '000-1234567', holder: '測試帳戶' });
+  const pub = ok(env.get({ action: 'getShop' })).groups[0];
+  assert.equal(pub.bank, undefined, '下單前看不到帳號');
+  const o = ok(order({ name: '測試甲', source: '官網', items: [{ id: tofu.id, qty: 2 }], pay: '轉帳' })).order;
+  assert.equal(o.bank.account, '000-1234567');
+
+  // 手機提醒填了我是誰＝測試甲
+  const EP = 'https://fcm.googleapis.com/fcm/send/buyer-device-01';
+  env.post({ action: 'pushSubscribe', endpoint: EP });
+  env.post({ action: 'pushSetName', endpoint: EP, name: '測試甲' });
+  env.fn('takePendingPush_')();
+
+  assert.equal(env.post({ action: 'shopSetLast5', orderId: o.id, name: '測試甲', last5: '54321', date: '2026-12-01' }).error.code, 'VALIDATION', '不能是以後的日子');
+  const set = ok(env.post({ action: 'shopSetLast5', orderId: o.id, name: '測試甲', last5: '54321', date: '2026-09-30' }));
+  assert.equal(set.date, '2026-09-30');
+  let mine = ok(env.post({ action: 'shopMyOrders', name: '測試甲' })).orders[0];
+  assert.equal(mine.transferDate, '2026-09-30');
+  assert.equal(mine.paid, false);
+
+  // 對不到：清掉、推播
+  const bad = ok(call('adminShopReconcile', { orderId: o.id, ok: false }));
+  assert.equal(bad.pushed, 1);
+  assert.deepEqual(env.fn('takePendingPush_')(), [EP]);
+  assert.match(env.get({ action: 'pushSummary', id: env.fn('pushIdOf_')(EP) }).data.message.title, /對不到/);
+  mine = ok(env.post({ action: 'shopMyOrders', name: '測試甲' })).orders[0];
+  assert.equal(mine.last5, '');
+  assert.equal(mine.transferDate, '');
+
+  // 再填一次，對帳 OK
+  ok(env.post({ action: 'shopSetLast5', orderId: o.id, name: '測試甲', last5: '54321' }));
+  const good = ok(call('adminShopReconcile', { orderId: o.id, ok: true }));
+  assert.equal(good.order.paid, true);
+  assert.equal(good.order.confirmed, true);
+  assert.deepEqual(env.fn('takePendingPush_')(), [EP]);
+  const msg = env.get({ action: 'pushSummary', id: env.fn('pushIdOf_')(EP) }).data.message;
+  assert.match(msg.title, /付款確認/);
+  assert.equal(env.post({ action: 'shopSetLast5', orderId: o.id, name: '測試甲', last5: '11111' }).error.code, 'FORBIDDEN', '對好帳就不用再填');
+  const bank = ok(call('adminShopLedger', { year: 2026 })).accounts.find((a) => a.name === '銀行存款').entries.filter((e) => e.category === '銷貨收入');
+  assert.equal(bank.length, 1, '記帳自動記銷貨收入');
+});

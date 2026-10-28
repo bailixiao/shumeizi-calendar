@@ -356,6 +356,7 @@ function adminRun_(body) {
     case 'adminShopStockMove': return adminShopStockMove_(body);
     case 'adminShopStockDelete': return adminShopStockDelete_(body);
     case 'adminShopStockToBuy': return adminShopStockToBuy_(body); // 初存改成買進（記帳補進貨）
+    case 'adminShopReconcile': return adminShopReconcile_(body); // 💰 對帳
     case 'adminShopDeleteProduct': return adminShopDeleteProduct_(body);
     case 'adminShopStockReport': return adminShopStockReport_(body);
     case 'adminShopStall': return adminShopStall_(body);

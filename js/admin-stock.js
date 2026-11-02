@@ -345,7 +345,7 @@ window.AdminStock = (function () {
         ${c.locked && c.locked >= y + '-12-31' ? `<div class="notice notice-success"><p><strong>✅ ${roc} 年已經結帳（鎖住）。</strong></p><p>要改那一年的帳，先解除結帳；改完要再結帳一次。</p><button type="button" class="btn btn-quiet-danger" data-unlock>解除 ${roc} 年結帳</button></div>` : ''}
         <h3 class="year-h">對帳檢查（${roc} 年）</h3>
         <ul class="year-checks">
-          ${ok(c.count.yearEnd, c.count.yearEnd ? '12/31 盤點過了' : `還沒做年底盤點（12/31）${c.count.last ? '；最近一次盤點 ' + esc(c.count.last) : ''}。<a href="#/admin/shop/count">去盤點 ›</a>`)}
+          ${ok(c.count.yearEnd, c.count.yearEnd ? '12/31 盤點過了' : `還沒做年底盤點（12/31）${c.count.last ? '；最近一次盤點 ' + esc(c.count.last) : ''}。<a class="btn btn-small" href="#/admin/shop/count">去盤點 ›</a>`)}
           ${ok(!c.unpaid.count, c.unpaid.count ? `還沒付款的訂單 ${c.unpaid.count} 張，共 ${money(c.unpaid.amount)} 元（年底沒收到的會算應收帳款）${list(c.unpaid.list)}` : '訂單都付款了')}
           ${ok(!c.unconfirmed.count, c.unconfirmed.count ? `還沒確認的訂單 ${c.unconfirmed.count} 張${list(c.unconfirmed.list)}` : '訂單都確認了')}
           ${ok(!c.unpicked.count, c.unpicked.count ? `還沒取貨的訂單 ${c.unpicked.count} 張${list(c.unpicked.list)}` : '訂單都取貨了')}
@@ -357,16 +357,16 @@ window.AdminStock = (function () {
             ${['零用金', '銀行存款'].map((a) => `<tr><td class="name">${a}</td><td class="num">${money(bal[a] || 0)}</td><td><input class="input stall-in" inputmode="decimal" data-actual="${a}" value="${esc(yearState.actual[a])}" placeholder="${a === '零用金' ? '點一下現金' : '存摺餘額'}"></td><td class="num" data-bdiff="${a}">${diffOf(a) === null ? '' : diffOf(a) ? money(diffOf(a)) : '✅'}</td></tr>`).join('')}
             ${['應收帳款', '應付帳款'].map((a) => `<tr><td class="name">${a}</td><td class="num">${money(bal[a] || 0)}</td><td colspan="2" class="muted">${a === '應收帳款' ? '別人還欠的' : '還欠別人的'}</td></tr>`).join('')}
           </tbody></table></div>
-          <p class="hint">實際和帳上不一樣：到植素園記帳的「手動記帳」記一筆調整（例：零用金 -50、科目「其他損失」、摘要寫原因），再按一次對帳檢查。<a href="${esc(sheet.url)}" target="_blank" rel="noopener">打開 ${roc} 年植素園記帳 ›</a></p>` : ''}
+          <p class="hint">實際和帳上不一樣：到植素園記帳的「手動記帳」記一筆調整（例：零用金 -50、科目「其他損失」、摘要寫原因），再按一次對帳檢查。</p><p><a class="btn btn-small" href="${esc(sheet.url)}" target="_blank" rel="noopener">打開 ${roc} 年植素園記帳 ↗</a></p>` : ''}
         ${!(c.locked && c.locked >= y + '-12-31') ? `<div class="admin-actions"><button type="button" class="btn btn-primary" data-close-year>2. 結帳 ${roc} 年</button></div>
 ` : ''}` : '<p class="muted">按「1. 對帳檢查」開始（要讀植素園記帳，大約 10～30 秒）。</p>'}
       ${yearState.trial ? `<div class="notice"><p><strong>🧪 試結帳好了（${roc} 年，沒有鎖、也沒有開下一年）</strong></p>
-        <p>看看：<a href="${esc(yearState.trial.archive.xlsx)}" target="_blank" rel="noopener">Excel</a>・<a href="${esc(yearState.trial.archive.pdf)}" target="_blank" rel="noopener">PDF</a>・<a href="${esc(yearState.trial.archive.folder)}" target="_blank" rel="noopener">封存資料夾</a></p>
+        <p class="btn-row">看看：<a class="btn btn-small" href="${esc(yearState.trial.archive.xlsx)}" target="_blank" rel="noopener">📊 Excel</a><a class="btn btn-small" href="${esc(yearState.trial.archive.pdf)}" target="_blank" rel="noopener">📄 PDF</a><a class="btn btn-small" href="${esc(yearState.trial.archive.folder)}" target="_blank" rel="noopener">📁 封存資料夾</a></p>
         <p>真的結帳時，帶到 ${roc + 1} 年 1/1 的期初餘額會是：${Object.entries(yearState.trial.nextBalances || {}).map(([a, v]) => esc(a) + ' ' + money(v) + ' 元').join('、')}</p>
         <p class="muted">試算的檔案看完可以到雲端硬碟刪掉。</p></div>` : ''}
       ${yearState.done ? `<div class="notice notice-success"><p><strong>🎉 ${roc} 年結帳完成</strong></p>
-        <p>封存：<a href="${esc(yearState.done.archive.xlsx)}" target="_blank" rel="noopener">Excel</a>・<a href="${esc(yearState.done.archive.pdf)}" target="_blank" rel="noopener">PDF</a>・<a href="${esc(yearState.done.archive.folder)}" target="_blank" rel="noopener">封存資料夾</a></p>
-        <p>下一年：<a href="${esc(yearState.done.next.url)}" target="_blank" rel="noopener">${yearState.done.next.year - 1911} 年植素園記帳</a>（期初餘額已經帶過去）</p></div>` : ''}`;
+        <p class="btn-row">封存：<a class="btn btn-small" href="${esc(yearState.done.archive.xlsx)}" target="_blank" rel="noopener">📊 Excel</a><a class="btn btn-small" href="${esc(yearState.done.archive.pdf)}" target="_blank" rel="noopener">📄 PDF</a><a class="btn btn-small" href="${esc(yearState.done.archive.folder)}" target="_blank" rel="noopener">📁 封存資料夾</a></p>
+        <p class="btn-row">下一年：<a class="btn btn-small" href="${esc(yearState.done.next.url)}" target="_blank" rel="noopener">${yearState.done.next.year - 1911} 年植素園記帳 ↗</a>（期初餘額已經帶過去）</p></div>` : ''}`;
     body.querySelector('[data-year]').addEventListener('change', (ev) => { yearState.year = Number(ev.target.value); yearState.check = null; yearState.done = null; yearState.trial = null; yearClose(body, guard); });
     body.querySelector('[data-check]').addEventListener('click', async () => {
       Busy.show('對帳檢查中⋯（讀植素園記帳）');

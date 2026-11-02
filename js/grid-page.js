@@ -178,7 +178,7 @@
         <div class="rich-desc">${richDesc(d.description)}</div>
         ${d.attire ? `<p class="gp-desc"><strong>服裝：</strong>${esc(d.attire)}</p>` : ''}
       </section>` : ''}
-      <p class="gp-foot">每 30 秒自動更新　<a href="#/">回行事曆</a></p>
+      <p class="gp-foot">每 30 秒自動更新　<a class="btn btn-small" href="#/">‹ 回行事曆</a></p>
       <a class="gp-signup" href="#/duty/${encodeURIComponent(d.id)}" data-signup>點我報名</a>`;
     const wrap = root.querySelector('.grid-wrap');
     if (wrap && scrollX !== null) wrap.scrollLeft = scrollX; // 自動更新時保留左右滑的位置

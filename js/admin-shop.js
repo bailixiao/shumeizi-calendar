@@ -755,7 +755,11 @@
       <a class="btn back-btn" href="#/admin/shop">‹ 回團購</a>
       <h2 class="shop-title">${esc(g.name)}<span class="badge ${g.status === '結束' ? 'badge-full' : g.closed ? 'badge-notice' : 'badge-ok'}">${g.status === '結束' ? '已結束' : g.closed ? '已截止' : '開放中'}</span></h2>
       <p class="muted">截止 ${esc(g.deadline)}${g.description ? '<br>' + esc(g.description) : ''}</p>
-      ${g.web && !g.link && window.SITE.shopWeb ? `<p class="shop-web-line">🌐 也在「${esc(window.SITE.shopWeb.name)}」賣：<a href="${esc(window.SITE.shopWeb.url + '#/shop/' + encodeURIComponent(g.id))}" target="_blank" rel="noopener">打開 ↗</a> <button type="button" class="btn btn-small" data-copy-web="${esc(window.SITE.shopWeb.url + '#/shop/' + encodeURIComponent(g.id))}">複製連結</button></p>` : ''}
+      ${g.web && !g.link && window.SITE.shopWeb ? (() => { const u = window.SITE.shopWeb.url + '#/shop/' + encodeURIComponent(g.id); return `<div class="shop-web-card">
+        <p class="shop-web-title">🌐 也在「${esc(window.SITE.shopWeb.name)}」賣</p>
+        <p class="shop-web-hint">外面的客人用這個連結下單（填名字＋手機），貼到 LINE、IG 都可以</p>
+        <div class="shop-web-actions"><button type="button" class="btn btn-primary btn-small" data-copy-web="${esc(u)}">📋 複製連結</button><a class="btn btn-small" href="${esc(u)}" target="_blank" rel="noopener">打開網頁 ↗</a></div>
+      </div>`; })() : ''}
       ${edit ? `<div class="admin-actions">
         <a class="btn" href="#/admin/shop/edit/${encodeURIComponent(g.id)}">✏️ 修改團購</a>
         <a class="btn" href="#/admin/shop/new?from=${encodeURIComponent(g.id)}">另存成新團購</a>
@@ -874,7 +878,7 @@
     }));
     body.querySelectorAll('[data-edit-order]').forEach((b) => b.addEventListener('click', () => orderForm(d, d.orders.find((x) => x.id === b.dataset.editOrder), guard, reload)));
     const cw = body.querySelector('[data-copy-web]');
-    if (cw) cw.addEventListener('click', async () => { const ok = await Share.copyText(cw.dataset.copyWeb); cw.textContent = ok ? '已複製 ✓' : '複製失敗'; setTimeout(() => { cw.textContent = '複製連結'; }, 2000); });
+    if (cw) cw.addEventListener('click', async () => { const ok = await Share.copyText(cw.dataset.copyWeb); cw.textContent = ok ? '✅ 已複製' : '複製失敗'; setTimeout(() => { cw.textContent = '📋 複製連結'; }, 2000); });
     const po = body.querySelector('[data-push-open]');
     if (po) po.addEventListener('click', () => pushForm(g, guard, reload));
     const ao = body.querySelector('[data-admin-order]');

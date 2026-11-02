@@ -42,7 +42,7 @@
         <dl class="vr-info">
           <div><dt>用途</dt><dd>${esc(g.purpose)}${g.people ? `（約 ${esc(g.people)} 人）` : ''}</dd></div>
           ${g.applicantNote ? `<div><dt>備註</dt><dd>${esc(g.applicantNote)}</dd></div>` : ''}
-          <div><dt>申請人</dt><dd>${esc(g.name)}　${tel ? `<a href="tel:${esc(tel)}">${esc(g.phone)}</a>` : ''}</dd></div>
+          <div><dt>申請人</dt><dd>${esc(g.name)}　${tel ? `<a class="btn btn-small tel-btn" href="tel:${esc(tel)}">📞 ${esc(g.phone)}</a>` : ''}</dd></div>
           <div><dt>申請時間</dt><dd>${esc(g.createdAt)}</dd></div>
           ${g.cancelAsk ? `<div><dt>申請取消</dt><dd>${esc(g.cancelAsk)}</dd></div>` : ''}
           ${g.decidedAt ? `<div><dt>審核</dt><dd>${esc(g.decidedAt)}${g.decidedBy ? `（${esc(g.decidedBy)}）` : ''}${g.note ? `・${esc(g.note)}` : ''}</dd></div>` : ''}
@@ -175,7 +175,7 @@
         ${r.photos.length ? `<div class="repair-photos">${r.photos.map((id) => `<a href="${esc(Api.fileUrl(id))}" target="_blank" rel="noopener" class="repair-thumb"><img src="${esc(Api.fileUrl(id))}" alt="回報的照片" loading="lazy"></a>`).join('')}</div>` : ''}
         <dl class="vr-info">
           <div><dt>急迫</dt><dd>${esc(r.urgency)}</dd></div>
-          <div><dt>回報人</dt><dd>${esc(r.name)}　${r.phone ? `<a href="tel:${esc(r.phone.replace(/[^\d+]/g, ''))}">${esc(r.phone)}</a>` : ''}</dd></div>
+          <div><dt>回報人</dt><dd>${esc(r.name)}　${r.phone ? `<a class="btn btn-small tel-btn" href="tel:${esc(r.phone.replace(/[^\d+]/g, ''))}">📞 ${esc(r.phone)}</a>` : ''}</dd></div>
           <div><dt>回報時間</dt><dd>${esc(r.createdAt)}</dd></div>
           ${r.by ? `<div><dt>處理</dt><dd>${esc(r.updatedAt)}（${esc(r.by)}）${r.doneAt ? '・完成 ' + esc(r.doneAt.slice(0, 10)) : ''}</dd></div>` : ''}
           ${!edit && (r.vendor || r.cost) ? `<div><dt>廠商／費用</dt><dd>${esc(r.vendor || '—')}／${r.cost ? esc(r.cost) + ' 元' : '—'}</dd></div>` : ''}

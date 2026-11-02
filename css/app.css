@@ -995,6 +995,7 @@ body.has-modal { overflow: hidden; }
 }
 
 .app-footer a { color: var(--muted); }
+.app-footer .btn-quiet { min-height: 32px; font-size: .85rem; font-weight: 500; text-decoration: none; }
 
 .admin-view { max-width: 720px; }
 
@@ -2422,6 +2423,16 @@ button.veg-chip:hover { border-color: var(--ok); }
 .shop-three-hint { grid-column: 1 / -1; color: var(--muted); margin-left: 0 !important; }
 .shop-three .shop-stock-limit { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: flex-start; }
 .shop-three .shop-stock-limit input { flex: none; }
+/* 團購頁：也在團購網頁賣（複製連結給外面的客人） */
+.shop-web-card { margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--ok); border-radius: var(--radius); background: var(--ok-soft); }
+.shop-web-title { margin: 0; font-weight: 700; }
+.shop-web-hint { margin: 2px 0 10px; color: var(--ink-2); font-size: .9rem; }
+.shop-web-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.shop-web-actions .btn { text-decoration: none; }
+/* 文字裡的按鈕（2026/11/2：連結都改成按鈕） */
+.btn-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.btn-row .btn, p > a.btn-small, dd > a.btn-small, .year-check a.btn-small, .gp-foot a.btn-small { display: inline-flex; align-items: center; text-decoration: none; }
+.tel-btn { margin-top: 4px; }
 /* 長表單：存檔按鈕黏在畫面下面，不用滑到底 */
 .form-save-bar { position: sticky; bottom: 0; z-index: 5; margin: 12px -4px 0; padding: 10px 4px calc(10px + env(safe-area-inset-bottom)); background: var(--paper); border-top: 1px solid var(--line); }
 .shop-thumb { flex: none; width: 64px; height: 64px; padding: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--paper-2); display: flex; align-items: center; justify-content: center; font-size: 1.6rem; cursor: zoom-in; }

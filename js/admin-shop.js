@@ -631,7 +631,7 @@
             </div>`; }).join('')}</div>` : '<p class="muted">商品庫是空的，先到「➕ 商品增加」選「🆕 新商品」建商品。</p>'}
         </fieldset>
         <div class="form-error" data-error hidden></div>
-        <div class="admin-actions">
+        <div class="admin-actions form-save-bar">
           <button type="submit" class="btn btn-primary">${id ? '存檔' : '開團'}</button>
           <a class="btn" href="${id ? '#/admin/shop/g/' + encodeURIComponent(id) : '#/admin/shop'}">返回</a>
         </div>

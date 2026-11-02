@@ -228,7 +228,7 @@
 
 給**外面的客人**（出攤遇到的客人、親友，不是書槑子的人）用的獨立團購網站，和行事曆的團購共用同一個後台、同一份庫存與訂單。
 
-- **網址**：獨立的 GitHub Pages 儲存庫 `bailixiao/zhisu-shop` → `https://bailixiao.github.io/zhisu-shop/`。網站名稱「植素園happy購」（2026/11/2 使用者定），配植素園 logo。
+- **網址**：放在 Cloudflare Pages `https://zhisu-shop.pages.dev/`（2026/11/2 使用者：網址不要看得到 GitHub 帳號名稱；程式另外存在 GitHub 儲存庫 bailixiao/zhisu-shop）。網站名稱「植素園happy購」（2026/11/2 使用者定），配植素園 logo。
 - **程式**：沿用行事曆的 js/shop.js（商城、商品頁、購物車、我的訂單、匯款帳號卡片），用 `window.SHOP_WEB = true` 切成網頁模式；`node tools/build-shop-web.js` 把需要的檔案（css、js、logo）組成網站寫到 `D:\Projects\植素園團購`（那個儲存庫），再 commit、push。改了 shop.js、app.css 要重 build。
 - **哪些團**：開團表單多一個「🌐 也放到團購網頁」（新開團預設勾），存在「團購」分頁最後新增的「團購網頁」（是／空白）。團購網頁只列有勾的、行事曆下單的團（賣貨便的不列）。行事曆照舊列全部。
 - **客人下單**：填**名字＋手機**（09 開頭 10 碼）。不用選認識管道、生日，不加進「成員」名單、不算新朋友。訂單存在「團購訂單」最後新增的「來源」（團購網頁／空白）、「手機」。

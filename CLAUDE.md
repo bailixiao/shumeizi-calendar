@@ -27,5 +27,5 @@
   - 改了 js／css 要把 index.html 裡的 `?v=` 版本號換新，手機才會拿到新版。
 - 推播、拍照、加到主畫面要早點用真的手機測。
 - 用詞：對象是青年，口語輕鬆、活潑；不用「道親、壇辦、佛堂、點傳師、了愿」這類詞（見 spec 第 0 節）。
-- 團購網頁「植素園happy購」（規格 0.6.1）：改了 js/shop.js、js/api.js、css/app.css 或 tools/shop-web，要 `node tools/build-shop-web.js`（寫到 `D:\Projects\植素園團購`），再到那裡 commit、push（bailixiao/zhisu-shop）。本機預覽 http://localhost:5175/shop-web/。
+- 團購網頁「植素園happy購」（規格 0.6.1）：改了 js/shop.js、js/api.js、css/app.css 或 tools/shop-web，要 `node tools/build-shop-web.js`（寫到 `D:\Projects\植素園團購`），再到那裡 commit、push（bailixiao/zhisu-shop），並在那個資料夾外面執行 `npx wrangler pages deploy D:/Projects/植素園團購 --project-name zhisu-shop --branch main` 上線到 https://zhisu-shop.pages.dev/（不要在 worker/ 裡執行，那裡的 wrangler.toml 會被拿去用）。本機預覽 http://localhost:5175/shop-web/。
 - `home/` 是「書槑子官網」專案 `node tools/build.js` 產生的 App 版官網（規格 0.10），**不要在這裡改**，改官網專案再 build。

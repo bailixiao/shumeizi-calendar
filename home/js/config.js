@@ -6,4 +6,6 @@
     ? { API: 'http://localhost:5175/api', CAL: app ? '../' : 'http://localhost:5175/' }
     : { API: 'https://shumeizi-api.duty-calendar-worker.workers.dev/', CAL: app ? '../' : 'https://bailixiao.github.io/shumeizi-calendar/' };
   window.SITE_CONFIG.APP = app;
+  // 團購網頁「植素園happy購」（給外面的客人；行事曆規格 0.6.1）：公開官網的團購卡片連到這裡，App 版照舊連行事曆
+  window.SITE_CONFIG.SHOP = local ? 'http://localhost:5175/shop-web/' : 'https://bailixiao.github.io/zhisu-shop/';
 })();

@@ -94,8 +94,8 @@
       box.innerHTML = open.map((g) => {
         const dl = g.deadline ? md(g.deadline.slice(0, 10)) : null;
         const photos = g.items.filter((it) => it.photo).slice(0, 3);
-        // 賣貨便的團購：直接連到賣場（開新分頁）；行事曆下單：連到行事曆的團購頁
-        const href = g.link || calUrl('#/shop/' + encodeURIComponent(g.id));
+        // 賣貨便的團購：直接連到賣場（開新分頁）；有放到團購網頁的：公開官網連到植素園happy購（2026/11/2），App 版和沒放的連到行事曆的團購頁
+        const href = g.link || (g.web && !CFG.APP && CFG.SHOP ? CFG.SHOP + '#/shop/' + encodeURIComponent(g.id) : calUrl('#/shop/' + encodeURIComponent(g.id)));
         return `<a class="shop-card" href="${esc(href)}"${g.link ? ' target="_blank" rel="noopener"' : ''}>
           <span class="shop-tag">🛒 團購開放中${g.link ? '・賣貨便' : ''}</span>
           <strong class="shop-name">${esc(g.name)}</strong>

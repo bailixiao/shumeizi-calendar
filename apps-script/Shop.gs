@@ -128,6 +128,7 @@ function shopGroupView_(g, products, orders, opts) {
     closed: g['狀態'] === '結束' || (g['截止時間'] && now > g['截止時間']),
     pickups: shopPickups_(g), items: items, hasPayInfo: !!(g['付款說明'] || g['匯款帳號']),
     link: g['賣場連結'] || '', cover: g['封面'] || '', // 賣場連結：賣貨便（有填＝到賣貨便下單）；封面：封面照片
+    web: g['團購網頁'] === '是', // 也放到團購網頁（植素園happy購）
     promos: g['賣場連結'] ? [] : promosForItems_(items) // 買多優惠（Promo.gs）
   };
   if (opts && opts.admin) {
@@ -140,7 +141,8 @@ function shopGroupView_(g, products, orders, opts) {
 }
 
 /** 大家的團購頁：開放中、取貨還沒全部過去的團購（截止了也列出來，標「已截止」） */
-function getShop_() {
+function getShop_(p) {
+  var web = !!(p && (p.web === '1' || p.web === true));
   var today = todayString_();
   var products = readTableCached_(SHEETS.SHOP_PRODUCTS);
   var orders = readTableCached_(SHEETS.SHOP_ORDERS);
@@ -149,6 +151,7 @@ function getShop_() {
     .map(function (g) { return shopGroupView_(g, products, orders); })
     // 賣貨便：截止了就不列；行事曆下單：取貨還沒全部過去
     .filter(function (v) { return v.link ? !v.closed : !v.pickups.length || v.pickups[v.pickups.length - 1].date >= today; })
+    .filter(function (v) { return !web || (v.web && !v.link); }) // 團購網頁：只列有勾「也放到團購網頁」的
     .sort(function (a, b) { return a.deadline < b.deadline ? -1 : 1; });
   return { now: shopNowMinute_(), groups: groups };
 }
@@ -217,7 +220,7 @@ function shopOrderOut_(o, group, withPay) {
     id: o['訂單ID'], groupId: o['團購ID'], name: o['姓名'], pickupId: o['取貨活動ID'], pickupDate: o['取貨日期'],
     items: shopJson_(o['品項'], []), total: Number(o['金額']) || 0, discounts: shopJson_(o['優惠'], []), pay: o['付款方式'], last5: o['末五碼'] || '',
     paid: o['已付款'] === '是', picked: o['已取貨'] === '是', confirmed: o['已確認'] === '是', status: o['狀態'] || '有效', note: o['備註'] || '',
-    transferDate: o['匯款日期'] || '',
+    transferDate: o['匯款日期'] || '', web: o['來源'] === '團購網頁', // 團購網頁的客人（手機不回傳）
     createdAt: o['建立時間'], updatedAt: o['更新時間']
   };
   if (group) {
@@ -237,6 +240,24 @@ function shopBankOf_(g) {
   return b.bank || b.account ? b : null;
 }
 
+/**
+ * 下單的人（2026/11/2）：帶 phone＝團購網頁的客人（名字＋手機，不對應成員別名）；沒帶＝行事曆的人（名字＋別名）。
+ * 回傳 { name, temple, phone, web }
+ */
+function shopWho_(body) {
+  if (body.phone === undefined || body.phone === null || body.phone === '') { var w = shopName_(body.name, body.temple); w.phone = ''; w.web = false; return w; }
+  var phone = String(body.phone).replace(/[\s-]/g, '');
+  if (!/^09\d{8}$/.test(phone)) throw new ApiError_('VALIDATION', '手機號碼不對', [{ message: '手機請填 09 開頭的 10 個數字' }]);
+  return { name: normalizeName_(body.name), temple: '', phone: phone, web: true };
+}
+
+/** 這張訂單是不是這個人的：團購網頁的看名字＋手機；行事曆的看名字（兩邊分開） */
+function shopIsMine_(o, who) {
+  if ((o['來源'] === '團購網頁') !== who.web) return false;
+  if (who.web && String(o['手機'] || '') !== who.phone) return false;
+  return normalizeName_(o['姓名']) === who.name;
+}
+
 /** 名字＋別名對應成主要名字（同報名） */
 function shopName_(name, temple) {
   var e = withMemberIdentity_([{ name: name, temple: temple || '' }])[0];
@@ -251,12 +272,14 @@ function shopName_(name, temple) {
  */
 function shopOrder_(body, opts) {
   var admin = !!(opts && opts.admin);
-  var who = shopName_(body.name, body.temple);
+  var who = admin ? shopName_(body.name, body.temple) : shopWho_(body);
+  if (admin) { who.phone = ''; who.web = false; }
   if (!who.name) throw new ApiError_('VALIDATION', '訂單沒有送出，請看下面的說明', [{ message: '請填名字' }]);
   if (NAME_SEPARATORS_.test(who.name)) throw new ApiError_('VALIDATION', '訂單沒有送出，請看下面的說明', [{ message: '一張訂單填一個名字就好' }]);
   var linked = findById_(readTableCached_(SHEETS.SHOP_GROUPS), '團購ID', body.groupId);
   if (linked && linked['賣場連結']) throw new ApiError_('VALIDATION', '訂單沒有送出，請看下面的說明', [{ message: '這次團購請到賣貨便下單' }]);
-  var sources = newcomerSources_([{ name: who.name, source: body.source, referrer: body.referrer, sourceNote: body.sourceNote, birthday: body.birthday }]);
+  if (who.web && linked && linked['團購網頁'] !== '是') throw new ApiError_('NOT_FOUND', '找不到這次團購，可能已經結束了');
+  var sources = who.web ? {} : newcomerSources_([{ name: who.name, source: body.source, referrer: body.referrer, sourceNote: body.sourceNote, birthday: body.birthday }]);
   return withSignupLock_(function () {
     var groups = readTable_(SHEETS.SHOP_GROUPS);
     var g = findById_(groups, '團購ID', body.groupId);
@@ -264,9 +287,12 @@ function shopOrder_(body, opts) {
     var products = readTable_(SHEETS.SHOP_PRODUCTS);
     var orders = readTable_(SHEETS.SHOP_ORDERS);
     // 這個人在這次團購的有效訂單（2026/10/13 起可以不只一張：付款方式不同就分開）
-    var mine = orders.filter(function (o) { return o['團購ID'] === g['團購ID'] && o['狀態'] !== '已取消' && normalizeName_(o['姓名']) === who.name; });
+    var picked = admin && body.orderId ? findById_(orders, '訂單ID', body.orderId) : null;
+    // 後台改團購網頁的單：還是那位客人（名字不對應成員別名）
+    if (picked && picked['來源'] === '團購網頁') who = { name: normalizeName_(body.name || picked['姓名']), temple: '', phone: String(picked['手機'] || ''), web: true };
+    var mine = orders.filter(function (o) { return o['團購ID'] === g['團購ID'] && o['狀態'] !== '已取消' && shopIsMine_(o, who); });
     var existing;
-    if (admin && body.orderId) existing = findById_(orders, '訂單ID', body.orderId);
+    if (admin && body.orderId) existing = picked;
     else if (body.orderId) { // 我的訂單改數量：指定哪一張
       existing = mine.filter(function (o) { return o['訂單ID'] === body.orderId; })[0];
       if (!existing) throw new ApiError_('NOT_FOUND', '找不到這張訂單（名字要和下單時一樣）');
@@ -328,13 +354,14 @@ function shopOrder_(body, opts) {
       ledgerSyncOrder_(row); // 已付款的改了金額，記帳跟著改
       writeDutyLog_('團購改單', summary + (admin ? adminTag_() : ''), before);
     } else {
-      row = Object.assign({ '訂單ID': newId_('O'), '團購ID': g['團購ID'], '已付款': '', '已取貨': '', '狀態': '有效', '備註': '', '建立時間': now }, values);
+      row = Object.assign({ '訂單ID': newId_('O'), '團購ID': g['團購ID'], '已付款': '', '已取貨': '', '狀態': '有效', '備註': '', '建立時間': now,
+        '來源': who.web ? '團購網頁' : '', '手機': who.web ? who.phone : '' }, values);
       appendRows_(SHEETS.SHOP_ORDERS, [row]);
-      writeDutyLog_('團購下單', summary + (admin ? adminTag_() : ''));
+      writeDutyLog_('團購下單', (who.web ? '🌐 ' : '') + summary + (admin ? adminTag_() : ''));
     }
     stockMigrateOrders_(); // 以前的訂單先補記（只做一次）
     stockSyncOrder_(row); // 一下單就從庫存扣（改單照新的內容重記）
-    addPendingMembers_([{ '姓名': who.name, '佛堂': who.temple, '日期': pickup ? pickup.date : todayString_(), '身分': '' }], '團購：' + g['名稱'], sources);
+    if (!who.web) addPendingMembers_([{ '姓名': who.name, '佛堂': who.temple, '日期': pickup ? pickup.date : todayString_(), '身分': '' }], '團購：' + g['名稱'], sources); // 團購網頁的客人不加進成員
     SpreadsheetApp.flush();
     invalidateTable_(SHEETS.SHOP_ORDERS);
     return { order: shopOrderOut_(row, g, true), updated: !!existing, merged: !!existing && body.mode === 'add' };
@@ -346,13 +373,13 @@ function shopOrder_(body, opts) {
  * all＝true（我的訂單頁）：最近 90 天下的單都列（含已取貨），不含已取消。
  */
 function shopMyOrders_(body) {
-  var who = shopName_(body.name);
+  var who = shopWho_(body);
   if (who.name.length < 2) throw new ApiError_('BAD_REQUEST', '請輸入完整的名字');
   var today = todayString_();
   var groups = readTableCached_(SHEETS.SHOP_GROUPS);
   var since = addDaysStr_(today, -90);
   var orders = readTable_(SHEETS.SHOP_ORDERS).filter(function (o) {
-    if (normalizeName_(o['姓名']) !== who.name || o['狀態'] === '已取消') return false;
+    if (!shopIsMine_(o, who) || o['狀態'] === '已取消') return false;
     if (body.all) return String(o['建立時間'] || '').slice(0, 10) >= since;
     if (o['已取貨'] === '是') return false;
     if (o['取貨日期']) return o['取貨日期'] >= today;
@@ -370,7 +397,7 @@ function shopMyOrders_(body) {
 function shopOwnOrder_(orders, body) {
   var o = findById_(orders, '訂單ID', body.orderId);
   if (!o || o['狀態'] === '已取消') throw new ApiError_('NOT_FOUND', '找不到這張訂單，可能已經取消了，請重新整理');
-  if (normalizeName_(o['姓名']) !== shopName_(body.name).name) throw new ApiError_('FORBIDDEN', '名字和訂單上的不一樣');
+  if (!shopIsMine_(o, shopWho_(body))) throw new ApiError_('FORBIDDEN', o['來源'] === '團購網頁' ? '名字或手機和訂單上的不一樣' : '名字和訂單上的不一樣');
   if (o['已取貨'] === '是') throw new ApiError_('FORBIDDEN', '這張訂單已經取貨了');
   return o;
 }
@@ -439,7 +466,7 @@ function adminShopReconcile_(body) {
     SpreadsheetApp.flush();
     invalidateTable_(SHEETS.SHOP_ORDERS);
     var pk = g ? shopPickups_(g).filter(function (p) { return p.id === o['取貨活動ID']; })[0] : null;
-    var pushed = shopPushToName_(o['姓名'],
+    var pushed = o['來源'] === '團購網頁' ? 0 : shopPushToName_(o['姓名'],
       ok ? '💰 付款確認了' : '🏦 轉帳末五碼對不到',
       ok ? '「' + gname + '」' + o['金額'] + ' 元收到了，謝謝！' + (pk ? Number(pk.date.slice(5, 7)) + '/' + Number(pk.date.slice(8, 10)) + ' 取貨見 😊' : '')
          : '「' + gname + '」的轉帳小編對不到，請到「我的訂單」再確認一次匯款日期和末五碼 🙏');
@@ -473,7 +500,7 @@ function adminShop_() {
       id: g['團購ID'], name: g['名稱'], deadline: g['截止時間'], status: g['狀態'] || '開放', createdAt: g['建立時間'],
       closed: g['狀態'] === '結束' || (g['截止時間'] && shopNowMinute_() > g['截止時間']),
       orders: mine.length, total: mine.reduce(function (n, o) { return n + (Number(o['金額']) || 0); }, 0), pickups: shopPickups_(g),
-      link: g['賣場連結'] || '', cover: g['封面'] || ''
+      link: g['賣場連結'] || '', cover: g['封面'] || '', web: g['團購網頁'] === '是'
     };
   }).sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });
   var today = todayString_();
@@ -725,7 +752,8 @@ function adminShopSaveGroup_(body) {
     var values = { '名稱': name, '說明': cleanText_(g.description), '截止時間': deadline, '取貨場次': pickups.join(','), '商品設定': JSON.stringify(items),
       '付款說明': external ? '' : String(g.payInfo || '').trim(), '狀態': g.status || '開放', '更新時間': now,
       '賣場連結': external ? link : '', '封面': cover,
-      '匯款銀行': external ? '' : bankVals['匯款銀行'], '匯款分行': external ? '' : bankVals['匯款分行'], '匯款帳號': external ? '' : bankVals['匯款帳號'], '匯款戶名': external ? '' : bankVals['匯款戶名'] };
+      '匯款銀行': external ? '' : bankVals['匯款銀行'], '匯款分行': external ? '' : bankVals['匯款分行'], '匯款帳號': external ? '' : bankVals['匯款帳號'], '匯款戶名': external ? '' : bankVals['匯款戶名'],
+      '團購網頁': !external && g.web ? '是' : '' };
     var warnings = [];
     var row;
     if (g.id) {
@@ -840,7 +868,7 @@ function shopPickupsFor_(name, date) {
   if (!who) return [];
   var groups = readTableCached_(SHEETS.SHOP_GROUPS);
   return readTableCached_(SHEETS.SHOP_ORDERS).filter(function (o) {
-    return o['取貨日期'] === date && o['狀態'] !== '已取消' && o['已取貨'] !== '是' && normalizeName_(o['姓名']) === who;
+    return o['取貨日期'] === date && o['狀態'] !== '已取消' && o['已取貨'] !== '是' && o['來源'] !== '團購網頁' && normalizeName_(o['姓名']) === who;
   }).map(function (o) {
     var g = findById_(groups, '團購ID', o['團購ID']);
     var pk = g ? shopPickups_(g).filter(function (p) { return p.id === o['取貨活動ID']; })[0] : null;
@@ -856,7 +884,7 @@ function shopPickupsFor_(name, date) {
 function shopPickupNames_(date) {
   var out = {};
   readTableCached_(SHEETS.SHOP_ORDERS).forEach(function (o) {
-    if (o['取貨日期'] === date && o['狀態'] !== '已取消' && o['已取貨'] !== '是') out[normalizeName_(o['姓名'])] = true;
+    if (o['取貨日期'] === date && o['狀態'] !== '已取消' && o['已取貨'] !== '是' && o['來源'] !== '團購網頁') out[normalizeName_(o['姓名'])] = true;
   });
   return out;
 }

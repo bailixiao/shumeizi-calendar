@@ -57,12 +57,17 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
   const urlPath = decodeURIComponent(url.pathname);
   if (mock && urlPath === '/api') return handleApi(req, res, url);
-  if (mock && urlPath === '/js/config.js') {
+  if (mock && (urlPath === '/js/config.js' || urlPath === '/shop-web/js/config.js')) {
     res.writeHead(200, { 'Content-Type': types['.js'], 'Cache-Control': 'no-store' });
     res.end(`window.APP_CONFIG = { API_URL: '/api' };`);
     return;
   }
-  const file = path.join(root, urlPath.endsWith('/') ? urlPath + 'index.html' : urlPath); // 資料夾（例：/home/）＝裡面的 index.html，和 GitHub Pages 一樣
+  let file = path.join(root, urlPath.endsWith('/') ? urlPath + 'index.html' : urlPath); // 資料夾（例：/home/）＝裡面的 index.html，和 GitHub Pages 一樣
+  // 植素園happy購預覽：/shop-web/ ＝ tools/shop-web，裡面沒有的（css、js）用行事曆的
+  if (urlPath.startsWith('/shop-web/')) {
+    const rest = urlPath.slice('/shop-web/'.length) || 'index.html';
+    file = fs.existsSync(path.join(root, 'tools', 'shop-web', rest)) ? path.join(root, 'tools', 'shop-web', rest) : path.join(root, rest);
+  }
   if (!file.startsWith(root)) {
     res.writeHead(403).end();
     return;

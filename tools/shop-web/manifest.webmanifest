@@ -1,0 +1,11 @@
+{
+  "name": "植素園happy購",
+  "short_name": "植素園happy購",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    { "src": "img/zhisu-logo.png", "sizes": "600x600", "type": "image/png", "purpose": "any" }
+  ]
+}

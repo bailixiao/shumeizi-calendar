@@ -813,3 +813,38 @@ test('轉帳對帳：分欄帳號下單後才看得到、通知小編填匯款�
   const bank = ok(call('adminShopLedger', { year: 2026 })).accounts.find((a) => a.name === '銀行存款').entries.filter((e) => e.category === '銷貨收入');
   assert.equal(bank.length, 1, '記帳自動記銷貨收入');
 });
+
+test('團購網頁（植素園happy購）：只列有勾的團；客人填名字＋手機，不加進成員；和行事曆同名的人分開；後台看得到但不回傳手機', () => {
+  const { env, call, ok, gid, ids, tofu, order } = setup();
+  assert.equal(ok(env.get({ action: 'getShop', web: '1' })).groups.length, 0, '沒勾就不列');
+  const g = ok(call('adminShopGroup', { id: gid })).group;
+  ok(call('adminShopSaveGroup', { group: { id: gid, name: g.name, description: g.description, deadline: g.deadline, pickups: ids, payInfo: g.payInfo, items: g.itemSettings, web: true } }));
+  assert.equal(ok(env.get({ action: 'getShop', web: '1' })).groups[0].web, true);
+  assert.equal(ok(env.get({ action: 'getShop' })).groups.length, 1, '行事曆照舊列');
+  const members = env.sheets['成員'].data.length;
+  assert.equal(order({ name: '王小明', phone: '12345', items: [{ id: tofu.id, qty: 1 }] }).error.code, 'VALIDATION', '手機格式');
+  const w = ok(order({ name: '王小明', phone: '0912-345-678', items: [{ id: tofu.id, qty: 2 }], pay: '轉帳' })).order;
+  assert.equal(w.web, true);
+  assert.equal(JSON.stringify(w).includes('0912345678'), false, '不回傳手機');
+  assert.equal(env.sheets['成員'].data.length, members, '不加進成員');
+  // 行事曆同名的人：另外一張，彼此看不到
+  const c = ok(order({ name: '王小明', source: '官網', items: [{ id: tofu.id, qty: 1 }] })).order;
+  assert.notEqual(c.id, w.id);
+  assert.deepEqual(ok(env.post({ action: 'shopMyOrders', name: '王小明', all: true })).orders.map((o) => o.id), [c.id]);
+  assert.deepEqual(ok(env.post({ action: 'shopMyOrders', name: '王小明', phone: '0912345678', all: true })).orders.map((o) => o.id), [w.id]);
+  assert.equal(ok(env.post({ action: 'shopMyOrders', name: '王小明', phone: '0911111111', all: true })).orders.length, 0, '手機不對查不到');
+  assert.equal(env.post({ action: 'shopCancel', orderId: w.id, name: '王小明' }).error.code, 'FORBIDDEN', '行事曆的人動不到');
+  assert.equal(env.post({ action: 'shopSetLast5', orderId: w.id, name: '王小明', phone: '0911111111', last5: '12345' }).error.code, 'FORBIDDEN');
+  ok(env.post({ action: 'shopSetLast5', orderId: w.id, name: '王小明', phone: '0912345678', last5: '12345' }));
+  // 同一個客人再下單＝加進原本那張
+  const w2 = ok(order({ name: '王小明', phone: '0912345678', mode: 'add', items: [{ id: tofu.id, qty: 1 }], pay: '轉帳' }));
+  assert.equal(w2.order.id, w.id);
+  assert.equal(w2.order.items[0].qty, 3);
+  // 後台：標 web、沒有手機；對帳不推播
+  const adm = ok(call('adminShopGroup', { id: gid }));
+  assert.equal(adm.orders.find((o) => o.id === w.id).web, true);
+  assert.equal(JSON.stringify(adm).includes('0912345678'), false);
+  assert.equal(ok(call('adminShopReconcile', { orderId: w.id, ok: true })).pushed, 0);
+  // 取消
+  assert.equal(env.post({ action: 'shopCancel', orderId: w.id, name: '王小明', phone: '0912345678' }).error.code, 'FORBIDDEN', '對好帳（已確認）就不能自己取消');
+});

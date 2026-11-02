@@ -571,6 +571,7 @@
       pickups: g && id ? g.pickupIds : [], payInfo: g ? g.payInfo : '', status: g && id ? g.status : '開放',
       bank: (g && g.bank) || (base && base.lastBank) || { bank: '', branch: '', account: '', holder: '' }, // 匯款帳號（分欄；開新團帶入上次的）
       items: g ? g.itemSettings : [],
+      web: g && id ? !!g.web : true, // 也放到團購網頁（新開團、另存預設勾）
       // 新開團預設賣貨便（2026/10/10）；修改、另存舊的團購照原本的方式
       mode: g && !g.link ? '行事曆' : '賣貨便', link: g ? g.link || '' : '', cover: g ? g.cover || '' : ''
     };
@@ -607,6 +608,7 @@
               <label class="form-row"><span>銀行帳號</span><input class="input" name="bankAccount" inputmode="numeric" maxlength="20" value="${esc(v.bank.account)}" placeholder="數字，可以有 -"></label>
               <label class="form-row"><span>戶名</span><input class="input" name="bankHolder" maxlength="40" value="${esc(v.bank.holder)}"></label>
             </div></div>
+          ${window.SITE.shopWeb ? `<label class="check shop-web-check" data-for-mode="行事曆"${v.mode === '行事曆' ? '' : ' hidden'}><input type="checkbox" name="web"${v.web ? ' checked' : ''}> 🌐 也放到團購網頁「${esc(window.SITE.shopWeb.name)}」（給外面的客人，填名字＋手機下單）</label>` : ''}
           <label class="form-row" data-for-mode="行事曆"${v.mode === '行事曆' ? '' : ' hidden'}><span>付款補充說明（選填）</span><textarea class="input textarea" name="payInfo" rows="2" maxlength="300" placeholder="例：轉好記得按「通知小編」填末五碼">${esc(v.payInfo)}</textarea></label>
           ${id ? `<div class="form-row"><span>狀態</span><div class="seg">${['開放', '結束'].map((s) => `<label class="seg-item"><input type="radio" name="status" value="${s}"${v.status === s ? ' checked' : ''}><span>${s === '結束' ? '結束（大家看不到了）' : '開放'}</span></label>`).join('')}</div></div>` : ''}
         </fieldset>
@@ -686,7 +688,7 @@
       const mode = f.querySelector('input[name=mode]:checked').value;
       const group = {
         id, mode, link: mode === '賣貨便' ? f.elements.link.value.trim() : '', cover, name: f.elements.name.value, description: f.elements.description.value, deadline: f.elements.deadline.value,
-        payInfo: f.elements.payInfo.value,
+        payInfo: f.elements.payInfo.value, web: !!(f.elements.web && f.elements.web.checked),
         bank: { bank: f.elements.bankName.value.trim(), branch: f.elements.bankBranch.value.trim(), account: f.elements.bankAccount.value.trim(), holder: f.elements.bankHolder.value.trim() },
         status: f.querySelector('input[name=status]:checked') ? f.querySelector('input[name=status]:checked').value : '開放',
         pickups: [...f.querySelectorAll('input[name=pickup]:checked')].map((x) => x.value),
@@ -753,6 +755,7 @@
       <a class="btn back-btn" href="#/admin/shop">‹ 回團購</a>
       <h2 class="shop-title">${esc(g.name)}<span class="badge ${g.status === '結束' ? 'badge-full' : g.closed ? 'badge-notice' : 'badge-ok'}">${g.status === '結束' ? '已結束' : g.closed ? '已截止' : '開放中'}</span></h2>
       <p class="muted">截止 ${esc(g.deadline)}${g.description ? '<br>' + esc(g.description) : ''}</p>
+      ${g.web && !g.link && window.SITE.shopWeb ? `<p class="shop-web-line">🌐 也在「${esc(window.SITE.shopWeb.name)}」賣：<a href="${esc(window.SITE.shopWeb.url + '#/shop/' + encodeURIComponent(g.id))}" target="_blank" rel="noopener">打開 ↗</a> <button type="button" class="btn btn-small" data-copy-web="${esc(window.SITE.shopWeb.url + '#/shop/' + encodeURIComponent(g.id))}">複製連結</button></p>` : ''}
       ${edit ? `<div class="admin-actions">
         <a class="btn" href="#/admin/shop/edit/${encodeURIComponent(g.id)}">✏️ 修改團購</a>
         <a class="btn" href="#/admin/shop/new?from=${encodeURIComponent(g.id)}">另存成新團購</a>
@@ -782,7 +785,7 @@
         return `<section class="stats-section shop-recon">
         <h3 class="admin-sub">💰 對帳<span class="h2-sub">${todo.length ? '有 ' + todo.length + ' 張等你對' : '目前沒有要對的'}${wait ? '・還有 ' + wait + ' 張轉帳沒通知' : ''}</span></h3>
         ${todo.length ? `<ul class="shop-recon-list">${todo.map((o) => `<li class="shop-recon-item">
-          <div class="shop-recon-main"><strong>${esc(o.name)}</strong><span class="shop-recon-amt">${money(o.total)}</span></div>
+          <div class="shop-recon-main"><strong>${o.web ? '🌐 ' : ''}${esc(o.name)}</strong><span class="shop-recon-amt">${money(o.total)}</span></div>
           <p>匯款日期 <b>${esc(o.transferDate ? Fmt.shortDate(o.transferDate) : '—')}</b>・末五碼 <b class="shop-recon-l5">${esc(o.last5)}</b></p>
           ${edit ? `<div class="shop-recon-acts"><button type="button" class="btn btn-small btn-primary" data-recon-ok="${esc(o.id)}">✅ 對帳 OK</button><button type="button" class="btn btn-small btn-quiet-danger" data-recon-bad="${esc(o.id)}">↩️ 對不到</button></div>` : ''}
         </li>`).join('')}</ul>
@@ -806,7 +809,7 @@
         <input class="input" type="search" data-q placeholder="🔍 找名字" value="${esc(state.q)}">
         ${list.length ? `<ul class="shop-orders">${list.map((o) => `
           <li class="shop-order${o.status === '已取消' ? ' is-cancelled' : o.picked ? ' is-picked' : ''}">
-            <div class="shop-order-head"><strong>${esc(o.name)}</strong><span>${money(o.total)}</span></div>
+            <div class="shop-order-head"><strong>${o.web ? '<span title="團購網頁的客人（手機在 Google 表單「團購訂單」）">🌐 </span>' : ''}${esc(o.name)}</strong><span>${money(o.total)}</span></div>
             <p>${esc(itemsText(o.items))}</p>
             ${(o.discounts || []).length ? `<p class="shop-order-promo">${o.discounts.map((x) => `🏷️ ${esc(x.name)} －${money(x.discount)}`).join('、')}</p>` : ''}
             <p class="muted">${o.pay === '轉帳' ? `轉帳${o.last5 ? '・' + (o.transferDate ? esc(Fmt.shortDate(o.transferDate)) + ' ' : '') + '末五碼 ' + esc(o.last5) : '・還沒填末五碼'}` : '取貨付現'}${o.note ? '・' + esc(o.note) : ''}${o.status === '已取消' ? '・已取消' : ''}</p>
@@ -849,7 +852,7 @@
       try {
         const res = await Api.admin('adminShopReconcile', { orderId, ok });
         Busy.hide();
-        flash = AdminPage.notice('success', ok ? `✅ ${o.name} 對帳 OK` : `↩️ 已請 ${o.name} 再確認`, res.pushed ? '已經推播通知他了' : '他沒有開手機提醒，記得跟他說一聲');
+        flash = AdminPage.notice('success', ok ? `✅ ${o.name} 對帳 OK` : `↩️ 已請 ${o.name} 再確認`, res.pushed ? '已經推播通知他了' : o.web ? '團購網頁的客人收不到推播，記得聯絡他（手機在 Google 表單「團購訂單」）' : '他沒有開手機提醒，記得跟他說一聲');
         reload();
       } catch (e) {
         Busy.hide();
@@ -870,6 +873,8 @@
       if (v !== null) set(o.id, { note: v }, '存檔中');
     }));
     body.querySelectorAll('[data-edit-order]').forEach((b) => b.addEventListener('click', () => orderForm(d, d.orders.find((x) => x.id === b.dataset.editOrder), guard, reload)));
+    const cw = body.querySelector('[data-copy-web]');
+    if (cw) cw.addEventListener('click', async () => { const ok = await Share.copyText(cw.dataset.copyWeb); cw.textContent = ok ? '已複製 ✓' : '複製失敗'; setTimeout(() => { cw.textContent = '複製連結'; }, 2000); });
     const po = body.querySelector('[data-push-open]');
     if (po) po.addEventListener('click', () => pushForm(g, guard, reload));
     const ao = body.querySelector('[data-admin-order]');

@@ -6,21 +6,24 @@
 //   #/shop/orders              我的訂單：全部／未付款／待取貨／已完成
 // 下方固定分頁列：商城／購物車／我的訂單。購物車存在這支手機（每個團購一台）。
 // 結帳送 mode＝add：同一個人在同一次團購已經有訂單，就加進原本那張。規則都在伺服器（apps-script/Shop.gs）。
+// 團購網頁模式（window.SHOP_WEB，規格 0.6.1「植素園happy購」）：只列有勾的團、填名字＋手機、沒有回行事曆、不選認識管道。
 // 另外提供：行事曆上方的「🛒 團購」按鈕（有開放中的團購才出現）、活動頁「這場可以取團購」、查我的報名的「🛒 我的團購」。
 (function () {
   'use strict';
 
   const esc = Fmt.esc;
-  const NAME_KEY = 'shumeizi:mine-name'; // 和查我的報名同一個（記住這支手機的人）
+  const WEB = !!window.SHOP_WEB;
+  const NAME_KEY = WEB ? 'zhisu-shop:name' : 'shumeizi:mine-name'; // 行事曆：和查我的報名同一個（記住這支手機的人）
+  const PHONE_KEY = 'zhisu-shop:phone'; // 團購網頁：客人的手機（只存在他自己的瀏覽器）
   const CART_KEY = 'shumeizi:cart:';
   const LAST_KEY = 'shumeizi:shop-last'; // 最後逛的團購（分頁列的商城、購物車用）
-  const SOURCES = window.SITE.sources || [];
+  const SOURCES = WEB ? [] : window.SITE.sources || [];
   const SOURCE_ICON = { 朋友介紹: '👫', '官方 LINE': '💬', 官網: '🌐', Instagram: '📷', Facebook: '📘', 其他: '✨', 不確定: '🤔' };
   let shopCache = null; // { at, data }
   let root = null;
   let token = 0;
   // 結帳表單（換團購時清掉）
-  const form = { groupId: '', pickupId: '', pay: '現場', last5: '', name: '', known: undefined, source: '', referrer: '', sourceNote: '', birthday: '', existing: null };
+  const form = { groupId: '', pickupId: '', pay: '現場', last5: '', name: '', phone: '', known: WEB ? true : undefined, source: '', referrer: '', sourceNote: '', birthday: '', existing: null };
 
   const money = (n) => `${Number(n || 0).toLocaleString('zh-TW')} 元`;
   const pickupText = (p) => `${Fmt.shortDate(p.date)}${p.startTime ? ' ' + p.startTime : ''}　${p.location || p.name}`;
@@ -31,6 +34,10 @@
   };
   const savedName = () => store.get(NAME_KEY) || '';
   const saveName = (n) => store.set(NAME_KEY, n);
+  const savedPhone = () => (WEB ? store.get(PHONE_KEY) || '' : '');
+  const savePhone = (p) => { if (WEB) store.set(PHONE_KEY, p); };
+  const cleanPhone = (p) => String(p || '').replace(/[\s-]/g, '');
+  const phoneOk = (p) => /^09\d{8}$/.test(cleanPhone(p));
 
   // ---------- 購物車（這支手機） ----------
 
@@ -126,7 +133,7 @@
   /** 開放中的團購（30 秒內讀過的直接用） */
   async function loadShop(force) {
     if (!force && shopCache && Date.now() - shopCache.at < 30000) return shopCache.data;
-    const data = await Api.getShop();
+    const data = await Api.getShop(WEB);
     shopCache = { at: Date.now(), data };
     return data;
   }
@@ -184,6 +191,7 @@
   }
 
   function back() {
+    if (WEB) return '';
     return '<a class="btn btn-block back-bottom" href="#/">‹ 回行事曆</a>';
   }
 
@@ -210,7 +218,7 @@
           <span class="shop-group-name">${esc(g.name)}</span>
           <span class="badge ${g.closed ? 'badge-full' : 'badge-ok'}">${g.closed ? '已截止' : '開放中'}</span>
           <span class="shop-group-meta">${esc(g.deadline)} 截止・${g.link ? '🛒 在賣貨便下單' : g.pickups.length ? '取貨 ' + g.pickups.map((p) => esc(Fmt.shortDate(p.date))).join('、') : '線上訂購'}</span>
-        </a></li>`).join('')}</ul>` : '<div class="notice"><p>目前沒有開放中的團購，下次開團會通知大家 😊</p></div>'}
+        </a></li>`).join('')}</ul>` : `<div class="notice"><p>目前沒有開放中的團購${WEB ? '，下次開團再來逛逛 😊' : '，下次開團會通知大家 😊'}</p></div>`}
       ${back()}
       </div>
       ${tabbar('store', null)}`;
@@ -349,6 +357,7 @@
 
   function renderCart(g, now) {
     if (!form.name) form.name = savedName();
+    if (!form.phone) form.phone = savedPhone();
     const lines = cartLines(g);
     const closed = g.closed;
     let step = 0;
@@ -386,9 +395,10 @@
             <span class="choice-main">${esc(Fmt.shortDate(p.date))}${p.startTime ? ' ' + esc(p.startTime) : ''}</span><span class="choice-sub">📍 ${esc(p.location || p.name)}</span></label>`).join('')}</div>
         </section>` : ''}
         <section class="shop-step">
-          <h2><span class="step">${n()}</span>你的名字</h2>
-          <input class="input" data-name maxlength="20" autocomplete="name" placeholder="例：王小明" value="${esc(form.name)}"${closed ? ' disabled' : ''}>
-          <div class="suggestions" data-suggestions></div>
+          <h2><span class="step">${n()}</span>${WEB ? '你的名字和手機' : '你的名字'}</h2>
+          <input class="input" data-name maxlength="20" autocomplete="name" placeholder="例：王小明" value="${esc(form.name)}"${closed ? ' disabled' : ''}${WEB ? ' aria-label="名字"' : ''}>
+          ${WEB ? `<input class="input shop-phone" data-phone type="tel" inputmode="tel" maxlength="12" autocomplete="tel" placeholder="手機，例：0912345678" value="${esc(form.phone)}"${closed ? ' disabled' : ''} aria-label="手機">
+          <p class="hint">手機只給小編聯絡、查訂單用，網頁上不會顯示。</p>` : '<div class="suggestions" data-suggestions></div>'}
           ${form.existing ? `<div class="notice shop-existing"><p>✏️ <strong>${esc(form.name)}</strong> 這次團購已經有一張${esc(form.existing.pay === '轉帳' ? '轉帳' : '付現')}的訂單（${form.existing.items.map((x) => esc(x.name) + '×' + x.qty).join('、')}），這次的東西會<strong>加進原本那張</strong>。</p></div>`
             : (form.mineHere || []).length ? `<div class="notice shop-existing"><p>🧾 <strong>${esc(form.name)}</strong> 原本那張是${esc(form.mineHere[0].pay === '轉帳' ? '轉帳' : '付現')}，這次選${esc(form.pay === '轉帳' ? '轉帳' : '付現')}，會<strong>另外開一張訂單</strong>（付款分開對帳）。</p></div>` : ''}
           ${sourceHtml()}
@@ -407,7 +417,7 @@
       </div>
       ${tabbar('cart', g)}`;
     if (lines.length) bindCart(g, now);
-    if (form.name && lines.length && form.existing === null && form.known === undefined) lookupName(g, now);
+    if (form.name && lines.length && form.existing === null && (form.known === undefined || (WEB && !form.looked))) lookupName(g, now);
   }
 
   function bindCart(g, now) {
@@ -439,13 +449,19 @@
     let timer = null;
     nameInput.addEventListener('input', () => {
       form.name = nameInput.value.trim();
-      form.known = undefined;
+      form.known = WEB ? true : undefined;
       form.existing = null;
       form.mineHere = [];
       clearTimeout(timer);
-      timer = setTimeout(() => suggest(form.name), 300);
+      if (!WEB) timer = setTimeout(() => suggest(form.name), 300);
     });
     nameInput.addEventListener('change', () => lookupName(g, now));
+    const phoneInput = f.querySelector('[data-phone]');
+    if (phoneInput) {
+      phoneInput.addEventListener('input', () => { form.phone = cleanPhone(phoneInput.value); form.existing = null; form.mineHere = []; form.looked = false; });
+      phoneInput.addEventListener('change', () => lookupName(g, now));
+    }
+    if (WEB) { f.addEventListener('submit', (ev) => { ev.preventDefault(); submit(g, now); }); return; }
     f.querySelector('[data-suggestions]').addEventListener('click', (ev) => {
       const b = ev.target.closest('[data-suggest]');
       if (!b) return;
@@ -471,13 +487,16 @@
   async function lookupName(g, now) {
     const name = form.name.replace(/[\s　]+/g, '');
     if (name.length < 2) return;
+    if (WEB && !phoneOk(form.phone)) return;
+    form.looked = true; // 團購網頁：帶入記住的名字＋手機時查一次就好
+    const phone = WEB ? cleanPhone(form.phone) : '';
     const t = token;
     try {
       const [members, mine] = await Promise.all([
         form.known === true ? Promise.resolve(null) : Api.searchMembers(name).catch(() => null),
-        Api.shopMyOrders(name).catch(() => null)
+        Api.shopMyOrders(name, false, phone).catch(() => null)
       ]);
-      if (t !== token || form.name.replace(/[\s　]+/g, '') !== name) return;
+      if (t !== token || form.name.replace(/[\s　]+/g, '') !== name || (WEB && cleanPhone(form.phone) !== phone)) return;
       if (members) form.known = members.members.some((m) => m.name === name || m.alias === name);
       // 這次團購還沒取貨的訂單（付款方式不同會分開成兩張）
       form.mineHere = mine ? mine.orders.filter((x) => x.groupId === g.id && !x.picked && x.status !== '已取消') : [];
@@ -503,6 +522,7 @@
     if (!cartCount(g)) return '購物車是空的';
     if (g.pickups.length && !form.pickupId) return '請選在哪一場取貨';
     if (form.name.replace(/[\s　]+/g, '').length < 2) return '請填你的名字';
+    if (WEB && !phoneOk(form.phone)) return '請填手機（09 開頭的 10 個數字）';
     if (SOURCES.length && form.known === false && !form.source) return '第一次來的朋友，請選怎麼認識我們的（不知道選「不確定」）';
     if (form.known === false && form.source === '朋友介紹' && !form.referrer.trim()) return '請填介紹人是誰';
     if (form.pay === '轉帳' && form.last5 && !/^\d{5}$/.test(form.last5)) return '轉帳末五碼要是 5 個數字';
@@ -517,14 +537,16 @@
     Busy.show('送出訂單中⋯', '請不要關閉畫面');
     try {
       const name = form.name.replace(/[\s　]+/g, '');
+      const phone = WEB ? cleanPhone(form.phone) : undefined;
       const res = await Api.shopOrder({
-        groupId: g.id, name, mode: 'add', pickupId: form.pickupId, pay: form.pay, last5: form.pay === '轉帳' ? form.last5 : '',
+        groupId: g.id, name, phone, mode: 'add', pickupId: form.pickupId, pay: form.pay, last5: form.pay === '轉帳' ? form.last5 : '',
         items: cartLines(g).map((l) => ({ id: l.id, option: l.option, qty: l.qty })),
         source: form.known === false ? form.source : '', referrer: form.known === false && form.source === '朋友介紹' ? form.referrer.trim() : '', birthday: form.known === false ? form.birthday : '',
         sourceNote: form.known === false && form.source === '其他' ? form.sourceNote.trim() : ''
       });
       Busy.hide();
       saveName(name);
+      if (WEB) savePhone(phone);
       saveCart(g.id, []);
       shopCache = null;
       form.mineHere = [res.order].concat((form.mineHere || []).filter((x) => x.id !== res.order.id));
@@ -555,7 +577,7 @@
         ${(o.discounts || []).map((d) => `<p>🏷️ ${esc(d.name)}：省 ${money(d.discount)}</p>`).join('')}
         <p>💰 共 <strong>${money(o.total)}</strong>（${o.pay === '轉帳' ? '轉帳' : p ? '取貨時付現' : '付現'}）</p>
         ${p ? `<p>📦 ${esc(pickupText(p))} 取貨</p>` : ''}
-        ${p ? `<div class="addcal-row">${AddCal.button({ name: '取團購：' + g.name, location: p.location, start: p.date, end: p.date, startTime: p.startTime, endTime: p.endTime || '', dutyId: p.id, date: p.date }, '加到手機行事曆（取貨那天）')}</div>` : ''}
+        ${p && window.AddCal ? `<div class="addcal-row">${AddCal.button({ name: '取團購：' + g.name, location: p.location, start: p.date, end: p.date, startTime: p.startTime, endTime: p.endTime || '', dutyId: p.id, date: p.date }, '加到手機行事曆（取貨那天）')}</div>` : ''}
       </div>
       ${o.pay === '轉帳' ? bankCard(o) : ''}
       <p class="hint">截止前（${esc(g.deadline)}）都可以到「我的訂單」改數量或取消。</p>
@@ -565,7 +587,7 @@
       ${tabbar('cart', g)}`;
     window.scrollTo(0, 0);
     // 轉帳：匯款日期＋末五碼直接在這裡通知小編（2026/10/28）
-    bindBankCards(root, [o], o.name, () => done(g, res));
+    bindBankCards(root, [o], o.name, () => done(g, res), WEB ? cleanPhone(form.phone) : '');
   }
 
   // ---------- 🏦 我們的匯款帳號（2026/10/28，下單完成頁、我的訂單共用） ----------
@@ -592,7 +614,7 @@
   }
 
   /** 卡片的事件：複製帳號、通知小編。after() 成功後重畫 */
-  function bindBankCards(scope, orders, name, after) {
+  function bindBankCards(scope, orders, name, after, phone) {
     scope.querySelectorAll('[data-copy-acct]').forEach((b) => b.addEventListener('click', async () => {
       const ok = await Share.copyText(b.dataset.copyAcct);
       b.textContent = ok ? '已複製 ✓' : '複製失敗';
@@ -611,7 +633,7 @@
         if (!date || date > todayStr()) { box.textContent = '請選匯款日期（不能是以後的日子）'; box.hidden = false; return; }
         Busy.show('通知小編⋯');
         try {
-          const r = await Api.shopSetLast5(o.id, name, v, date);
+          const r = await Api.shopSetLast5(o.id, name, v, date, phone);
           Busy.hide();
           o.last5 = r.last5;
           o.transferDate = r.date;
@@ -624,7 +646,7 @@
   // ---------- 我的訂單 ----------
 
   const ORDER_TABS = [['all', '全部'], ['unpaid', '未付款'], ['topick', '待取貨'], ['done', '已完成']];
-  const ordersState = { tab: 'all', data: null };
+  const ordersState = { tab: 'all', data: null, phone: '' };
 
   /** 訂單狀態：已完成（取貨了）／待取貨（付了還沒取）／未付款 */
   function orderStatus(o) {
@@ -642,10 +664,11 @@
 
   async function showOrders(t) {
     const name = savedName();
-    if (!name) return renderOrdersAsk('');
+    ordersState.phone = savedPhone();
+    if (!name || (WEB && !phoneOk(ordersState.phone))) return renderOrdersAsk(name);
     root.innerHTML = '<div class="shop-page"><h1 class="page-title">📋 我的訂單</h1><p class="panel-empty">讀取中⋯</p></div>' + tabbar('orders', null);
     try {
-      ordersState.data = await Api.shopMyOrders(name, true);
+      ordersState.data = await Api.shopMyOrders(name, true, ordersState.phone);
     } catch (err) {
       if (t !== token) return;
       return renderOrdersAsk(name, err.message);
@@ -660,8 +683,11 @@
       <h1 class="page-title">📋 我的訂單</h1>
       ${error ? `<div class="notice notice-error" role="alert"><p>${esc(error)}</p></div>` : ''}
       <form class="mine-form" data-ask novalidate>
-        <label class="field-label" for="shop-orders-name">你的名字（和下單時寫的一樣）</label>
-        <div class="mine-row"><input id="shop-orders-name" class="input" autocomplete="name" placeholder="例如：王小明" value="${esc(name)}"><button type="submit" class="btn btn-primary">查詢</button></div>
+        <label class="field-label" for="shop-orders-name">你的名字${WEB ? '和手機' : ''}（和下單時寫的一樣）</label>
+        ${WEB ? `<input id="shop-orders-name" class="input" autocomplete="name" placeholder="名字，例如：王小明" value="${esc(name)}">
+        <div class="mine-row"><input id="shop-orders-phone" class="input" type="tel" inputmode="tel" maxlength="12" autocomplete="tel" placeholder="手機，例：0912345678" value="${esc(savedPhone())}"><button type="submit" class="btn btn-primary">查詢</button></div>
+        <p class="form-error" data-error hidden></p>`
+        : `<div class="mine-row"><input id="shop-orders-name" class="input" autocomplete="name" placeholder="例如：王小明" value="${esc(name)}"><button type="submit" class="btn btn-primary">查詢</button></div>`}
       </form>
       </div>
       ${tabbar('orders', null)}`;
@@ -669,6 +695,11 @@
       ev.preventDefault();
       const v = root.querySelector('#shop-orders-name').value.replace(/[\s　]+/g, '');
       if (v.length < 2) return;
+      if (WEB) {
+        const p = cleanPhone(root.querySelector('#shop-orders-phone').value);
+        if (!phoneOk(p)) { const b = root.querySelector('[data-error]'); b.textContent = '手機請填 09 開頭的 10 個數字'; b.hidden = false; return; }
+        savePhone(p);
+      }
       saveName(v);
       showOrders(++token);
     });
@@ -708,14 +739,15 @@
       ${tabbar('orders', null)}`;
     root.querySelectorAll('[data-otab]').forEach((b) => b.addEventListener('click', () => { ordersState.tab = b.dataset.otab; renderOrders(); }));
     root.querySelector('[data-switch]').addEventListener('click', () => renderOrdersAsk(''));
+    const phone = ordersState.phone;
     const find = (id) => d.orders.find((x) => x.id === id);
     root.querySelectorAll('[data-cancel]').forEach((b) => b.addEventListener('click', () => cancelOrder(find(b.dataset.cancel))));
     root.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => editOrder(find(b.dataset.edit))));
-    bindBankCards(root, d.orders, d.name, () => renderOrders('<div class="notice notice-success" role="status"><p>✅ 已通知小編，對好帳會變「出貨中」 😊</p></div>'));
+    bindBankCards(root, d.orders, d.name, () => renderOrders('<div class="notice notice-success" role="status"><p>✅ 已通知小編，對好帳會變「出貨中」 😊</p></div>'), phone);
   }
 
   const reloadOrders = async (flash) => {
-    try { ordersState.data = await Api.shopMyOrders(ordersState.data.name, true); } catch (e) { /* 用舊的 */ }
+    try { ordersState.data = await Api.shopMyOrders(ordersState.data.name, true, ordersState.phone); } catch (e) { /* 用舊的 */ }
     renderOrders(flash);
   };
 
@@ -725,7 +757,7 @@
     if (!ok) return;
     Busy.show('取消中⋯');
     try {
-      await Api.shopCancel(o.id, ordersState.data.name);
+      await Api.shopCancel(o.id, ordersState.data.name, ordersState.phone);
       Busy.hide();
       shopCache = null;
       reloadOrders(`<div class="notice notice-success" role="status"><p>已取消「${esc(o.groupName)}」的訂單${o.pay === '轉帳' && o.last5 ? '，記得跟小編說要退款喔' : ''}。</p></div>`);
@@ -757,7 +789,7 @@
       m.el.setAttribute('data-locked', '');
       Busy.show('存檔中⋯');
       try {
-        await Api.shopOrder({ groupId: o.groupId, orderId: o.id, name: ordersState.data.name, pickupId: o.pickupId, pay: o.pay, last5: o.last5,
+        await Api.shopOrder({ groupId: o.groupId, orderId: o.id, name: ordersState.data.name, phone: ordersState.phone || undefined, pickupId: o.pickupId, pay: o.pay, last5: o.last5,
           items: o.items.map((it, i) => ({ id: it.id, option: it.option || '', qty: qty[i] })) });
         Busy.hide();
         m.close();

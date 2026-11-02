@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <!-- 植素園happy購（規格 0.6.1）：給外面客人的團購網頁。這個檔案是原始碼，node tools/build-shop-web.js 組成網站（bailixiao/zhisu-shop） -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>植素園happy購</title>
+  <meta name="description" content="植素園工作坊的團購：蔬食好物線上下單，出攤現場取貨。">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="img/zhisu-head.png">
+  <link rel="apple-touch-icon" href="img/zhisu-logo.png">
+  <link rel="preconnect" href="https://shumeizi-api.duty-calendar-worker.workers.dev" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="web.css">
+</head>
+<body class="shop-web">
+  <header class="app-header">
+    <a class="app-title" href="#/shop"><img class="app-logo" src="img/zhisu-head.png" alt="" width="36" height="36"><span>植素園happy購</span></a>
+  </header>
+
+  <main class="app-main">
+    <section id="view-shop" aria-label="團購"></section>
+  </main>
+
+  <div id="busy" class="busy" role="alertdialog" aria-modal="true" aria-live="assertive" hidden>
+    <div class="busy-box">
+      <span class="spinner" aria-hidden="true"></span>
+      <p class="busy-text"></p>
+      <p class="busy-sub"></p>
+    </div>
+  </div>
+
+  <script>window.SHOP_WEB = true;</script>
+  <script src="js/site.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/format.js"></script>
+  <script src="js/share.js"></script>
+  <script src="js/addcal.js"></script>
+  <script src="js/confirm.js"></script>
+  <script src="js/shop.js"></script>
+  <script src="web.js"></script>
+</body>
+</html>

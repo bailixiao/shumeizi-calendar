@@ -94,12 +94,15 @@
       box.innerHTML = open.map((g) => {
         const dl = g.deadline ? md(g.deadline.slice(0, 10)) : null;
         const photos = g.items.filter((it) => it.photo).slice(0, 3);
+        // 封面：第一個 ⭐ 首推商品的照片（2026/11/3），沒有才用上傳的封面
+        const star = g.items.find((it) => it.featured && it.photo);
+        const cover = star ? star.photo : g.cover;
         // 賣貨便的團購：直接連到賣場（開新分頁）；有放到團購網頁的：公開官網連到植素園happy購（2026/11/2），App 版和沒放的連到行事曆的團購頁
         const href = g.link || (g.web && !CFG.APP && CFG.SHOP ? CFG.SHOP + '#/shop/' + encodeURIComponent(g.id) : calUrl('#/shop/' + encodeURIComponent(g.id)));
         return `<a class="shop-card" href="${esc(href)}"${g.link ? ' target="_blank" rel="noopener"' : ''}>
           <span class="shop-tag">🛒 團購開放中${g.link ? '・賣貨便' : ''}</span>
           <strong class="shop-name">${esc(g.name)}</strong>
-          ${g.cover ? `<img class="shop-cover" src="${esc(fileUrl(g.cover))}" alt="${esc(g.name)}" loading="lazy">`
+          ${cover ? `<img class="shop-cover" src="${esc(fileUrl(cover))}" alt="${esc(g.name)}" loading="lazy">`
             : photos.length ? `<span class="shop-photos">${photos.map((it) => `<img src="${esc(fileUrl(it.photo))}" alt="${esc(it.name)}" loading="lazy">`).join('')}</span>` : ''}
           ${g.items.length ? `<span class="shop-items">${esc(g.items.map((it) => it.name).join('、'))}</span>` : g.description ? `<span class="shop-items">${esc(g.description)}</span>` : ''}
           ${dl ? `<span class="shop-dl">${dl.m}/${dl.d}（${dl.w}）${esc(g.deadline.slice(11))} 截止</span>` : ''}

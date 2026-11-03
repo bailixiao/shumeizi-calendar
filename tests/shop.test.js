@@ -848,3 +848,20 @@ test('團購網頁（植素園happy購）：只列有勾的團；客人填名字
   // 取消
   assert.equal(env.post({ action: 'shopCancel', orderId: w.id, name: '王小明', phone: '0912345678' }).error.code, 'FORBIDDEN', '對好帳（已確認）就不能自己取消');
 });
+
+test('⭐ 首推：存在商品設定、排最前面，後台修改帶得出來', () => {
+  const { env, call, ok, tofu, jam, gid } = setup();
+  const g0 = ok(env.get({ action: 'getShop' })).groups[0];
+  assert.deepEqual(g0.items.map((x) => [x.id, x.featured]), [[tofu.id, false], [jam.id, false]]);
+  ok(call('adminShopSaveGroup', { group: {
+    id: gid, name: '十月植素園團購', deadline: '2026-10-15 22:00', pickups: [],
+    items: [{ id: tofu.id, price: '', limit: '', perPerson: '' }, { id: jam.id, price: '120', limit: '5', perPerson: '2', featured: true }]
+  } }));
+  const g = ok(env.get({ action: 'getShop' })).groups[0];
+  assert.deepEqual(g.items.map((x) => [x.id, x.featured]), [[jam.id, true], [tofu.id, false]]);
+  const a = ok(call('adminShop', {})).groups.find((x) => x.id === gid);
+  assert.ok(a, '後台有這團');
+  const d = ok(call('adminShopGroup', { id: gid }));
+  assert.equal(d.group.itemSettings.find((x) => x.id === jam.id).featured, true);
+  assert.equal(d.group.itemSettings.find((x) => x.id === tofu.id).featured, undefined);
+});

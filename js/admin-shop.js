@@ -624,6 +624,7 @@
             <div class="shop-item-set${s ? ' is-on' : ''}" data-item="${esc(p.id)}">
               <label class="check"><input type="checkbox" data-item-on${s ? ' checked' : ''}> <strong>${esc(p.name)}</strong><small>${money(p.price)}${p.unit ? '／' + esc(p.unit) : ''}</small></label>
               <div class="shop-three"${s ? '' : ' hidden'}>
+                <label class="check shop-featured"><input type="checkbox" data-featured${s && s.featured ? ' checked' : ''}> ⭐ 首推（排最前面，官網用它的照片當封面）</label>
                 <label><span>這次價格</span><input class="input" data-k="price" inputmode="numeric" value="${esc(s && s.price !== '' ? s.price : '')}" placeholder="${esc(p.price)}"></label>
                 <label><span>限量</span><input class="input" data-k="limit" inputmode="numeric" value="${esc(s && s.limit !== 'stock' ? s.limit : '')}"${!s || s.limit === 'stock' ? ' disabled placeholder="照庫存"' : ''}></label>
                 <label><span>每人最多</span><input class="input" data-k="perPerson" inputmode="numeric" value="${esc(s ? s.perPerson : '')}"></label>
@@ -693,7 +694,7 @@
         status: f.querySelector('input[name=status]:checked') ? f.querySelector('input[name=status]:checked').value : '開放',
         pickups: [...f.querySelectorAll('input[name=pickup]:checked')].map((x) => x.value),
         items: [...f.querySelectorAll('[data-item]')].filter((x) => x.querySelector('[data-item-on]').checked).map((x) => ({
-          id: x.dataset.item, price: x.querySelector('[data-k=price]').value.trim(), limit: x.querySelector('[data-stock-limit]').checked ? 'stock' : x.querySelector('[data-k=limit]').value.trim(), perPerson: x.querySelector('[data-k=perPerson]').value.trim()
+          id: x.dataset.item, price: x.querySelector('[data-k=price]').value.trim(), limit: x.querySelector('[data-stock-limit]').checked ? 'stock' : x.querySelector('[data-k=limit]').value.trim(), perPerson: x.querySelector('[data-k=perPerson]').value.trim(), featured: x.querySelector('[data-featured]').checked
         }))
       };
       Busy.show('存檔中⋯');
@@ -780,7 +781,7 @@
         <div class="stat-card"><span class="stat-label">總金額</span><span class="stat-num">${Number(s.total).toLocaleString('zh-TW')}</span><span class="stat-hint">已付 ${money(s.paid)}<br>未付 ${money(s.unpaid)}</span></div>
         <div class="stat-card shop-profit"><span class="stat-label">毛利</span><span class="stat-num">${Number(s.profit).toLocaleString('zh-TW')}</span><span class="stat-hint">成本 ${money(s.cost)}${s.total ? `・毛利率 ${Math.round(s.profit / s.total * 100)}%` : ''}${s.costMissing && s.costMissing.length ? `<br>⚠️ 沒填成本：${esc(s.costMissing.join('、'))}` : ''}</span></div>
       </div>
-      <ul class="shop-sold">${g.items.map((it) => `<li>${thumb(it.photo, it.name, 'shop-thumb-sm')}<span>${esc(it.name)}</span><strong>${it.sold}${it.unit ? ' ' + esc(it.unit) : ''}</strong>${it.stockMode ? `<small>${it.left ? `可賣 ${it.left}` : '已售完'}（照庫存${it.options ? '：' + it.options.options.map((o) => esc(o.name) + ' ' + o.left).join('、') : ''}）</small>` : it.limit !== null ? `<small>${it.left ? `剩 ${it.left}` : '已售完'}／限量 ${it.limit}</small>` : ''}</li>`).join('')}</ul>
+      <ul class="shop-sold">${g.items.map((it) => `<li>${thumb(it.photo, it.name, 'shop-thumb-sm')}<span>${it.featured ? '⭐ ' : ''}${esc(it.name)}</span><strong>${it.sold}${it.unit ? ' ' + esc(it.unit) : ''}</strong>${it.stockMode ? `<small>${it.left ? `可賣 ${it.left}` : '已售完'}（照庫存${it.options ? '：' + it.options.options.map((o) => esc(o.name) + ' ' + o.left).join('、') : ''}）</small>` : it.limit !== null ? `<small>${it.left ? `剩 ${it.left}` : '已售完'}／限量 ${it.limit}</small>` : ''}</li>`).join('')}</ul>
 
       ${(() => {
         // 💰 對帳（2026/10/28）：轉帳、填了末五碼、還沒付款的訂單

@@ -268,8 +268,8 @@
       ${g.pickups.length ? `<p class="shop-pickup-note">📦 取貨：${g.pickups.map((p) => esc(pickupText(p))).join('、')}</p>` : ''}
       <ul class="shop-grid">${g.items.map((it) => {
         const soldOut = it.left === 0;
-        return `<li><a class="shop-tile${soldOut ? ' is-soldout' : ''}" href="#/shop/${encodeURIComponent(g.id)}/p/${encodeURIComponent(it.id)}">
-          <span class="shop-tile-img">${it.photo ? `<img src="${esc(photoUrl(it.photo))}" alt="" loading="lazy">` : '<span class="shop-noimg" aria-hidden="true">🌿</span>'}${soldOut ? '<span class="shop-tile-flag">已售完</span>' : it.left !== null && it.left <= 5 ? `<span class="shop-tile-flag is-few">剩 ${it.left}</span>` : ''}</span>
+        return `<li><a class="shop-tile${soldOut ? ' is-soldout' : ''}${it.featured ? ' is-featured' : ''}" href="#/shop/${encodeURIComponent(g.id)}/p/${encodeURIComponent(it.id)}">
+          <span class="shop-tile-img">${it.photo ? `<img src="${esc(photoUrl(it.photo))}" alt="" loading="lazy">` : '<span class="shop-noimg" aria-hidden="true">🌿</span>'}${it.featured ? '<span class="shop-tile-star">⭐ 首推</span>' : ''}${soldOut ? '<span class="shop-tile-flag">已售完</span>' : it.left !== null && it.left <= 5 ? `<span class="shop-tile-flag is-few">剩 ${it.left}</span>` : ''}</span>
           <span class="shop-tile-name">${esc(it.name)}</span>
           <span class="shop-tile-price">${priceText(it)}${it.unit ? `<small>／${esc(it.unit)}</small>` : ''}</span>
           ${promoOf(g, it.id) ? `<span class="shop-tile-promo">${promoTag(g, it)}</span>` : ''}

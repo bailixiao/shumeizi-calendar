@@ -93,7 +93,7 @@ function shopStockAvail_(exceptOrderId) {
 /**
  * 團購給畫面用的樣子。opts.admin：附付款說明。opts.exceptOrderId：照庫存限量時不算這張訂單（改單用）。
  * 商品設定的 limit＝'stock'（照庫存）：stockMode＝true，left＝各規格可賣的加起來，有規格的每個選項另外帶 left。
- * items：[{ id, name, price, unit, description, photo, limit, perPerson, sold, left }]（left＝null 表示不限）
+ * items：[{ id, featured, name, price, unit, description, photo, limit, perPerson, sold, left }]（left＝null 表示不限）
  */
 function shopGroupView_(g, products, orders, opts) {
   var sold = shopSold_(orders, g['團購ID']);
@@ -108,7 +108,7 @@ function shopGroupView_(g, products, orders, opts) {
       var leftOf = function (o) { return Math.max(avail[stockKeyOf_(p['商品ID'], o)] || 0, 0); };
       if (opt) opt.options.forEach(function (o) { o.left = leftOf(o.name); });
       return {
-        id: it.id, name: p['名稱'], price: it.price === '' || it.price === undefined || it.price === null ? Number(p['價格']) || 0 : Number(it.price),
+        id: it.id, featured: !!it.featured, name: p['名稱'], price: it.price === '' || it.price === undefined || it.price === null ? Number(p['價格']) || 0 : Number(it.price),
         unit: p['單位'] || '', description: p['說明'] || '', photo: p['照片'] || '', photos: shopPhotos_(p), options: opt,
         limit: null, stockMode: true, perPerson: it.perPerson === '' || it.perPerson === null || it.perPerson === undefined ? null : Number(it.perPerson),
         sold: sold[it.id] || 0, left: opt ? opt.options.reduce(function (n, o) { return n + o.left; }, 0) : leftOf('')
@@ -117,12 +117,14 @@ function shopGroupView_(g, products, orders, opts) {
     var limit = it.limit === '' || it.limit === null || it.limit === undefined ? null : Number(it.limit);
     var s = sold[it.id] || 0;
     return {
-      id: it.id, name: p['名稱'], price: it.price === '' || it.price === undefined || it.price === null ? Number(p['價格']) || 0 : Number(it.price),
+      id: it.id, featured: !!it.featured, name: p['名稱'], price: it.price === '' || it.price === undefined || it.price === null ? Number(p['價格']) || 0 : Number(it.price),
       unit: p['單位'] || '', description: p['說明'] || '', photo: p['照片'] || '', photos: shopPhotos_(p), options: shopOptions_(p),
       limit: limit, perPerson: it.perPerson === '' || it.perPerson === null || it.perPerson === undefined ? null : Number(it.perPerson),
       sold: s, left: limit === null ? null : Math.max(limit - s, 0)
     };
   }).filter(Boolean);
+  // ⭐ 首推的排最前面（2026/11/3），其他照原本的順序
+  items = items.filter(function (it) { return it.featured; }).concat(items.filter(function (it) { return !it.featured; }));
   var out = {
     id: g['團購ID'], name: g['名稱'], description: g['說明'] || '', deadline: g['截止時間'], status: g['狀態'] || '開放',
     closed: g['狀態'] === '結束' || (g['截止時間'] && now > g['截止時間']),
@@ -741,7 +743,7 @@ function adminShopSaveGroup_(body) {
     if (price === null) errors.push('「' + p['名稱'] + '」的價格請填整數');
     if (limit === null || limit === 0) errors.push('「' + p['名稱'] + '」的限量請填 1 以上的整數，或空白（不限）');
     if (per === null || per === 0) errors.push('「' + p['名稱'] + '」的每人上限請填 1 以上的整數，或空白（不限）');
-    items.push({ id: p['商品ID'], price: price === '' ? '' : price, limit: limit === '' ? '' : limit, perPerson: per === '' ? '' : per });
+    items.push({ id: p['商品ID'], price: price === '' ? '' : price, limit: limit === '' ? '' : limit, perPerson: per === '' ? '' : per, featured: it.featured ? true : undefined }); // featured：⭐ 首推
   });
   if (!external && !items.length) errors.push('請至少選一樣商品');
   if (errors.length) throw new ApiError_('VALIDATION', '團購沒有存檔', errors.map(function (m) { return { message: m }; }));

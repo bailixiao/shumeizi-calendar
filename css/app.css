@@ -2423,6 +2423,11 @@ button.veg-chip:hover { border-color: var(--ok); }
 .shop-three-hint { grid-column: 1 / -1; color: var(--muted); margin-left: 0 !important; }
 .shop-three .shop-stock-limit { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: flex-start; }
 .shop-three .shop-stock-limit input { flex: none; }
+/* ⭐ 首推商品（2026/11/3） */
+.shop-three .shop-featured { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: flex-start; font-weight: 600; }
+.shop-three .shop-featured input { flex: none; }
+.shop-tile.is-featured { border-color: #e0a100; box-shadow: 0 0 0 2px rgba(224, 161, 0, .35); }
+.shop-tile-star { position: absolute; top: 8px; right: 8px; padding: 2px 8px; border-radius: 999px; background: #ffc83d; color: #4a3200; font-size: .78rem; font-weight: 700; }
 /* 團購頁：也在團購網頁賣（複製連結給外面的客人） */
 .shop-web-card { margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--ok); border-radius: var(--radius); background: var(--ok-soft); }
 .shop-web-title { margin: 0; font-weight: 700; }

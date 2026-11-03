@@ -73,7 +73,7 @@ async function seedDemo(call, get) {
     payInfo: '（示範）轉好記得按「通知小編」',
     bank: { bank: '測試銀行', branch: '示範分行', account: '000-0000000-000', holder: '示範帳戶' },
     web: true, // 也放到團購網頁（植素園happy購）
-    items: [{ id: tofu, price: '', limit: '', perPerson: '' }, { id: jam, price: '', limit: '10', perPerson: '2' }, { id: bread, price: '', limit: '', perPerson: '' }]
+    items: [{ id: tofu, price: '', limit: '', perPerson: '' }, { id: jam, price: '', limit: '10', perPerson: '2', featured: true }, { id: bread, price: '', limit: '', perPerson: '' }]
   } });
   if (!g.ok) throw new Error('示範團購建立失敗：' + JSON.stringify(g.error));
   // 買多優惠：饅頭 3 包 200 元

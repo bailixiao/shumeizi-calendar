@@ -581,8 +581,8 @@
       web: g && id ? !!g.web : true, // 也放到團購網頁（新開團、另存預設勾）
       // 領貨方式（2026/11/3）：新開團三種都勾；自取地點帶上一次填的
       methods: g ? g.methods : ['出攤', '自取', '配送'], spots: g && g.spots.length ? g.spots : (base && base.lastSpots) || [], deliveryNote: g ? g.deliveryNote || '' : '',
-      // 新開團預設賣貨便（2026/10/10）；修改、另存舊的團購照原本的方式
-      mode: g && !g.link ? '行事曆' : '賣貨便', link: g ? g.link || '' : '', cover: g ? g.cover || '' : ''
+      // 2026/11/3 起不再用賣貨便開團（有配送了）：一律在行事曆下單；只有修改以前的賣貨便團購才是賣貨便（另存成新團購改成行事曆）
+      mode: g && id && g.link ? '賣貨便' : '行事曆', link: g ? g.link || '' : '', cover: g ? g.cover || '' : ''
     };
     let cover = v.cover;
     const setting = (pid) => v.items.find((x) => x.id === pid);
@@ -594,13 +594,13 @@
       <a class="btn back-btn" href="#/admin/shop">‹ 回團購</a>
       <h2>${id ? '修改團購' : '開團'}</h2>
       <form class="admin-form shop-form" novalidate>
-        <fieldset class="form-block"><legend>下單方式</legend>
-          <div class="seg">${[['賣貨便', '🛒 賣貨便'], ['行事曆', '在行事曆下單（出攤取貨）']].map(([m, l]) => `<label class="seg-item"><input type="radio" name="mode" value="${m}"${v.mode === m ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div>
-          <div data-for-mode="賣貨便"${v.mode === '賣貨便' ? '' : ' hidden'}>
+        <input type="hidden" name="mode" value="${v.mode}">
+        ${v.mode === '賣貨便' ? `<fieldset class="form-block"><legend>🛒 賣貨便（以前用賣貨便開的團購）</legend>
+          <div>
             <label class="form-row"><span>賣貨便賣場連結</span><input class="input" name="link" type="url" inputmode="url" value="${esc(v.link)}" placeholder="https://myship.7-11.com.tw/⋯"></label>
             <p class="hint">先在 7-ELEVEN 賣貨便建好賣場，按「分享賣場」複製連結貼在這裡。大家按「到賣貨便下單」就會打開賣場，下單、付款、取貨都在賣貨便，這裡不用選商品和取貨場次。</p>
           </div>
-        </fieldset>
+        </fieldset>` : ''}
         <fieldset class="form-block"><legend>基本資料</legend>
           <label class="form-row"><span>名稱</span><input class="input" name="name" maxlength="40" value="${esc(v.name)}" placeholder="例：十月植素園團購"></label>
           <label class="form-row"><span>說明（選填，大家看得到）</span><textarea class="input textarea" name="description" rows="3" maxlength="500" placeholder="例：這次有新鮮的手工豆腐和果醬 🌿">${esc(v.description)}</textarea></label>
@@ -662,10 +662,6 @@
         </div>
       </form>`;
     const f = body.querySelector('form');
-    // 下單方式：賣貨便不用選取貨場次、商品、付款說明
-    f.querySelectorAll('input[name=mode]').forEach((r) => r.addEventListener('change', () => {
-      f.querySelectorAll('[data-for-mode]').forEach((x) => { x.hidden = x.dataset.forMode !== r.value; });
-    }));
     const drawCover = () => {
       f.querySelector('[data-cover-box]').innerHTML = cover ? `${thumb(cover, f.elements.name.value || '封面', 'shop-thumb-big')}<button type="button" class="link-btn" data-cover-del>拿掉照片</button>` : '<span class="muted">還沒有照片</span>';
       bindZoom(f.querySelector('[data-cover-box]'));
@@ -712,7 +708,7 @@
     f.addEventListener('submit', async (ev) => {
       ev.preventDefault();
       const box = f.querySelector('[data-error]');
-      const mode = f.querySelector('input[name=mode]:checked').value;
+      const mode = f.elements.mode.value;
       const group = {
         id, mode, link: mode === '賣貨便' ? f.elements.link.value.trim() : '', cover, name: f.elements.name.value, description: f.elements.description.value, deadline: f.elements.deadline.value,
         payInfo: f.elements.payInfo.value, web: !!(f.elements.web && f.elements.web.checked),

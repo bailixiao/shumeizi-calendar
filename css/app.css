@@ -2423,11 +2423,31 @@ button.veg-chip:hover { border-color: var(--ok); }
 .shop-three-hint { grid-column: 1 / -1; color: var(--muted); margin-left: 0 !important; }
 .shop-three .shop-stock-limit { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: flex-start; }
 .shop-three .shop-stock-limit input { flex: none; }
-/* ⭐ 首推商品（2026/11/3） */
+/* 領貨方式（2026/11/3） */
+.shop-method-seg { flex-wrap: wrap; }
+.shop-method-one { margin: 0; font-weight: 700; }
+.shop-step .shop-phone { margin-top: 8px; }
+.shop-line { margin: 18px 0 8px; text-align: center; }
+.shop-line-btn { background: #06c755; border-color: #06c755; color: #fff; font-weight: 700; text-decoration: none; }
+.shop-line-btn:hover { background: #05b04b; color: #fff; }
+.shop-line p { margin: 6px 0 0; color: var(--muted); font-size: .9rem; }
+.shop-methods { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 8px; }
+.shop-method-box { margin-top: 10px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: var(--radius); }
+.shop-method-title { margin: 0 0 8px; font-weight: 700; }
+.shop-spot { display: grid; gap: 6px; padding: 8px 0 10px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+.shop-spot label span { display: block; font-size: .85rem; color: var(--muted); }
+.shop-spot .btn { justify-self: start; }
+.shop-order-where { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0; }
+.shop-order-where .tel-btn { margin-top: 0; }
+/* 🔥 強力推薦商品（2026/11/3） */
 .shop-three .shop-featured { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: flex-start; font-weight: 600; }
 .shop-three .shop-featured input { flex: none; }
-.shop-tile.is-featured { border-color: #e0a100; box-shadow: 0 0 0 2px rgba(224, 161, 0, .35); }
-.shop-tile-star { position: absolute; top: 8px; right: 8px; padding: 2px 8px; border-radius: 999px; background: #ffc83d; color: #4a3200; font-size: .78rem; font-weight: 700; }
+.shop-tile.is-featured { position: relative; border: 3px solid #ff7a1a; background: linear-gradient(180deg, #fff7ec, var(--card) 60%); box-shadow: 0 0 0 4px rgba(255, 122, 26, .18), 0 10px 26px rgba(255, 96, 0, .28); animation: shop-hot 2.4s ease-in-out infinite; }
+.shop-tile.is-featured .shop-tile-name { color: #c2410c; font-weight: 800; }
+.shop-tile-star { position: absolute; top: 0; left: 0; right: 0; z-index: 2; padding: 6px 10px; background: linear-gradient(90deg, #e11d48, #ff7a1a 55%, #ffb21a); color: #fff; font-size: .9rem; font-weight: 800; letter-spacing: .08em; text-align: center; text-shadow: 0 1px 2px rgba(0, 0, 0, .25); box-shadow: 0 2px 8px rgba(225, 29, 72, .35); }
+.shop-tile.is-featured .shop-tile-flag { top: 40px; }
+@keyframes shop-hot { 0%, 100% { box-shadow: 0 0 0 4px rgba(255, 122, 26, .18), 0 10px 26px rgba(255, 96, 0, .28); } 50% { box-shadow: 0 0 0 7px rgba(255, 122, 26, .30), 0 12px 32px rgba(255, 96, 0, .42); } }
+@media (prefers-reduced-motion: reduce) { .shop-tile.is-featured { animation: none; } }
 /* 團購頁：也在團購網頁賣（複製連結給外面的客人） */
 .shop-web-card { margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--ok); border-radius: var(--radius); background: var(--ok-soft); }
 .shop-web-title { margin: 0; font-weight: 700; }

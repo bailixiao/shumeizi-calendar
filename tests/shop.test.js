@@ -814,7 +814,7 @@ test('轉帳對帳：分欄帳號下單後才看得到、通知小編填匯款�
   assert.equal(bank.length, 1, '記帳自動記銷貨收入');
 });
 
-test('團購網頁（植素園happy購）：只列有勾的團；客人填名字＋手機，不加進成員；和行事曆同名的人分開；後台看得到但不回傳手機', () => {
+test('團購網頁（植素園happy購）：只列有勾的團；客人填名字＋手機，不加進成員；和行事曆同名的人分開；後台看得到手機、大家的 API 不回傳', () => {
   const { env, call, ok, gid, ids, tofu, order } = setup();
   assert.equal(ok(env.get({ action: 'getShop', web: '1' })).groups.length, 0, '沒勾就不列');
   const g = ok(call('adminShopGroup', { id: gid })).group;
@@ -840,10 +840,12 @@ test('團購網頁（植素園happy購）：只列有勾的團；客人填名字
   const w2 = ok(order({ name: '王小明', phone: '0912345678', mode: 'add', items: [{ id: tofu.id, qty: 1 }], pay: '轉帳' }));
   assert.equal(w2.order.id, w.id);
   assert.equal(w2.order.items[0].qty, 3);
-  // 後台：標 web、沒有手機；對帳不推播
+  // 後台：標 web、看得到手機（2026/11/3 使用者決定）；大家的 API 看不到；對帳不推播
   const adm = ok(call('adminShopGroup', { id: gid }));
   assert.equal(adm.orders.find((o) => o.id === w.id).web, true);
-  assert.equal(JSON.stringify(adm).includes('0912345678'), false);
+  assert.equal(adm.orders.find((o) => o.id === w.id).phone, '0912345678');
+  assert.equal(JSON.stringify(ok(env.post({ action: 'shopMyOrders', name: '王小明', phone: '0912345678', all: true }))).includes('"phone"'), false);
+  assert.equal(JSON.stringify(ok(env.get({ action: 'getShop', web: '1' }))).includes('0912345678'), false);
   assert.equal(ok(call('adminShopReconcile', { orderId: w.id, ok: true })).pushed, 0);
   // 取消
   assert.equal(env.post({ action: 'shopCancel', orderId: w.id, name: '王小明', phone: '0912345678' }).error.code, 'FORBIDDEN', '對好帳（已確認）就不能自己取消');
@@ -864,4 +866,45 @@ test('⭐ 首推：存在商品設定、排最前面，後台修改帶得出來'
   const d = ok(call('adminShopGroup', { id: gid }));
   assert.equal(d.group.itemSettings.find((x) => x.id === jam.id).featured, true);
   assert.equal(d.group.itemSettings.find((x) => x.id === tofu.id).featured, undefined);
+});
+
+test('領貨方式：出攤、自取、配送；電話、地址只給後台；備貨清單分區', () => {
+  const { env, call, ok, gid, ids, tofu, jam, order } = setup();
+  const g = ok(call('adminShopGroup', { id: gid })).group;
+  const save = (extra) => call('adminShopSaveGroup', { group: Object.assign({ id: gid, name: g.name, deadline: g.deadline, pickups: ids, payInfo: g.payInfo, items: g.itemSettings }, extra) });
+  assert.equal(save({ methods: [] }).error.code, 'VALIDATION', '至少一種');
+  assert.equal(save({ methods: ['自取'], spots: [] }).error.code, 'VALIDATION', '自取要有地點');
+  ok(save({ methods: ['出攤', '自取', '配送'], spots: [{ name: '竹北', address: '測試市測試路1號', note: '晚上六點後' }, { name: '新竹', address: '測試市測試街2號', note: '晚上六點後' }], deliveryNote: '小編會再聯絡' }));
+  const pub = ok(env.get({ action: 'getShop' })).groups[0];
+  assert.deepEqual(pub.methods, ['出攤', '自取', '配送']);
+  assert.deepEqual(pub.spots.map((s) => s.name), ['竹北', '新竹']);
+  assert.equal(pub.deliveryNote, '小編會再聯絡');
+  assert.equal(ok(call('adminShop', {})).lastSpots.length, 2, '開新團帶上一次的自取地點');
+  // 自取：要選地點、要電話
+  assert.equal(order({ name: '測試甲', source: '官網', method: '自取', spot: '台北', items: [{ id: tofu.id, qty: 1 }] }).error.code, 'VALIDATION');
+  assert.equal(order({ name: '測試甲', source: '官網', method: '自取', spot: '竹北', items: [{ id: tofu.id, qty: 1 }] }).error.code, 'VALIDATION', '沒電話');
+  const a = ok(order({ name: '測試甲', source: '官網', method: '自取', spot: '竹北', tel: '0912000111', pickupId: '', items: [{ id: tofu.id, qty: 1 }] })).order;
+  assert.equal(a.method, '自取');
+  assert.equal(a.spotInfo.address, '測試市測試路1號');
+  assert.equal(a.pickupId, '');
+  assert.equal(a.phone, undefined, '大家的 API 不回傳電話');
+  // 配送：要地址；不回傳地址
+  assert.equal(order({ name: '測試乙', source: '官網', method: '配送', tel: '0912000222', items: [{ id: jam.id, qty: 1 }] }).error.code, 'VALIDATION', '沒地址');
+  const b = ok(order({ name: '測試乙', source: '官網', method: '配送', tel: '0912000222', address: '測試市幸福路 99 號', deliveryTime: '平日晚上', items: [{ id: jam.id, qty: 1 }], pay: '轉帳' })).order;
+  assert.equal(b.deliveryTime, '平日晚上');
+  assert.equal(JSON.stringify(b).includes('幸福路'), false);
+  // 出攤（舊的下法沒帶 method 也可以）
+  const c = ok(order({ name: '測試丙', source: '官網', items: [{ id: tofu.id, qty: 2 }] })).order;
+  assert.equal(c.method, '出攤');
+  // 同一個人換領貨方式＝另外一張
+  const a2 = ok(order({ name: '測試甲', method: '配送', tel: '0912000111', address: '測試市幸福路 1 號', mode: 'add', items: [{ id: tofu.id, qty: 1 }] })).order;
+  assert.notEqual(a2.id, a.id);
+  // 後台：電話、地址看得到；備貨清單分區
+  const adm = ok(call('adminShopGroup', { id: gid }));
+  const bo = adm.orders.find((o) => o.id === b.id);
+  assert.deepEqual([bo.phone, bo.address], ['0912000222', '測試市幸福路 99 號']);
+  assert.deepEqual(adm.prep.map((p) => [p.label || p.pickup.date, p.orders]), [['2026-10-18', 1], ['2026-10-25', 0], ['🏠 自取：竹北', 1], ['🚚 配送', 2]]);
+  // 大家的 getShop、我的訂單都沒有電話地址
+  const mineStr = JSON.stringify(ok(env.post({ action: 'shopMyOrders', name: '測試乙', all: true })));
+  assert.equal(/0912000222|幸福路/.test(mineStr), false);
 });

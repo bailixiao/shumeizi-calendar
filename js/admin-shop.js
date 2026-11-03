@@ -17,6 +17,13 @@
 
   const money = (n) => `${Number(n || 0).toLocaleString('zh-TW')} 元`;
   const itemsText = (items) => items.map((it) => `${it.name}×${it.qty}`).join('、');
+  // 開團表單的一個自取地點（名稱、地址、時間說明）
+  const spotRow = (sp) => `<div class="shop-spot" data-spot>
+    <div class="shop-two"><label><span>名稱</span><input class="input" data-k="spotName" maxlength="20" value="${esc(sp.name)}" placeholder="例：竹北"></label>
+    <label><span>時間說明</span><input class="input" data-k="spotNote" maxlength="40" value="${esc(sp.note)}" placeholder="例：晚上六點後"></label></div>
+    <label><span>地址</span><input class="input" data-k="spotAddress" maxlength="100" value="${esc(sp.address)}"></label>
+    <button type="button" class="btn btn-small btn-quiet-danger" data-del-spot>刪除這個地點</button>
+  </div>`;
   const pickupText = (p) => p ? `${Fmt.shortDate(p.date)}${p.startTime ? ' ' + p.startTime : ''}　${p.location || p.name}` : '（場次已拿掉）';
 
   function show(body, guard, sub) {
@@ -572,6 +579,8 @@
       bank: (g && g.bank) || (base && base.lastBank) || { bank: '', branch: '', account: '', holder: '' }, // 匯款帳號（分欄；開新團帶入上次的）
       items: g ? g.itemSettings : [],
       web: g && id ? !!g.web : true, // 也放到團購網頁（新開團、另存預設勾）
+      // 領貨方式（2026/11/3）：新開團三種都勾；自取地點帶上一次填的
+      methods: g ? g.methods : ['出攤', '自取', '配送'], spots: g && g.spots.length ? g.spots : (base && base.lastSpots) || [], deliveryNote: g ? g.deliveryNote || '' : '',
       // 新開團預設賣貨便（2026/10/10）；修改、另存舊的團購照原本的方式
       mode: g && !g.link ? '行事曆' : '賣貨便', link: g ? g.link || '' : '', cover: g ? g.cover || '' : ''
     };
@@ -612,19 +621,32 @@
           <label class="form-row" data-for-mode="行事曆"${v.mode === '行事曆' ? '' : ' hidden'}><span>付款補充說明（選填）</span><textarea class="input textarea" name="payInfo" rows="2" maxlength="300" placeholder="例：轉好記得按「通知小編」填末五碼">${esc(v.payInfo)}</textarea></label>
           ${id ? `<div class="form-row"><span>狀態</span><div class="seg">${['開放', '結束'].map((s) => `<label class="seg-item"><input type="radio" name="status" value="${s}"${v.status === s ? ' checked' : ''}><span>${s === '結束' ? '結束（大家看不到了）' : '開放'}</span></label>`).join('')}</div></div>` : ''}
         </fieldset>
-        ${v.pickups.length ? `<fieldset class="form-block" data-for-mode="行事曆"${v.mode === '行事曆' ? '' : ' hidden'}><legend>取貨場次（在哪幾場可以取貨）</legend>
+        <fieldset class="form-block" data-for-mode="行事曆"${v.mode === '行事曆' ? '' : ' hidden'}><legend>領貨方式（勾這次可以用的）</legend>
+          <div class="shop-methods">${[['出攤', '🌿 植素園出攤領貨'], ['自取', '🏠 自取'], ['配送', '🚚 配送']].map(([m, l]) => `<label class="check"><input type="checkbox" name="method" value="${m}"${v.methods.indexOf(m) !== -1 ? ' checked' : ''}> ${l}</label>`).join('')}</div>
+          <div class="shop-method-box" data-method-box="出攤"${v.methods.indexOf('出攤') !== -1 ? '' : ' hidden'}>
+          <p class="shop-method-title">🌿 取貨場次（勾哪幾場可以取貨；不勾＝出攤時再說）</p>
           ${duties.length ? `<div class="shop-pick-list">${duties.map((d) => { const on = v.pickups.indexOf(d.id) !== -1; const other = d.category !== '植素'; return `
             <label class="shop-pick${other ? ' is-other' : ''}"${other && !on ? ' hidden' : ''}><input type="checkbox" name="pickup" value="${esc(d.id)}"${on ? ' checked' : ''}>
               <span class="shop-pick-text"><span class="cat-tag cat-${esc(d.category)}">${esc(Fmt.catLabel(d.category))}</span><b>${esc(Fmt.shortDate(d.date))}${d.startTime ? ' ' + esc(d.startTime) : ''}</b> ${esc(d.name)}${d.location ? `<small>📍 ${esc(d.location)}</small>` : ''}</span></label>`; }).join('')}</div>
             ${duties.some((d) => d.category !== '植素') ? `<button type="button" class="link-btn" data-show-other>也列出其他活動（${duties.filter((d) => d.category !== '植素').length}）</button>` : ''}`
             : '<p class="muted">今天起半年內沒有活動。</p>'}
-        </fieldset>` : ''}
+          </div>
+          <div class="shop-method-box" data-method-box="自取"${v.methods.indexOf('自取') !== -1 ? '' : ' hidden'}>
+            <p class="shop-method-title">🏠 自取地點（大家選自取時看得到地址）</p>
+            <div data-spots>${(v.spots.length ? v.spots : [{ name: '', address: '', note: '' }]).map(spotRow).join('')}</div>
+            <button type="button" class="btn btn-small" data-add-spot>＋ 再加一個地點</button>
+          </div>
+          <div class="shop-method-box" data-method-box="配送"${v.methods.indexOf('配送') !== -1 ? '' : ' hidden'}>
+            <p class="shop-method-title">🚚 配送（不收運費；客人填地址和方便的時間）</p>
+            <label class="form-row"><span>配送說明（選填，大家看得到）</span><textarea class="input textarea" name="deliveryNote" rows="2" maxlength="200" placeholder="例：新竹市區，小編會再跟你約時間">${esc(v.deliveryNote)}</textarea></label>
+          </div>
+        </fieldset>
         <fieldset class="form-block" data-for-mode="行事曆"${v.mode === '行事曆' ? '' : ' hidden'}><legend>這次賣的商品</legend>
           ${products.length ? `<div class="shop-item-list">${products.map((p) => { const s = setting(p.id); return `
             <div class="shop-item-set${s ? ' is-on' : ''}" data-item="${esc(p.id)}">
               <label class="check"><input type="checkbox" data-item-on${s ? ' checked' : ''}> <strong>${esc(p.name)}</strong><small>${money(p.price)}${p.unit ? '／' + esc(p.unit) : ''}</small></label>
               <div class="shop-three"${s ? '' : ' hidden'}>
-                <label class="check shop-featured"><input type="checkbox" data-featured${s && s.featured ? ' checked' : ''}> ⭐ 首推（排最前面，官網用它的照片當封面）</label>
+                <label class="check shop-featured"><input type="checkbox" data-featured${s && s.featured ? ' checked' : ''}> 🔥 強力推薦（排最前面，官網用它的照片當封面）</label>
                 <label><span>這次價格</span><input class="input" data-k="price" inputmode="numeric" value="${esc(s && s.price !== '' ? s.price : '')}" placeholder="${esc(p.price)}"></label>
                 <label><span>限量</span><input class="input" data-k="limit" inputmode="numeric" value="${esc(s && s.limit !== 'stock' ? s.limit : '')}"${!s || s.limit === 'stock' ? ' disabled placeholder="照庫存"' : ''}></label>
                 <label><span>每人最多</span><input class="input" data-k="perPerson" inputmode="numeric" value="${esc(s ? s.perPerson : '')}"></label>
@@ -671,6 +693,10 @@
     });
     const so = f.querySelector('[data-show-other]');
     if (so) so.addEventListener('click', () => { f.querySelectorAll('.shop-pick.is-other').forEach((x) => { x.hidden = false; }); so.remove(); });
+    // 領貨方式：勾了才出現那一區；自取地點可以再加
+    f.querySelectorAll('input[name=method]').forEach((c) => c.addEventListener('change', () => { f.querySelector(`[data-method-box="${c.value}"]`).hidden = !c.checked; }));
+    f.querySelector('[data-add-spot]').addEventListener('click', () => { f.querySelector('[data-spots]').insertAdjacentHTML('beforeend', spotRow({ name: '', address: '', note: '' })); });
+    f.querySelector('[data-spots]').addEventListener('click', (ev) => { const b = ev.target.closest('[data-del-spot]'); if (b) b.closest('[data-spot]').remove(); });
     // 限量照庫存：勾了就不用填限量
     f.querySelectorAll('[data-stock-limit]').forEach((c) => c.addEventListener('change', () => {
       const lim = c.closest('[data-item]').querySelector('[data-k=limit]');
@@ -693,6 +719,9 @@
         bank: { bank: f.elements.bankName.value.trim(), branch: f.elements.bankBranch.value.trim(), account: f.elements.bankAccount.value.trim(), holder: f.elements.bankHolder.value.trim() },
         status: f.querySelector('input[name=status]:checked') ? f.querySelector('input[name=status]:checked').value : '開放',
         pickups: [...f.querySelectorAll('input[name=pickup]:checked')].map((x) => x.value),
+        methods: [...f.querySelectorAll('input[name=method]:checked')].map((x) => x.value),
+        spots: [...f.querySelectorAll('[data-spot]')].map((x) => ({ name: x.querySelector('[data-k=spotName]').value.trim(), address: x.querySelector('[data-k=spotAddress]').value.trim(), note: x.querySelector('[data-k=spotNote]').value.trim() })),
+        deliveryNote: f.elements.deliveryNote.value,
         items: [...f.querySelectorAll('[data-item]')].filter((x) => x.querySelector('[data-item-on]').checked).map((x) => ({
           id: x.dataset.item, price: x.querySelector('[data-k=price]').value.trim(), limit: x.querySelector('[data-stock-limit]').checked ? 'stock' : x.querySelector('[data-k=limit]').value.trim(), perPerson: x.querySelector('[data-k=perPerson]').value.trim(), featured: x.querySelector('[data-featured]').checked
         }))
@@ -724,17 +753,26 @@
     AdminPage.swr('shop:' + id, () => Api.admin('adminShopGroup', { id }, true), (data, stale) => renderGroup(body, guard, data, stale), body);
   }
 
+  /** 訂單在哪一區（備貨清單的 key）：出攤＝場次ID（沒有場次＝''）、自取＝spot:地點、配送＝delivery */
+  const bucketOf = (g, o) => o.method === '自取' ? 'spot:' + o.spot : o.method === '配送' ? 'delivery' : g.pickups.length ? o.pickupId : '';
+  const bucketLabel = (g, p) => p.label || (p.pickup ? pickupText(p.pickup) : g.methods.length > 1 ? '🌿 出攤取貨' : '全部訂單');
+  /** 訂單的領貨方式、電話、地址（只有後台看得到） */
+  const orderWhere = (o) => [
+    o.method === '自取' ? `🏠 自取：${esc(o.spot)}` : o.method === '配送' ? `🚚 配送：${esc(o.address || '（沒填地址）')}${o.deliveryTime ? '（' + esc(o.deliveryTime) + '）' : ''}` : '',
+    o.phone ? `<a class="btn btn-small tel-btn" href="tel:${esc(o.phone)}">📞 ${esc(o.phone)}</a>` : ''
+  ].filter(Boolean).join(' ');
+
   function prepText(d) {
     return [`🛒 ${d.group.name}　備貨清單`].concat(d.prep.map((p) => [
-      '', `📦 ${p.pickup ? pickupText(p.pickup) : '全部訂單'}（${p.orders} 張訂單，${money(p.total)}）`
+      '', `📦 ${bucketLabel(d.group, p)}（${p.orders} 張訂單，${money(p.total)}）`
     ].concat(p.items.length ? p.items.map((it) => `・${it.name} × ${it.qty}${it.unit ? ' ' + it.unit : ''}`) : ['・還沒有人訂']).join('\n'))).join('\n');
   }
 
-  function pickText(d, pickupId) {
-    const list = d.orders.filter((o) => o.status !== '已取消' && o.pickupId === pickupId);
-    const p = d.group.pickups.find((x) => x.id === pickupId);
-    return [`✅ ${d.group.name}　${d.group.pickups.length ? '取貨名單' : '訂單名單'}`, d.group.pickups.length ? pickupText(p) : '', ''].concat(list.map((o, i) =>
-      `${i + 1}. ${o.name}：${itemsText(o.items)}｜${money(o.total)}｜${o.pay === '轉帳' ? '轉帳' + (o.last5 ? '（' + o.last5 + '）' : '') : '現場付'}${o.paid ? '・已付' : ''}`)).join('\n');
+  function pickText(d, key) {
+    const list = d.orders.filter((o) => o.status !== '已取消' && bucketOf(d.group, o) === key);
+    const p = d.prep.find((x) => x.key === key);
+    return [`✅ ${d.group.name}　${d.prep.length > 1 || d.group.pickups.length ? '取貨名單' : '訂單名單'}`, p ? bucketLabel(d.group, p) : '', ''].concat(list.map((o, i) =>
+      `${i + 1}. ${o.name}：${itemsText(o.items)}｜${money(o.total)}｜${o.pay === '轉帳' ? '轉帳' + (o.last5 ? '（' + o.last5 + '）' : '') : '現場付'}${o.paid ? '・已付' : ''}${o.method === '配送' ? '｜' + (o.address || '') + (o.deliveryTime ? '（' + o.deliveryTime + '）' : '') : ''}${o.method !== '出攤' && o.phone ? '｜' + o.phone : ''}`)).join('\n');
   }
 
   async function copy(text, btn) {
@@ -744,12 +782,12 @@
   function renderGroup(body, guard, d, stale) {
     const g = d.group;
     const edit = canEdit();
-    if (!state.pickup || !g.pickups.some((p) => p.id === state.pickup)) state.pickup = g.pickups[0] ? g.pickups[0].id : '';
+    if (!d.prep.some((p) => p.key === state.pickup)) state.pickup = d.prep[0] ? d.prep[0].key : '';
     const s = d.summary;
     const q = state.q.trim();
-    const list = d.orders.filter((o) => o.pickupId === state.pickup && (!q || o.name.indexOf(q) !== -1))
+    const list = d.orders.filter((o) => bucketOf(g, o) === state.pickup && (!q || o.name.indexOf(q) !== -1))
       .sort((a, b) => (a.status === '已取消') - (b.status === '已取消') || (a.picked - b.picked) || (a.name < b.name ? -1 : 1));
-    const orphan = g.pickups.length ? d.orders.filter((o) => o.status !== '已取消' && !g.pickups.some((p) => p.id === o.pickupId)) : [];
+    const orphan = g.pickups.length ? d.orders.filter((o) => o.status !== '已取消' && o.method === '出攤' && !g.pickups.some((p) => p.id === o.pickupId)) : [];
     body.innerHTML = `
       ${AdminPage.staleNote(stale)}
       ${flash}
@@ -781,7 +819,7 @@
         <div class="stat-card"><span class="stat-label">總金額</span><span class="stat-num">${Number(s.total).toLocaleString('zh-TW')}</span><span class="stat-hint">已付 ${money(s.paid)}<br>未付 ${money(s.unpaid)}</span></div>
         <div class="stat-card shop-profit"><span class="stat-label">毛利</span><span class="stat-num">${Number(s.profit).toLocaleString('zh-TW')}</span><span class="stat-hint">成本 ${money(s.cost)}${s.total ? `・毛利率 ${Math.round(s.profit / s.total * 100)}%` : ''}${s.costMissing && s.costMissing.length ? `<br>⚠️ 沒填成本：${esc(s.costMissing.join('、'))}` : ''}</span></div>
       </div>
-      <ul class="shop-sold">${g.items.map((it) => `<li>${thumb(it.photo, it.name, 'shop-thumb-sm')}<span>${it.featured ? '⭐ ' : ''}${esc(it.name)}</span><strong>${it.sold}${it.unit ? ' ' + esc(it.unit) : ''}</strong>${it.stockMode ? `<small>${it.left ? `可賣 ${it.left}` : '已售完'}（照庫存${it.options ? '：' + it.options.options.map((o) => esc(o.name) + ' ' + o.left).join('、') : ''}）</small>` : it.limit !== null ? `<small>${it.left ? `剩 ${it.left}` : '已售完'}／限量 ${it.limit}</small>` : ''}</li>`).join('')}</ul>
+      <ul class="shop-sold">${g.items.map((it) => `<li>${thumb(it.photo, it.name, 'shop-thumb-sm')}<span>${it.featured ? '🔥 ' : ''}${esc(it.name)}</span><strong>${it.sold}${it.unit ? ' ' + esc(it.unit) : ''}</strong>${it.stockMode ? `<small>${it.left ? `可賣 ${it.left}` : '已售完'}（照庫存${it.options ? '：' + it.options.options.map((o) => esc(o.name) + ' ' + o.left).join('、') : ''}）</small>` : it.limit !== null ? `<small>${it.left ? `剩 ${it.left}` : '已售完'}／限量 ${it.limit}</small>` : ''}</li>`).join('')}</ul>
 
       ${(() => {
         // 💰 對帳（2026/10/28）：轉帳、填了末五碼、還沒付款的訂單
@@ -799,25 +837,26 @@
       })()}
 
       <section class="stats-section">
-        <h3 class="admin-sub">📦 備貨清單<span class="h2-sub">${g.pickups.length ? '每一場要帶幾份' : '要準備幾份'}</span></h3>
+        <h3 class="admin-sub">📦 備貨清單<span class="h2-sub">${d.prep.length > 1 ? '每一場（每個地方）要準備幾份' : '要準備幾份'}</span></h3>
         ${d.prep.map((p) => `<div class="shop-prep">
-          <p class="shop-prep-head"><strong>${esc(p.pickup ? pickupText(p.pickup) : '全部訂單')}</strong><span>${p.orders} 張・${money(p.total)}</span></p>
+          <p class="shop-prep-head"><strong>${esc(bucketLabel(g, p))}</strong><span>${p.orders} 張・${money(p.total)}</span></p>
           ${p.items.length ? `<ul>${p.items.map((it) => `<li>${esc(it.name)}<strong>× ${it.qty}${it.unit ? ' ' + esc(it.unit) : ''}</strong></li>`).join('')}</ul>` : '<p class="muted">還沒有人訂</p>'}
         </div>`).join('')}
         <button type="button" class="btn btn-small" data-copy-prep>📋 複製備貨清單</button>
       </section>
 
       <section class="stats-section">
-        <h3 class="admin-sub">✅ ${g.pickups.length ? '取貨名單' : '訂單名單'}</h3>
-        ${g.pickups.length > 1 ? `<div class="seg shop-pickup-seg">${g.pickups.map((p) => `<label class="seg-item"><input type="radio" name="pk" value="${esc(p.id)}"${p.id === state.pickup ? ' checked' : ''}><span>${esc(Fmt.shortDate(p.date))}</span></label>`).join('')}</div>` : ''}
-        ${g.pickups.length ? `<p class="muted">${esc(pickupText(g.pickups.find((p) => p.id === state.pickup)))}</p>` : ''}
+        <h3 class="admin-sub">✅ ${d.prep.length > 1 || g.pickups.length ? '取貨名單' : '訂單名單'}</h3>
+        ${d.prep.length > 1 ? `<div class="seg shop-pickup-seg">${d.prep.map((p) => `<label class="seg-item"><input type="radio" name="pk" value="${esc(p.key)}"${p.key === state.pickup ? ' checked' : ''}><span>${esc(p.pickup ? Fmt.shortDate(p.pickup.date) : p.label ? p.label.replace(/^\S+ /, '') : '出攤')}</span></label>`).join('')}</div>` : ''}
+        ${d.prep.length ? `<p class="muted">${esc(bucketLabel(g, d.prep.find((p) => p.key === state.pickup) || d.prep[0]))}</p>` : ''}
         <input class="input" type="search" data-q placeholder="🔍 找名字" value="${esc(state.q)}">
         ${list.length ? `<ul class="shop-orders">${list.map((o) => `
           <li class="shop-order${o.status === '已取消' ? ' is-cancelled' : o.picked ? ' is-picked' : ''}">
-            <div class="shop-order-head"><strong>${o.web ? '<span title="團購網頁的客人（手機在 Google 表單「團購訂單」）">🌐 </span>' : ''}${esc(o.name)}</strong><span>${money(o.total)}</span></div>
+            <div class="shop-order-head"><strong>${o.web ? '<span title="團購網頁的客人">🌐 </span>' : ''}${esc(o.name)}</strong><span>${money(o.total)}</span></div>
             <p>${esc(itemsText(o.items))}</p>
+            ${orderWhere(o) ? `<p class="shop-order-where">${orderWhere(o)}</p>` : ''}
             ${(o.discounts || []).length ? `<p class="shop-order-promo">${o.discounts.map((x) => `🏷️ ${esc(x.name)} －${money(x.discount)}`).join('、')}</p>` : ''}
-            <p class="muted">${o.pay === '轉帳' ? `轉帳${o.last5 ? '・' + (o.transferDate ? esc(Fmt.shortDate(o.transferDate)) + ' ' : '') + '末五碼 ' + esc(o.last5) : '・還沒填末五碼'}` : '取貨付現'}${o.note ? '・' + esc(o.note) : ''}${o.status === '已取消' ? '・已取消' : ''}</p>
+            <p class="muted">${o.pay === '轉帳' ? `轉帳${o.last5 ? '・' + (o.transferDate ? esc(Fmt.shortDate(o.transferDate)) + ' ' : '') + '末五碼 ' + esc(o.last5) : '・還沒填末五碼'}` : o.method === '配送' ? '貨到付現' : '取貨付現'}${o.note ? '・' + esc(o.note) : ''}${o.status === '已取消' ? '・已取消' : ''}</p>
             ${o.status === '已取消' ? (edit ? `<button type="button" class="btn btn-small" data-restore="${esc(o.id)}">恢復這張訂單</button>` : '') : `
             <div class="shop-order-actions">
               <label class="check"><input type="checkbox" data-confirmed="${esc(o.id)}"${o.confirmed ? ' checked' : ''}${edit ? '' : ' disabled'}> 訂單已確認</label>
@@ -826,7 +865,7 @@
               ${edit ? `<button type="button" class="btn btn-small" data-edit-order="${esc(o.id)}">改單</button><button type="button" class="btn btn-small" data-note="${esc(o.id)}">備註</button><button type="button" class="btn btn-small btn-quiet-danger" data-cancel="${esc(o.id)}">取消</button>` : ''}
             </div>`}
           </li>`).join('')}</ul>` : '<p class="panel-empty">這一場還沒有訂單</p>'}
-        ${state.pickup || !g.pickups.length ? `<button type="button" class="btn btn-small" data-copy-pick>📋 複製${g.pickups.length ? '這場的取貨名單' : '訂單名單'}</button>` : ''}
+        ${d.prep.length ? `<button type="button" class="btn btn-small" data-copy-pick>📋 複製${d.prep.length > 1 || g.pickups.length ? '這一區的取貨名單' : '訂單名單'}</button>` : ''}
         ${orphan.length ? `<div class="notice notice-error"><p>有 ${orphan.length} 張訂單的取貨場次已經拿掉了：${orphan.map((o) => esc(o.name)).join('、')}，請幫他們「改單」換場次。</p></div>` : ''}
       </section>`}`;
     flash = '';
@@ -953,7 +992,12 @@
         ${o ? '' : `<label class="form-row"><span>名字</span><input class="input" name="name" maxlength="20" autocomplete="off"></label>
         <label class="form-row"><span>第一次來的話：怎麼認識的？（名單上有的人不用選）</span><select class="input" name="source"><option value="">（名單上有，不用選）</option>${(window.SITE.sources || []).map((x) => `<option>${esc(x)}</option>`).join('')}</select></label>
         <label class="form-row" data-ref hidden><span>介紹人</span><input class="input" name="referrer" maxlength="20"></label>`}
-        ${g.pickups.length ? `<label class="form-row"><span>取貨場次</span><select class="input" name="pickup">${g.pickups.map((p) => `<option value="${esc(p.id)}"${o && o.pickupId === p.id ? ' selected' : ''}>${esc(pickupText(p))}</option>`).join('')}</select></label>` : ''}
+        ${g.methods.length > 1 || (o && g.methods.indexOf(o.method) === -1) ? `<label class="form-row"><span>領貨方式</span><select class="input" name="method">${[...new Set(g.methods.concat(o ? [o.method] : []))].map((x) => `<option${(o ? o.method : g.methods[0]) === x ? ' selected' : ''}>${esc(x)}</option>`).join('')}</select></label>` : ''}
+        ${g.spots.length ? `<label class="form-row" data-m="自取"><span>自取地點</span><select class="input" name="spot">${g.spots.map((x) => `<option${o && o.spot === x.name ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>` : ''}
+        <label class="form-row" data-m="配送"><span>配送地址</span><input class="input" name="address" maxlength="120" value="${esc(o ? o.address || '' : '')}"></label>
+        <label class="form-row" data-m="配送"><span>方便的時間（選填）</span><input class="input" name="deliveryTime" maxlength="40" value="${esc(o ? o.deliveryTime || '' : '')}"></label>
+        ${o && o.web ? '' : `<label class="form-row"><span>電話（自取、配送要填）</span><input class="input" name="tel" type="tel" inputmode="tel" maxlength="12" value="${esc(o ? o.phone || '' : '')}"></label>`}
+        ${g.pickups.length ? `<label class="form-row" data-m="出攤"><span>取貨場次</span><select class="input" name="pickup">${g.pickups.map((p) => `<option value="${esc(p.id)}"${o && o.pickupId === p.id ? ' selected' : ''}>${esc(pickupText(p))}</option>`).join('')}</select></label>` : ''}
         <div class="form-row"><span>數量</span><div class="shop-qty-list">${rows.map((r) => `<label class="shop-qty-row">${thumb(r.it.photo, r.it.name, 'shop-thumb-sm')}<span>${esc(r.label)}<small>${money(r.price)}${r.it.left !== null ? `・剩 ${r.it.left + qtyAll(r.it.id)}` : ''}</small></span><input class="input" type="number" min="0" max="99" data-qty="${esc(r.it.id)}" data-opt="${esc(r.option)}" value="${qty(r.it.id, r.option)}"></label>`).join('')}</div></div>
         <div class="form-row"><span>付款</span><div class="seg">${[['現場', '取貨付現'], ['轉帳', '轉帳']].map(([v, l]) => `<label class="seg-item"><input type="radio" name="pay" value="${v}"${(o ? o.pay : '現場') === v ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div></div>
         <label class="form-row"><span>轉帳末五碼（選填）</span><input class="input" name="last5" inputmode="numeric" maxlength="5" value="${esc(o ? o.last5 : '')}"></label>
@@ -967,6 +1011,10 @@
     const f = m.el.querySelector('form');
     bindZoom(f);
     if (f.elements.source) f.elements.source.addEventListener('change', () => { f.querySelector('[data-ref]').hidden = f.elements.source.value !== '朋友介紹'; });
+    const methodNow = () => (f.elements.method ? f.elements.method.value : o ? o.method : g.methods[0]);
+    const showMethod = () => f.querySelectorAll('[data-m]').forEach((x) => { x.hidden = x.dataset.m !== methodNow(); });
+    if (f.elements.method) f.elements.method.addEventListener('change', showMethod);
+    showMethod();
     m.el.querySelector('[data-close]').addEventListener('click', () => m.close());
     f.addEventListener('submit', async (ev) => {
       ev.preventDefault();
@@ -976,6 +1024,7 @@
         await Api.admin('adminShopOrder', {
           groupId: g.id, orderId: o ? o.id : '', name: o ? o.name : f.elements.name.value,
           source: f.elements.source ? f.elements.source.value : '', referrer: f.elements.referrer ? f.elements.referrer.value : '',
+          method: methodNow(), spot: f.elements.spot ? f.elements.spot.value : '', address: f.elements.address.value, deliveryTime: f.elements.deliveryTime.value, tel: f.elements.tel ? f.elements.tel.value : '',
           pickupId: f.elements.pickup ? f.elements.pickup.value : '', items: [...f.querySelectorAll('[data-qty]')].map((x) => ({ id: x.dataset.qty, option: x.dataset.opt || '', qty: x.value || 0 })),
           pay: f.querySelector('input[name=pay]:checked').value, last5: f.elements.last5.value.trim(), note: f.elements.note.value
         });

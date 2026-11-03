@@ -6,6 +6,7 @@
     shortName: '書槑子青年坊',         // 主畫面圖示下面的名稱（2026/10/14 官網＋行事曆合成一個 App，改叫書槑子青年坊）
     org: '書槑子青年坊',              // 團體名稱（名單開頭、缺人通知）
     shopWeb: { name: '植素園happy購', url: 'https://zhisu-shop.pages.dev/' }, // 給外面客人的團購網頁（規格 0.6.1；開團勾「也放到團購網頁」才會列）
+    shopLine: { name: '植素園客服 LINE@', url: 'https://page.line.me/157orxzf' }, // 團購結帳、我的訂單最下面的客服按鈕（規格 0.6.2）
     homepage: './home/', // 頁首「🏠 回到主頁」：App 裡的官網（官網專案 build 產生到 home/，規格 0.10；空白＝不顯示）
     venue: '場地',                    // 可以借的場地名稱（書槑子目前不借場地，features.venue＝false）
     temple: '佛堂',                   // 「佛堂」這個用詞（書槑子不用，features.temple＝false 時整個藏起來）

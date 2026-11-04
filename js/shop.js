@@ -219,7 +219,7 @@
   /** 下方固定分頁列：商城／購物車（件數）／我的訂單 */
   const SOCIAL_ICON = {
     ig: '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="#fff" stroke-width="2"/><circle cx="12" cy="12" r="4.2" fill="none" stroke="#fff" stroke-width="2"/><circle cx="17.3" cy="6.7" r="1.3" fill="#fff"/></svg>',
-    line: '<span class="shop-float-line">LINE</span>'
+    line: '<svg viewBox="0 0 40 40" width="34" height="34" aria-hidden="true"><path fill="#fff" d="M20 6C11.2 6 4 11.8 4 18.9c0 6.4 5.7 11.7 13.3 12.7.5.1 1.2.4 1.4.8.2.4.1 1 .1 1.4l-.2 1.4c-.1.4-.3 1.6 1.4.9 1.7-.7 9.3-5.5 12.7-9.4C35 24.1 36 21.6 36 18.9 36 11.8 28.8 6 20 6z"/><text x="20" y="22.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="8.6" fill="#06c755">LINE</text></svg>'
   };
   function tabbar(active, g) {
     const gid = g ? g.id : store.get(LAST_KEY) || '';

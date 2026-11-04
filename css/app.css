@@ -2431,7 +2431,7 @@ button.veg-chip:hover { border-color: var(--ok); }
 .shop-float-btn { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; color: #fff; text-decoration: none; box-shadow: 0 3px 10px rgba(0,0,0,.25); }
 .shop-float-btn.is-ig { background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fd5949 45%, #d6249f 60%, #285aeb 90%); }
 .shop-float-btn.is-line { background: #06c755; }
-.shop-float-line { font: 800 .72rem/1 system-ui, sans-serif; letter-spacing: .02em; }
+.shop-float-btn svg { display: block; }
 /* 領貨方式（2026/11/3） */
 .shop-method-seg { flex-wrap: wrap; }
 .shop-method-one { margin: 0; font-weight: 700; }

@@ -924,7 +924,7 @@
         ${list.length ? `<ul class="shop-orders">${list.map((o) => `
           <li class="shop-order${o.status === '已取消' ? ' is-cancelled' : o.picked ? ' is-picked' : ''}">
             <div class="shop-order-head"><strong>${o.web ? '<span title="團購網頁的客人">🌐 </span>' : ''}${esc(o.name)}</strong><span>${money(o.total)}</span></div>
-            <p>${esc(itemsText(o.items))}</p>
+            <ul class="shop-order-items">${o.items.map((it) => `<li><span>${it.gift ? "🎁 " : ""}${esc(it.name)}</span><span class="shop-order-price">${it.gift ? "送的" : money(it.price)} ×${it.qty}</span></li>`).join("")}</ul>
             ${orderWhere(o) ? `<p class="shop-order-where">${orderWhere(o)}</p>` : ''}
             ${(o.discounts || []).length ? `<p class="shop-order-promo">${o.discounts.map((x) => x.code ? `🎟️ ${esc(x.code)}・${esc(x.name)}${x.discount ? ' －' + money(x.discount) : ''}` : `🏷️ ${esc(x.name)} －${money(x.discount)}`).join('、')}</p>` : ''}
             <p class="muted">${o.pay === '轉帳' ? `轉帳${o.last5 ? '・' + (o.transferDate ? esc(Fmt.shortDate(o.transferDate)) + ' ' : '') + '末五碼 ' + esc(o.last5) : '・還沒填末五碼'}` : o.pay === 'LINE Pay' ? '💚 LINE Pay' : o.method === '配送' ? '貨到付現' : '取貨付現'}${o.note ? '・' + esc(o.note) : ''}${o.status === '已取消' ? '・已取消' : ''}</p>

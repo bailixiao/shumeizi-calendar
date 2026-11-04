@@ -2730,6 +2730,11 @@ span.shop-thumb { cursor: default; }
 .stock-freeze .is-frozen { position: sticky; z-index: 1; background: var(--card); box-shadow: inset -1px 0 0 var(--line); }
 .stock-freeze thead .is-frozen { z-index: 3; background: var(--paper-2); }
 .stock-freeze tfoot .is-frozen { background: var(--ok-soft); }
+/* 取貨名單：每樣一行（品名｜單價 ×數量，2026/11/4） */
+.shop-order-items { list-style: none; margin: 4px 0 6px; padding: 0; }
+.shop-order-items li { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; border-bottom: 1px dashed var(--line); }
+.shop-order-items li:last-child { border-bottom: 0; }
+.shop-order-price { flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); }
 .rec-search { margin: 0 0 10px; }
 .rec-search .hint { margin: 6px 2px 0; }
 .stall-in { width: 4.2em; min-height: 36px; padding: 4px 6px; text-align: right; }

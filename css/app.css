@@ -2423,6 +2423,11 @@ button.veg-chip:hover { border-color: var(--ok); }
 .shop-three-hint { grid-column: 1 / -1; color: var(--muted); margin-left: 0 !important; }
 .shop-three .shop-stock-limit { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: flex-start; }
 .shop-three .shop-stock-limit input { flex: none; }
+.shop-opt.is-missing { border: 2px solid var(--danger, #c0392b); border-radius: var(--radius); padding: 8px 10px; background: rgba(192, 57, 43, .06); }
+.shop-opt-need { display: block; color: var(--danger, #c0392b); margin-top: 4px; }
+.shop-opt.is-shake { animation: shop-shake .4s ease 2; }
+@keyframes shop-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+@media (prefers-reduced-motion: reduce) { .shop-opt.is-shake { animation: none; } }
 .shop-delivery-note { white-space: pre-line; font-size: .92rem; margin: 6px 0 10px; }
 /* 團購會員登入（2026/11/4，規格 0.6.3） */
 .shop-member-list { list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 8px; }

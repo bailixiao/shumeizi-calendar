@@ -9,6 +9,8 @@
     shopLine: { name: '植素園客服 LINE@', url: 'https://page.line.me/157orxzf' }, // 下單完成、我的訂單最下面的客服按鈕（規格 0.6.2）
     // 植素園happy購的會員登入（規格 0.6.3）：Google 的用戶端 ID、LINE Login 的 Channel ID（都是公開的）；兩個都空白＝不用登入（照舊填名字＋手機）
     shopLogin: { googleClientId: '290583637218-dtut8et01o10684umfs58bhh30t3r4l6.apps.googleusercontent.com', liffId: '2012376434-yIwTdARP' }, // liffId：LINE Developers 的 LIFF ID（例 1234567890-AbcdEfgh），公開的不是密碼
+    // 配送的運費說明（2026/11/4）：開新團的「配送說明」預設帶這段；以前的團沒寫配送說明的，結帳也顯示這段
+    shopDeliveryNote: '1–2 公里免費送到府\n3 公里以上（不分縣市）用 7-11 超商店到店：常溫運費 60 元、冷凍運費 120 元，請填縣市＋7-11 門市名稱',
     linePay: 'https://qrcodepay.line.me/qr/payment/apQ%252BSG3a9fTlKyxysEJ4S79zpMB4g47QbqhsEhOK2CUQu7bfY8i2DRvV6K5wGRQC', // 團購付款可以選 LINE Pay（2026/11/4；空白＝不給選）
     // 團購網頁右邊的浮動按鈕（2026/11/4；購物車那頁不放，免得按了沒送出訂單）
     shopSocial: [

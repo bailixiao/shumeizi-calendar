@@ -2423,6 +2423,7 @@ button.veg-chip:hover { border-color: var(--ok); }
 .shop-three-hint { grid-column: 1 / -1; color: var(--muted); margin-left: 0 !important; }
 .shop-three .shop-stock-limit { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: flex-start; }
 .shop-three .shop-stock-limit input { flex: none; }
+.shop-delivery-note { white-space: pre-line; font-size: .92rem; margin: 6px 0 10px; }
 /* 團購會員登入（2026/11/4，規格 0.6.3） */
 .shop-member-list { list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 8px; }
 .shop-member details { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }

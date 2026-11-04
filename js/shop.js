@@ -317,7 +317,7 @@
       <h1 class="page-title">🛒 ${esc(g.name)}</h1>
       ${deadlineLine(g, now)}
       ${g.description ? `<p class="shop-desc">${Fmt.linkText(g.description)}</p>` : ''}
-      ${g.methods.length > 1 ? `<p class="shop-pickup-note">📦 領貨：${g.methods.map((m) => METHOD_LABEL[m]).join('、')}${g.methods.includes('配送') ? '（配送不收運費）' : ''}</p>` : ''}
+      ${g.methods.length > 1 ? `<p class="shop-pickup-note">📦 領貨：${g.methods.map((m) => METHOD_LABEL[m]).join('、')}</p>` : ''}
       ${g.pickups.length && g.methods.includes('出攤') ? `<p class="shop-pickup-note">${g.methods.length > 1 ? '🌿 出攤' : '📦 取貨'}：${g.pickups.map((p) => esc(pickupText(p))).join('、')}</p>` : ''}
       <ul class="shop-grid">${g.items.map((it) => {
         const soldOut = it.left === 0;
@@ -467,13 +467,13 @@
           ${form.method === '自取' ? `<p class="hint">選在哪裡自取</p><div class="shop-pickups">${g.spots.map((s) => `<label class="choice${form.spot === s.name ? ' is-checked' : ''}"><input type="radio" name="spot" value="${esc(s.name)}"${form.spot === s.name ? ' checked' : ''}${closed ? ' disabled' : ''}>
             <span class="choice-main">${esc(s.name)}${s.note ? `<small>　🕕 ${esc(s.note)}</small>` : ''}</span>${s.address ? `<span class="choice-sub">📍 ${esc(s.address)}</span>` : ''}</label>`).join('')}</div>
           ${(() => { const ds = spotDates(g, now); return ds.length ? `<p class="hint">選哪一天自取</p><div class="shop-pickups shop-spot-dates">${ds.map((d) => `<label class="choice${form.spotDate === d ? ' is-checked' : ''}"><input type="radio" name="spotDate" value="${esc(d)}"${form.spotDate === d ? ' checked' : ''}${closed ? ' disabled' : ''}><span class="choice-main">${esc(Fmt.shortDate(d))}</span></label>`).join('')}</div>` : spotOf(g) && spotOf(g).dates.length ? '<p class="hint">這個地點的自取日期都過了，請選別的地點或問小編。</p>' : ''; })()}` : ''}
-          ${form.method === '配送' ? `${g.deliveryNote ? `<p class="hint">${esc(g.deliveryNote)}</p>` : ''}
+          ${form.method === '配送' ? `${g.deliveryNote || window.SITE.shopDeliveryNote ? `<p class="notice shop-delivery-note">🚚 ${esc(g.deliveryNote || window.SITE.shopDeliveryNote)}</p>` : ''}
           ${mem && mem.addresses.length ? `<p class="hint">寄到哪裡</p><div class="shop-pickups shop-addr-pick">${mem.addresses.map((a) => `<label class="choice${form.address === a.address ? ' is-checked' : ''}"><input type="radio" name="addrPick" value="${esc(a.id)}"${form.address === a.address ? ' checked' : ''}${closed ? ' disabled' : ''}>
             <span class="choice-main">${esc(a.label || '地址')}${a.name ? `<small>　${esc(a.name)}</small>` : ''}</span><span class="choice-sub">📍 ${esc(a.address)}</span></label>`).join('')}</div>` : ''}
-          <label class="form-row"><span>${mem && mem.addresses.length ? '或填新的地址' : '配送地址'}</span><input class="input" data-address maxlength="120" autocomplete="street-address" placeholder="例：新竹市○○路○號○樓" value="${esc(mem && mem.addresses.some((a) => a.address === form.address) ? '' : form.address)}"${closed ? ' disabled' : ''}></label>
+          <label class="form-row"><span>${mem && mem.addresses.length ? '或填新的地址／7-11 門市' : '配送地址或 7-11 門市'}</span><input class="input" data-address maxlength="120" autocomplete="street-address" placeholder="例：新竹市○○路○號○樓／新竹市 7-11 ○○門市" value="${esc(mem && mem.addresses.some((a) => a.address === form.address) ? '' : form.address)}"${closed ? ' disabled' : ''}></label>
           <label class="form-row"><span>方便收貨的時間（選填）</span><input class="input" data-dtime maxlength="40" placeholder="例：平日晚上七點後" value="${esc(form.deliveryTime)}"${closed ? ' disabled' : ''}></label>
           ${mem && form.address && !mem.addresses.some((a) => a.address === form.address) ? `<label class="check"><input type="checkbox" data-save-addr${form.saveAddr !== false ? ' checked' : ''}> 存到我的地址簿</label>` : ''}
-          <p class="hint">配送不收運費。</p>` : ''}
+          <p class="hint">運費沒有算在訂單金額裡，小編會再跟你確認。</p>` : ''}
         </section>` : ''}
         <section class="shop-step">
           <h2><span class="step">${n()}</span>怎麼付款</h2>

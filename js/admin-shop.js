@@ -620,7 +620,7 @@
       items: g ? g.itemSettings : [],
       web: g && id ? !!g.web : true, // 也放到團購網頁（新開團、另存預設勾）
       // 領貨方式（2026/11/3）：新開團三種都勾；自取地點帶上一次填的
-      methods: g ? g.methods : ['出攤', '自取', '配送'], spots: g && g.spots.length ? g.spots : (base && base.lastSpots) || [], deliveryNote: g ? g.deliveryNote || '' : '',
+      methods: g ? g.methods : ['出攤', '自取', '配送'], spots: g && g.spots.length ? g.spots : (base && base.lastSpots) || [], deliveryNote: g ? g.deliveryNote || '' : window.SITE.shopDeliveryNote || '',
       // 2026/11/3 起不再用賣貨便開團（有配送了）：一律在行事曆下單；只有修改以前的賣貨便團購才是賣貨便（另存成新團購改成行事曆）
       mode: g && id && g.link ? '賣貨便' : '行事曆', link: g ? g.link || '' : '', cover: g ? g.cover || '' : ''
     };
@@ -676,8 +676,8 @@
             <button type="button" class="btn btn-small" data-add-spot>＋ 再加一個地點</button>
           </div>
           <div class="shop-method-box" data-method-box="配送"${v.methods.indexOf('配送') !== -1 ? '' : ' hidden'}>
-            <p class="shop-method-title">🚚 配送（不收運費；客人填地址和方便的時間）</p>
-            <label class="form-row"><span>配送說明（選填，大家看得到）</span><textarea class="input textarea" name="deliveryNote" rows="2" maxlength="200" placeholder="例：新竹市區，小編會再跟你約時間">${esc(v.deliveryNote)}</textarea></label>
+            <p class="shop-method-title">🚚 配送（客人填地址或 7-11 門市、方便的時間；運費寫在配送說明）</p>
+            <label class="form-row"><span>配送說明（選填，大家看得到）</span><textarea class="input textarea" name="deliveryNote" rows="3" maxlength="200" placeholder="例：1–2 公里免費送；3 公里以上用 7-11 店到店，常溫運費 60 元">${esc(v.deliveryNote)}</textarea></label>
           </div>
         </fieldset>
         <fieldset class="form-block" data-for-mode="行事曆"${v.mode === '行事曆' ? '' : ' hidden'}><legend>這次賣的商品</legend>

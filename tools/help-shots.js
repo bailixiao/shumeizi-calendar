@@ -141,18 +141,27 @@ const SHOTS = [
       const b = [...document.querySelectorAll('[data-reschedule]')].pop(); b.click(); await __wait(2000);`,
     clip: `return __box('.modal-box', 4);` },
   { name: 'push-panel', hash: '#/', js: `PushPage.openPanel(); await __wait(1200);`, clip: `return __box('.modal-box', 4);` },
-  // 團購頁：選了兩樣商品（示範資料的團購）
+  // ---------- 植素園happy購（web: 在 /shop-web/ 拍；login: 要不要先示範登入「測試甲」，規格 0.6.3） ----------
   // 團購商城：商品大圖格子（示範資料的團購）
-  { name: 'shop-page', hash: '#/shop', js: `await __wait(2500);`,
+  { name: 'shop-page', web: true, login: true, hash: '#/shop', js: `await __wait(2500);`,
     clip: `const t = document.querySelector('#view-shop .page-title'); t.scrollIntoView(); const r = t.getBoundingClientRect(); const g = document.querySelector('.shop-grid').getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 8, width: innerWidth, height: g.bottom - r.top + 20 };` },
+  // 結帳前要登入（LINE、Google；示範登入那行藏起來）
+  { name: 'shop-login', web: true, login: false, hash: '#/shop', js: `const gid = (await __g({ action: 'getShop', web: '1' })).data.groups[0].id; const tofu = (await __g({ action: 'getShop', web: '1' })).data.groups[0].items.find((x) => /手工豆腐/.test(x.name)).id; localStorage.setItem('shumeizi:cart:' + gid, JSON.stringify([{ id: tofu, option: '', qty: 1 }])); location.hash = '#/shop/' + gid + '/cart'; await __wait(1800); const d = document.querySelector('.shop-login-demo'); if (d) d.style.display = 'none'; await __wait(1500);`,
+    clip: `return __box(document.querySelector('[data-login]').closest('.shop-step'), 8);` },
+  // 我的資料：名字、手機、地址簿
+  { name: 'shop-me', web: true, login: true, hash: '#/shop/me', js: `await __wait(2000); window.scrollTo(0, 0);`,
+    clip: `const t = document.querySelector('#view-shop .page-title'); const b = document.querySelector('.shop-profile').getBoundingClientRect(); return { x: 0, y: t.getBoundingClientRect().top + scrollY - 8, width: innerWidth, height: b.bottom - t.getBoundingClientRect().top + 20 };` },
   // 結帳：怎麼領貨（出攤／自取／配送，2026/11/3；自取選地點、日期，2026/11/4）
-  { name: 'shop-method', hash: '#/shop', js: `await __wait(2500); const t = [...document.querySelectorAll('.shop-tile')].find((x) => /手工豆腐/.test(x.textContent)); const m = t.getAttribute('href').match(/#\\/shop\\/([^/]+)\\/p\\/([^/]+)/); localStorage.setItem('shumeizi:cart:' + m[1], JSON.stringify([{ id: m[2], option: '', qty: 1 }])); location.hash = '#/shop/' + m[1] + '/cart'; await __wait(1500); const r = document.querySelector('input[name=method][value=自取]'); if (r) r.click(); await __wait(400); const sp = document.querySelector('input[name=spot][value=示範站A]'); if (sp) sp.click(); await __wait(400); const sd = document.querySelector('input[name=spotDate]'); if (sd) sd.click(); await __wait(400);`,
+  { name: 'shop-method', web: true, login: true, hash: '#/shop', js: `const gid = (await __g({ action: 'getShop', web: '1' })).data.groups[0].id; const tofu = (await __g({ action: 'getShop', web: '1' })).data.groups[0].items.find((x) => /手工豆腐/.test(x.name)).id; localStorage.setItem('shumeizi:cart:' + gid, JSON.stringify([{ id: tofu, option: '', qty: 1 }])); location.hash = '#/shop/' + gid + '/cart'; await __wait(1800); const r = document.querySelector('input[name=method][value=自取]'); if (r) r.click(); await __wait(400); const sp = document.querySelector('input[name=spot][value=示範站A]'); if (sp) sp.click(); await __wait(400); const sd = document.querySelector('input[name=spotDate]'); if (sd) sd.click(); await __wait(400);`,
     clip: `const s = [...document.querySelectorAll('.shop-step')].find((x) => /怎麼領貨/.test(x.textContent)); return __box(s, 8);` },
-  // 我的訂單：分頁、訂單卡、待付總額
-  { name: 'shop-orders', hash: null, js: `localStorage.setItem('shumeizi:mine-name', '測試甲'); location.hash = '#/shop/orders'; await __wait(2500); window.scrollTo(0, 0);`,
+  // 結帳：優惠碼（規格 0.6.5）：打 HAPPY90 按使用
+  { name: 'shop-coupon', web: true, login: true, hash: '#/shop', js: `const gid = (await __g({ action: 'getShop', web: '1' })).data.groups[0].id; const tofu = (await __g({ action: 'getShop', web: '1' })).data.groups[0].items.find((x) => /手工豆腐/.test(x.name)).id; localStorage.setItem('shumeizi:cart:' + gid, JSON.stringify([{ id: tofu, option: '', qty: 3 }])); location.hash = '#/shop/' + gid + '/cart'; await __wait(1800); const i = document.querySelector('[data-coupon]'); i.value = 'happy90'; i.dispatchEvent(new Event('input', { bubbles: true })); document.querySelector('[data-coupon-use]').click(); await __wait(2000);`,
+    clip: `const a = document.querySelector('.shop-coupon'); a.scrollIntoView({ block: 'start' }); window.scrollBy(0, -60); const r = a.getBoundingClientRect(); const b = document.querySelector('.shop-total-bar').getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 8, width: innerWidth, height: b.bottom - r.top + 12 };` },
+  // 我的訂單：分頁、訂單卡（送的 🎁、優惠碼）、待付總額
+  { name: 'shop-orders', web: true, login: true, hash: '#/shop/orders', js: `await __wait(2500); window.scrollTo(0, 0);`,
     clip: `return { x: 0, y: 0, width: innerWidth, height: innerHeight };` },
-  // 團購轉帳：我們的匯款帳號（測試乙是轉帳、已通知小編）
-  { name: 'shop-bank', hash: null, js: `localStorage.setItem('shumeizi:mine-name', '測試乙'); location.hash = '#/'; await __wait(500); location.hash = '#/shop/orders'; await __wait(2500); const d = document.querySelector('.shop-bank-fold'); if (d) d.open = true; await __wait(300);`,
+  // 團購轉帳：我們的匯款帳號（示範會員的配送單是轉帳、還沒通知小編）
+  { name: 'shop-bank', web: true, login: true, hash: '#/shop/orders', js: `await __wait(2500); const d = document.querySelector('.shop-bank-fold'); if (d) d.open = true; await __wait(300);`,
     clip: `return __box('.shop-bank-card', 8);` },
   { name: 'venue-pick', hash: '#/venue', js: `await __wait(1500); const chip = [...document.querySelectorAll('#view-venue button, #view-venue label')].find((b) => /早上/.test(b.textContent)); if (chip) chip.click(); await __wait(300);`,
     clip: `const s = document.querySelector('#view-venue .venue-step, #view-venue section, #view-venue form'); return { x: 0, y: 0, width: innerWidth, height: 1100 };` },
@@ -181,6 +190,9 @@ const SHOTS = [
   { name: 'adm-meal-orders', admin: true, hash: '#/admin', js: `const d = (await __g({ action: 'getEvents', from: '${SUN}', to: '${SUN}' })).data.duties.find((x) => x.name.includes('韜課館'));
       location.hash = '#/admin/meals?duty=' + encodeURIComponent(d.id) + '&date=${SUN}'; await __wait(3000);`,
     clip: `window.scrollTo(0, 0); const b = document.querySelector('.meal-people').getBoundingClientRect(); return { x: 0, y: 0, width: innerWidth, height: b.bottom + scrollY + 20 };` },
+  // 後台團購：🎟️ 優惠碼列表（規格 0.6.5）
+  { name: 'adm-shop-coupon', admin: true, hash: '#/admin/shop/coupons', js: `await __wait(2500);`,
+    clip: `const t = document.querySelector('.section-title'); t.scrollIntoView(); const r = t.getBoundingClientRect(); const b = document.querySelector('.coupon-list').getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 8, width: innerWidth, height: b.bottom - r.top + 16 };` },
   // 後台團購：💰 對帳
   { name: 'adm-shop-recon', admin: true, hash: '#/admin/shop', js: `await __wait(2000); document.querySelector('input[name=shoptab][value=groups]').click(); await __wait(300); document.querySelector('.shop-group-card').click(); await __wait(2500);`,
     clip: `return __box('.shop-recon', 6);` },
@@ -222,9 +234,23 @@ async function main() {
     await c.send('Page.reload');
     await sleep(4500);
     let adminDone = false;
+    let where = 'cal';
     for (const s of SHOTS) {
       if (only.length && only.indexOf(s.name) === -1) continue;
       if (/venue/.test(s.name) && !only.length) continue; // 書槑子沒有借場地
+      const want = s.web ? 'web' : 'cal';
+      if (want !== where) {
+        await c.send('Page.navigate', { url: BASE + (s.web ? 'shop-web/#/shop' : '') });
+        await sleep(s.web ? 3000 : 4500);
+        where = want;
+      }
+      if (s.web) { // 示範登入「測試甲」或登出；換了要重新載入（登入狀態在打開時讀）
+        const changed = await run(c, PREP + `const has = !!localStorage.getItem('zhisu-shop:member');
+          if (${!!s.login} && !has) { const r = await Api.shopLogin({ provider: 'demo', name: '測試甲' }); localStorage.setItem('zhisu-shop:member', JSON.stringify({ token: r.token, member: r.member })); return true; }
+          if (!${!!s.login} && has) { localStorage.removeItem('zhisu-shop:member'); return true; }
+          return false;`);
+        if (changed) { await c.send('Page.reload'); await sleep(3000); }
+      }
       if (s.admin && !adminDone) {
         await run(c, PREP + `location.hash = '#/admin'; await __wait(1500); const pw = document.querySelector('input[type=password]'); if (pw) { pw.value = 'test-pass'; pw.form.requestSubmit(); await __wait(2500); }`);
         adminDone = true;

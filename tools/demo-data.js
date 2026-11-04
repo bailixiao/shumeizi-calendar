@@ -88,6 +88,15 @@ async function seedDemo(call, get) {
   // 測試乙轉帳了、通知小編（後台「💰 對帳」會出現）
   const o2 = (await admin('adminShopGroup', { id: g.data.id })).data.orders.find((o) => o.name === '測試乙');
   if (o2) await call({ action: 'shopSetLast5', orderId: o2.id, name: '測試乙', last5: '24680', date: today });
+  // 植素園happy購的示範會員（示範登入「測試甲」）：一張出攤用 B3G1（送一盒豆腐）、一張配送轉帳用 HAPPY90（規格 0.6.3、0.6.5）
+  await admin('adminShopSaveCoupon', { coupon: { code: 'B3G1', kind: '買送', buyIds: [tofu], buyQty: 3, get: { id: '', qty: 1 }, maxUses: 20, once: true } });
+  const mem = (await call({ action: 'shopLogin', provider: 'demo', name: '測試甲' })).data;
+  if (mem) {
+    const mt = mem.token;
+    await call({ action: 'shopSaveProfile', memberToken: mt, name: '測試甲', phone: '0912000111', addresses: [{ label: '家', address: '測試市示範路 100 號', main: true }] });
+    await call({ action: 'shopOrder', memberToken: mt, groupId: g.data.id, mode: 'add', method: '出攤', pickupId: pickups[0], pay: '現場', coupon: 'B3G1', items: [{ id: tofu, qty: 3 }] });
+    await call({ action: 'shopOrder', memberToken: mt, groupId: g.data.id, mode: 'add', method: '配送', address: '測試市示範路 100 號', deliveryTime: '平日晚上七點後', pay: '轉帳', coupon: 'HAPPY90', items: [{ id: jam, option: '桑葚', qty: 1 }, { id: bread, qty: 3 }] });
+  }
   // 記帳：期初、進貨（銀行付）、攤位費、隨喜；測試甲的訂單已付款（自動記銷貨收入）
   const year = today.slice(0, 4);
   await admin('adminShopLedgerOpening', { year, balances: { 零用金: 3000, 銀行存款: 20000 } });

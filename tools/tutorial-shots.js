@@ -160,8 +160,12 @@ const SUB = {
   '27': '在行事曆最上面；沒有開放中的團購時不會出現',
   '28': '照片下面有價格、已經賣了幾份；有寫「剩 N」的是限量',
   '29': '照片可以左右滑；有口味、大小的要先選一個',
-  '30': '可以選出攤、自取或配送；付現、轉帳或 LINE Pay',
-  '31': '在下面「📋 我的訂單」可以改數量、取消；轉帳的在那裡通知小編'
+  '30': '登入只用來記住你的收件資料和訂單，換手機也看得到',
+  '31': '只有第一次要填；之後結帳會自動帶入，下面「👤 我的」可以改、存好幾個地址',
+  '32': '可以選出攤、自取或配送；每次團購能選的不一樣',
+  '33': '馬上會顯示折多少、送什麼；一張訂單用一個',
+  '34': '付現、轉帳或 LINE Pay；轉帳的送出後會看到匯款帳號',
+  '35': '在下面「📋 我的訂單」可以改數量、取消；轉帳的在那裡通知小編'
 };
 const sub = (n, dev) => { const s = SUB[n]; return Array.isArray(s) ? s[dev === 'ios' ? 0 : 1] : (s || ''); };
 // target：CSS 選擇器字串，或「$(」開頭的一段程式（直接放進頁面裡算）
@@ -280,8 +284,14 @@ async function main() {
     await sleep(1500);
     await run(c, `${frame('27', '', '#shop-link')}`);
     await shoot(c, '27');
-    await go(c, '#/shop');
-    await sleep(1500);
+    // 植素園happy購（/shop-web/，規格 0.6.3）：還沒登入
+    await c.send('Page.navigate', { url: 'about:blank' });
+    await sleep(200);
+    await c.send('Page.navigate', { url: BASE + 'shop-web/#/shop' });
+    await sleep(2500);
+    await run(c, `localStorage.removeItem('zhisu-shop:member'); Object.keys(localStorage).filter((k) => k.indexOf('shumeizi:cart:') === 0).forEach((k) => localStorage.removeItem(k));`);
+    await c.send('Page.reload');
+    await sleep(3000);
     await run(c, `${frame('28', '', '.shop-grid')}`);
     await shoot(c, '28');
     // 商品頁：手工果醬（有口味），選桑葚、加入購物車
@@ -289,14 +299,24 @@ async function main() {
       document.querySelector('input[data-opt][value="桑葚"]').click(); await W(400); ${frame('29', '', '.shop-opt')}`);
     await shoot(c, '29');
     await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); $('[data-add]').click(); await W(500);
-      document.querySelector('.shop-tab[href$="/cart"]').click(); await W(1500);
-      const pk = document.querySelector('input[name=pickup]'); if (pk) { pk.click(); await W(400); }
-      const n = $('[data-name]'); type(n, '測試庚'); n.dispatchEvent(new Event('change', { bubbles: true })); await W(2500);
-      const s = document.querySelector('input[data-src][value="官方 LINE"]'); if (s) { s.click(); await W(300); }
-      ${frame('30', '', '.shop-total-bar')}`);
+      document.querySelector('.shop-tab[href$="/cart"]').click(); await W(2000);
+      const dm = document.querySelector('.shop-login-demo'); if (dm) dm.style.display = 'none'; // 示範登入那行只有本機有
+      ${frame('30', '', '[data-login]')}`);
     await shoot(c, '30');
-    await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); $('form.shop-order-form').requestSubmit(); for (let i = 0; i < 30 && !$('.notice-success'); i++) await W(500); if (!$('.notice-success')) throw new Error('團購沒有送出：' + (($('[data-error]') || {}).textContent || '')); ${frame('31', '', '.notice-success')}`);
+    // 示範登入一個新的人（測試庚）→ 第一次要填資料
+    await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); type($('[data-demo-name]'), '測試庚'); $('[data-login-demo]').click(); for (let i = 0; i < 20 && !$('.shop-profile'); i++) await W(500);
+      const f = $('.shop-profile'); type(f.elements.phone, '0912000777'); await W(300); window.scrollTo(0, 0); ${frame('31', '', '.shop-profile')}`);
     await shoot(c, '31');
+    await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); $('.shop-profile').requestSubmit(); for (let i = 0; i < 20 && !$('[data-coupon]'); i++) await W(500); await W(800);
+      const pk = document.querySelector('input[name=pickup]'); if (pk) { pk.click(); await W(500); }
+      ${frame('32', '', "$('.shop-method-seg').closest('.shop-step')")}`);
+    await shoot(c, '32');
+    await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); const ci = $('[data-coupon]'); type(ci, 'HAPPY90'); $('[data-coupon-use]').click(); for (let i = 0; i < 20 && !$('.shop-coupon-ok'); i++) await W(500); await W(300); ${frame('33', '', '.shop-coupon')}`);
+    await shoot(c, '33');
+    await run(c, `${frame('34', '', '.shop-total-bar')}`);
+    await shoot(c, '34');
+    await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); $('form.shop-order-form').requestSubmit(); for (let i = 0; i < 30 && !$('.notice-success'); i++) await W(500); if (!$('.notice-success')) throw new Error('團購沒有送出：' + (($('[data-error]') || {}).textContent || '')); ${frame('35', '', '.notice-success')}`);
+    await shoot(c, '35');
   } finally {
     c.close();
     proc.kill();

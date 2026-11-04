@@ -31,6 +31,8 @@
   const pickupText = (p) => p ? `${Fmt.shortDate(p.date)}${p.startTime ? ' ' + p.startTime : ''}　${p.location || p.name}` : '（場次已拿掉）';
 
   function show(body, guard, sub) {
+    const gm = String(sub || '').match(/^shop\/stock\/gift\/([^/?]+)/); // 💝 關心道親：這次團購的商品，出貨方式＝贈送（2026/11/4）
+    if (gm) return showStockForm(body, guard, 'out', decodeURIComponent(gm[1]));
     const sm = String(sub || '').match(/^shop\/stock\/(in|out)/);
     if (sm) return showStockForm(body, guard, sm[1]);
     // 報表、出攤銷售統計表、匯入 Excel（js/admin-stock.js）
@@ -243,15 +245,20 @@
 
   // ---------- ➕ 商品增加／➖ 商品減少 ----------
 
-  async function showStockForm(body, guard, type) {
+  async function showStockForm(body, guard, type, giftGroup) {
     if (!canEdit()) { body.innerHTML = '<p class="panel-empty">這個帳號只能看。</p>'; return; }
     body.innerHTML = '<p class="panel-empty">載入中⋯</p>';
     let st;
-    try { st = await Api.admin('adminShopStock', {}, true); } catch (e) { guard(e, body); return; }
+    let gift = null; // 💝 關心道親：{ id, name, ids }（只列這次團購的商品，出貨方式預設贈送）
+    try {
+      st = await Api.admin('adminShopStock', {}, true);
+      if (giftGroup) { const g = (await Api.admin('adminShopGroup', { id: giftGroup }, true)).group; gift = { id: g.id, name: g.name, ids: g.items.map((it) => it.id) }; }
+    } catch (e) { guard(e, body); return; }
     const isIn = type === 'in';
     const methods = isIn ? st.inMethods : st.outMethods;
-    let products = st.products.filter((p) => p.active || !isIn);
-    const blank = () => ({ id: '', option: '', qty: '', cost: '', price: '', amount: '', method: isIn ? '買進' : '售出', note: '' });
+    let products = st.products.filter((p) => (p.active || !isIn) && (!gift || gift.ids.includes(p.id)));
+    const backTo = gift ? `#/admin/shop/g/${encodeURIComponent(gift.id)}` : '#/admin/shop';
+    const blank = () => ({ id: '', option: '', qty: '', cost: '', price: '', amount: '', method: isIn ? '買進' : gift ? '贈送' : '售出', note: gift ? '關心道親' : '' });
     const variantStock = (p, o) => { const v = (p.variants || []).find((x) => x.option === o); return v ? v.stock : 0; };
     let date = st.today; // 這次的日期（可以補登以前的）
     let pay = '零用金'; // 買進怎麼付（記帳自動記進貨）
@@ -268,9 +275,9 @@
     };
     const draw = (err) => {
       body.innerHTML = `
-        <a class="btn back-btn" href="#/admin/shop">‹ 回團購</a>
-        <h2>${isIn ? '➕ 商品增加（進貨）' : '➖ 商品減少（出貨）'}</h2>
-        <p class="hint">${isIn ? '一次可以填好幾樣。填的成本價、售價會變成商品現在的價格。' : '一次可以填好幾樣。大家在團購下單、取貨打勾的，會自動記「售出」，不用再填。'}</p>
+        <a class="btn back-btn" href="${backTo}">‹ 回${gift ? esc(gift.name) : '團購'}</a>
+        <h2>${isIn ? '➕ 商品增加（進貨）' : gift ? '💝 關心道親' : '➖ 商品減少（出貨）'}</h2>
+        <p class="hint">${isIn ? '一次可以填好幾樣。填的成本價、售價會變成商品現在的價格。' : gift ? `送出去關心的，從庫存扣掉，記成「商品減少」的<b>贈送</b>（進銷存算在其他減，不算營業額）。只列「${esc(gift.name)}」的商品；備註可以寫送給誰。` : '一次可以填好幾樣。大家在團購下單、取貨打勾的，會自動記「售出」，不用再填。'}</p>
         <form class="admin-form stock-form" novalidate>
           <label class="form-row stock-date"><span>日期（補登以前的可以改）</span><input class="input" type="date" name="date" max="${esc(st.today)}" value="${esc(date)}"></label>
           ${rows.map((r, i) => { const p = products.find((x) => x.id === r.id); return `
@@ -298,7 +305,7 @@
           ${err ? `<div class="form-error">${err}</div>` : ''}
           <div class="admin-actions">
             <button type="submit" class="btn btn-primary">存檔（${rows.filter((r) => r.id).length} 樣）</button>
-            <a class="btn" href="#/admin/shop">返回</a>
+            <a class="btn" href="${backTo}">返回</a>
           </div>
         </form>`;
       bindZoom(body);
@@ -349,8 +356,8 @@
           AdminPage.clearMemo();
           state.tab = 'stock';
           flash = res.warnings.length ? AdminPage.notice('error', '已存檔，請注意', res.warnings.join('；'))
-            : AdminPage.notice('success', isIn ? '進貨記好了' : '出貨記好了', `共 ${res.count} 樣${res.promo && res.promo.discount ? `；🏷️ 買多優惠扣了 ${res.promo.discount} 元（${res.promo.names.join('、')}）` : ''}`);
-          location.hash = '#/admin/shop';
+            : AdminPage.notice('success', isIn ? '進貨記好了' : gift ? '💝 關心道親記好了' : '出貨記好了', `共 ${res.count} 樣${res.promo && res.promo.discount ? `；🏷️ 買多優惠扣了 ${res.promo.discount} 元（${res.promo.names.join('、')}）` : ''}`);
+          location.hash = backTo;
         } catch (e) {
           Busy.hide();
           if (e.code === 'UNAUTHORIZED') { guard(e); return; }
@@ -848,6 +855,7 @@
         <a class="btn" href="#/admin/shop/edit/${encodeURIComponent(g.id)}">✏️ 修改團購</a>
         <a class="btn" href="#/admin/shop/new?from=${encodeURIComponent(g.id)}">另存成新團購</a>
         ${g.link ? '' : '<button type="button" class="btn" data-admin-order>＋ 幫人下單</button>'}
+        <a class="btn" href="#/admin/shop/stock/gift/${encodeURIComponent(g.id)}">💝 關心道親</a>
         ${g.status !== '結束' && !g.closed ? '<button type="button" class="btn" data-push-open>📣 推播開團通知</button>' : ''}
         ${s.orders ? '' : '<button type="button" class="btn btn-quiet-danger" data-delete>刪除這次團購</button>'}
       </div>` : ''}

@@ -641,7 +641,8 @@ function adminShopGroup_(body) {
     view.items.forEach(function (it) {
       Object.keys(count).filter(function (k) { return k.split('|')[0] === it.id; }).sort().forEach(function (k) {
         var opt = k.slice(it.id.length + 1);
-        rows.push({ id: it.id, option: opt, name: it.name + (opt ? '（' + opt + '）' : ''), unit: it.unit, qty: count[k] });
+        var op = opt && it.options ? it.options.options.filter(function (x) { return x.name === opt; })[0] : null;
+        rows.push({ id: it.id, option: opt, name: it.name + (opt ? '（' + opt + '）' : ''), unit: it.unit, qty: count[k], price: op && op.price !== null && op.price !== undefined ? op.price : it.price }); // price＝現在的單價（備貨清單顯示，2026/11/4）
       });
     });
     return {

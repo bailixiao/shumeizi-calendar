@@ -2405,6 +2405,8 @@ button.veg-chip:hover { border-color: var(--ok); }
 .shop-prep-head { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 0 0 6px; }
 .shop-prep ul { margin: 0; padding-left: 1.2em; }
 .shop-prep li strong { margin-left: 8px; }
+.shop-prep .shop-order-items { padding-left: 0; }
+.shop-prep .shop-order-price strong { margin-left: 0; color: var(--ink); }
 .shop-pickup-seg { margin-bottom: 6px; }
 .shop-order { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; background: var(--card); }
 .shop-order p { margin: 4px 0; }

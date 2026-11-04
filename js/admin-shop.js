@@ -835,7 +835,7 @@
   function prepText(d) {
     return [`🛒 ${d.group.name}　備貨清單`].concat(d.prep.map((p) => [
       '', `📦 ${bucketLabel(d.group, p)}（${p.orders} 張訂單，${money(p.total)}）`
-    ].concat(p.items.length ? p.items.map((it) => `・${it.name} × ${it.qty}${it.unit ? ' ' + it.unit : ''}`) : ['・還沒有人訂']).join('\n'))).join('\n');
+    ].concat(p.items.length ? p.items.map((it) => `・${it.name}${it.price !== undefined && it.price !== null ? ' ' + money(it.price) : ''} × ${it.qty}${it.unit ? ' ' + it.unit : ''}`) : ['・還沒有人訂']).join('\n'))).join('\n');
   }
 
   function pickText(d, key) {
@@ -911,7 +911,7 @@
         <h3 class="admin-sub">📦 備貨清單<span class="h2-sub">${d.prep.length > 1 ? '每一場（每個地方）要準備幾份' : '要準備幾份'}</span></h3>
         ${d.prep.map((p) => `<div class="shop-prep">
           <p class="shop-prep-head"><strong>${esc(bucketLabel(g, p))}</strong><span>${p.orders} 張・${money(p.total)}</span></p>
-          ${p.items.length ? `<ul>${p.items.map((it) => `<li>${esc(it.name)}<strong>× ${it.qty}${it.unit ? ' ' + esc(it.unit) : ''}</strong></li>`).join('')}</ul>` : '<p class="muted">還沒有人訂</p>'}
+          ${p.items.length ? `<ul class="shop-order-items">${p.items.map((it) => `<li><span>${esc(it.name)}</span><span class="shop-order-price">${it.price !== undefined && it.price !== null ? money(it.price) + ' ' : ''}<strong>×${it.qty}${it.unit ? ' ' + esc(it.unit) : ''}</strong></span></li>`).join('')}</ul>` : '<p class="muted">還沒有人訂</p>'}
         </div>`).join('')}
         <button type="button" class="btn btn-small" data-copy-prep>📋 複製備貨清單</button>
       </section>

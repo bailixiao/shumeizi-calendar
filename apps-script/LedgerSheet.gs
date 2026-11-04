@@ -213,6 +213,13 @@ function lsInv_(col, Y) {
   return 'IFERROR(VLOOKUP(' + (Y || '設定!$B$1') + ',系統存貨!$A:$F,' + col + ',FALSE),0)';
 }
 
+/** (7) IS 成本裡「減：」的那幾列（減：其他、減：期末存貨）：負數顯示成紅色括號，例：(80)（2026/11/4 使用者要的，和 Excel 一樣） */
+var LS_RED_MINUS = '#,##0;[Red](#,##0)';
+function lsIsRedMinus_(is) {
+  var b = is.getRange(1, 2, is.getLastRow(), 1).getValues();
+  b.forEach(function (r, i) { if (/^減：/.test(String(r[0]))) is.getRange(i + 1, 4).setNumberFormat(LS_RED_MINUS); });
+}
+
 /** v4：(7) IS 的成本在「進貨」下面加「加：其他」「減：其他」兩列（進銷存的其他加減），銷貨成本的 SUM 會自動包進去 */
 function lsIsOtherRows_(ss) {
   var is = ss.getSheetByName(LS.is);
@@ -249,9 +256,10 @@ function lsOpeningToTabs_(ss) {
  * 舊的試算表升級（只做一次，記在 LEDGER_SHEET_VER:ID）：
  *   v3（2026/11/4）：各帳戶的期初餘額（E4）改成自己打的數字（以前＝設定的餘額＋公式）。
  *   v4（2026/11/4）：(7) IS 的成本加「加：其他」「減：其他」（進銷存的其他加減，系統存貨 E、F 欄）。
+ *   v5（2026/11/4）：(7) IS 的「減：其他」「減：期末存貨」負數顯示紅色括號。
  *   v2（一年一份）：改檔名「115年植素園記帳」；設定加「開始記帳日」（B2，預設＝收支記帳最早的日期）；各帳戶、IS 的期間改成從開始記帳日算。
  */
-var LS_SHEET_VERSION = 4;
+var LS_SHEET_VERSION = 5;
 function ledgerSheetUpgrade_(ss, year, rows) {
   var props = PropertiesService.getScriptProperties();
   var key = 'LEDGER_SHEET_VER:' + ss.getId();
@@ -272,6 +280,7 @@ function ledgerSheetUpgrade_(ss, year, rows) {
   }
   if (v < 3) lsOpeningToTabs_(ss);
   if (v < 4) lsIsOtherRows_(ss);
+  if (v < 5) { var is5 = ss.getSheetByName(LS.is); if (is5) lsIsRedMinus_(is5); }
   props.setProperty(key, String(LS_SHEET_VERSION));
 }
 
@@ -459,6 +468,7 @@ function ledgerSheetBuild_(ss, rows, year) {
     if (l.opt.b) bold(is.getRange(r, 1, 1, 6));
   });
   is.getRange('D5:F' + (lines.length + 4)).setNumberFormat('#,##0');
+  lsIsRedMinus_(is);
   is.setColumnWidth(1, 150);
   is.setColumnWidth(2, 130);
   is.setColumnWidth(7, 220);

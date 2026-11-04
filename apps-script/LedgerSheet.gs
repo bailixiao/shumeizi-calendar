@@ -207,11 +207,29 @@ function ledgerSheetHelpMore_(ss) {
   props.setProperty(key, String(LS_HELP_VERSION));
 }
 
+/** v3：各帳戶的期初餘額（E4）改成自己打的數字：照現在算出來的值寫死，設定那幾列拿掉 */
+function lsOpeningToTabs_(ss) {
+  LS_ACCOUNT_TABS.forEach(function (t) {
+    var sh = ss.getSheetByName(t);
+    if (!sh) return;
+    var c = sh.getRange('E4');
+    if (c.getFormula()) c.setValue(Number(c.getValue()) || 0);
+    c.setBackground(null);
+    sh.getRange('C4').setValue('← 自己打開始記帳日那天的餘額').setFontColor('#888888');
+  });
+  var set = ss.getSheetByName(LS.setting);
+  if (set && /各帳戶的餘額/.test(String(set.getRange('A3').getValue()))) {
+    set.getRange('A3').setValue('各帳戶的期初餘額：直接打在 (1) 零用金～(4) 應付帳款每一頁的 E4（「期初餘額」那格，白底）；年度結帳時自動帶到下一年');
+    set.getRange('A4:B7').clearContent();
+  }
+}
+
 /**
  * 舊的試算表升級（只做一次，記在 LEDGER_SHEET_VER:ID）：
+ *   v3（2026/11/4）：各帳戶的期初餘額（E4）改成自己打的數字（以前＝設定的餘額＋公式）。
  *   v2（一年一份）：改檔名「115年植素園記帳」；設定加「開始記帳日」（B2，預設＝收支記帳最早的日期）；各帳戶、IS 的期間改成從開始記帳日算。
  */
-var LS_SHEET_VERSION = 2;
+var LS_SHEET_VERSION = 3;
 function ledgerSheetUpgrade_(ss, year, rows) {
   var props = PropertiesService.getScriptProperties();
   var key = 'LEDGER_SHEET_VER:' + ss.getId();
@@ -230,6 +248,7 @@ function ledgerSheetUpgrade_(ss, year, rows) {
     var is = ss.getSheetByName(LS.is);
     if (is) is.getRange('A3').setFormula(LS_RANGE_FORMULA);
   }
+  if (v < 3) lsOpeningToTabs_(ss);
   props.setProperty(key, String(LS_SHEET_VERSION));
 }
 
@@ -268,9 +287,9 @@ function ledgerSheetBuild_(ss, rows, year) {
     ['1、自己記的收入、支出打在「手動記帳」：日期、帳戶（零用金／銀行存款／應收帳款／應付帳款）、科目、摘要、金額。錢進來填正數、出去填負數；應付帳款欠更多填正數、付掉填負數。'],
     ['2、團購付款（付現＝零用金、轉帳＝銀行）、取貨還沒付（應收帳款）、出攤現場營業額（零用金）、商品增加的買進（進貨）會自動寫在「系統記帳」，後台一改幾秒內就更新。「系統記帳」「系統存貨」會整頁重寫，請不要改。'],
     ['3、錢換地方（零用金存銀行、收回應收、付清應付）：在「手動記帳」記兩筆，科目選「存提款／收回應收／付清應付」（不算損益），例：零用金 -5000、銀行存款 +5000。'],
-    ['4、一年一份（115年植素園記帳、116年⋯）：「設定」有年度、開始記帳日、那天各帳戶的餘額。年底在後台「年度結帳」結帳後，餘額會自動帶到下一年那份。'],
+    ['4、一年一份（115年植素園記帳、116年⋯）：「設定」有年度、開始記帳日。開始記帳日那天各帳戶的餘額，直接打在 (1)～(4) 每一頁的「期初餘額」（E4，白底）。年底在後台「年度結帳」結帳後，餘額會自動帶到下一年那份。'],
     ['5、「科目」分頁決定每個科目算在損益表哪裡（收入、其他收入、成本、費用、其他損失、移轉）；新科目加在下面就好。'],
-    ['6、(1)～(7) 都是公式自動算的（黃底＝公式）。這些分頁和「設定」「手動記帳」「科目」「全部記帳」系統不會再動，公式可以自己改、也可以自己加分頁。'],
+    ['6、(1)～(7) 除了期初餘額，都是公式自動算的（黃底＝公式）。這些分頁和「設定」「手動記帳」「科目」「全部記帳」系統不會再動，公式可以自己改、也可以自己加分頁。'],
     ['7、(7) IS 的費用下面有空白列，打新科目名稱就會算；存貨用後台進銷存報表的金額（系統存貨）。'],
     ['8、要給會計：檔案 → 下載 → Microsoft Excel。'],
     [''], ['這份試算表只有建立的人看得到；要給管帳的人，按右上角「共用」。'], ['']
@@ -284,15 +303,14 @@ function ledgerSheetBuild_(ss, rows, year) {
   set.getRange(1, 1, 8, 3).setValues([
     ['年度（西元）', year, ''],
     ['開始記帳日（這天以前的帳不算，例：之前在 Excel 的）', lsDate_(year + '-01-01'), ''],
-    ['開始記帳日那天各帳戶的餘額（第一次用填；之後的年度結帳時自動帶過來）', '', ''],
-    ['零用金', 0, ''], ['銀行存款', 0, ''], ['應收帳款', 0, ''], ['應付帳款', 0, ''], ['', '', '']
+    ['各帳戶的期初餘額：直接打在 (1) 零用金～(4) 應付帳款每一頁的 E4（「期初餘額」那格，白底）；年度結帳時自動帶到下一年', '', ''],
+    ['', '', ''], ['', '', ''], ['', '', ''], ['', '', ''], ['', '', '']
   ]);
   set.getRange('B2').setNumberFormat('yyyy/mm/dd');
   bold(set.getRange('A2'));
   set.getRange('C1').setFormula('="民國 "&' + yearText + '&" 年"');
   bold(set.getRange('A1:C1'));
   bold(set.getRange('A3'));
-  set.getRange('B4:B7').setNumberFormat('#,##0');
   set.setColumnWidth(1, 360);
 
   // 科目
@@ -347,7 +365,8 @@ function ledgerSheetBuild_(ss, rows, year) {
     yellow(bold(sh.getRange('E2').setFormula('=E4+SUM(D5:D)')));
     bold(sh.getRange(3, 1, 1, 5).setValues([['日期', '科目', '摘要', '金額(TWD)', '餘額(TWD)']])).setBackground('#f3ead8');
     sh.getRange('A4').setValue('期初餘額');
-    yellow(sh.getRange('E4').setFormula('=設定!$B$' + (4 + i) + '+SUMIFS(全部記帳!E:E,全部記帳!B:B,"' + name + '",全部記帳!A:A,"<"&DATE(' + Y + ',1,1))'));
+    sh.getRange('C4').setValue('← 自己打開始記帳日那天的餘額').setFontColor('#888888');
+    sh.getRange('E4').setValue(0); // 自己打（2026/11/4 使用者要的；以前是公式）
     sh.getRange('A5').setFormula('=IFERROR(SORT(FILTER({全部記帳!A2:A,全部記帳!C2:E},全部記帳!B2:B="' + name + '",全部記帳!F2:F=' + Y + '),1,TRUE),)');
     yellow(sh.getRange('E5').setFormula('=ARRAYFORMULA(IF(A5:A="",,E4+SUMIF(ROW(D5:D),"<="&ROW(D5:D),D5:D)))'));
     sh.getRange('A4:A').setNumberFormat('yyyy/mm/dd');

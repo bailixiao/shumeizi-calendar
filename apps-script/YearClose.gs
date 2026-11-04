@@ -251,6 +251,6 @@ function yearNextSheet_(year, balances) {
   }
   var set = ss.getSheetByName(LS.setting);
   set.getRange('B2').setValue(lsDate_(year + '-01-01')).setNumberFormat('yyyy/mm/dd');
-  set.getRange('B4:B7').setValues(LEDGER_ACCOUNTS.map(function (a) { return [balances[a] || 0]; }));
+  LS_ACCOUNT_TABS.forEach(function (t, i) { var sh = ss.getSheetByName(t); if (sh) sh.getRange('E4').setValue(balances[LEDGER_ACCOUNTS[i]] || 0); }); // 期初餘額（各帳戶 E4，自己打的那格）
   return { year: year, url: ss.getUrl() };
 }

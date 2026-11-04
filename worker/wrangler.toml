@@ -19,7 +19,7 @@ crons = ["*/5 * * * *"]
 
 # 團購會員登入（規格 0.6.3）：公開的 ID（不是密碼）。LINE 用 LIFF，不需要 Channel secret；登入憑證金鑰 Worker 自己產生（存在 Durable Object）。
 [vars]
-GOOGLE_CLIENT_ID = ""
+GOOGLE_CLIENT_ID = "290583637218-dtut8et01o10684umfs58bhh30t3r4l6.apps.googleusercontent.com"
 LINE_CHANNEL_ID = "2012376434"
 
 [observability]

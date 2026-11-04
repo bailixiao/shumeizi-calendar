@@ -8,7 +8,7 @@
     shopWeb: { name: '植素園happy購', url: 'https://zhisu-shop.pages.dev/' }, // 給外面客人的團購網頁（規格 0.6.1；開團勾「也放到團購網頁」才會列）
     shopLine: { name: '植素園客服 LINE@', url: 'https://page.line.me/157orxzf' }, // 下單完成、我的訂單最下面的客服按鈕（規格 0.6.2）
     // 植素園happy購的會員登入（規格 0.6.3）：Google 的用戶端 ID、LINE Login 的 Channel ID（都是公開的）；兩個都空白＝不用登入（照舊填名字＋手機）
-    shopLogin: { googleClientId: '', liffId: '2012376434-yIwTdARP' }, // liffId：LINE Developers 的 LIFF ID（例 1234567890-AbcdEfgh），公開的不是密碼
+    shopLogin: { googleClientId: '290583637218-dtut8et01o10684umfs58bhh30t3r4l6.apps.googleusercontent.com', liffId: '2012376434-yIwTdARP' }, // liffId：LINE Developers 的 LIFF ID（例 1234567890-AbcdEfgh），公開的不是密碼
     linePay: 'https://qrcodepay.line.me/qr/payment/apQ%252BSG3a9fTlKyxysEJ4S79zpMB4g47QbqhsEhOK2CUQu7bfY8i2DRvV6K5wGRQC', // 團購付款可以選 LINE Pay（2026/11/4；空白＝不給選）
     // 團購網頁右邊的浮動按鈕（2026/11/4；購物車那頁不放，免得按了沒送出訂單）
     shopSocial: [

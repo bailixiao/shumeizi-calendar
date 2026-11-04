@@ -160,7 +160,7 @@ const SUB = {
   '27': '在行事曆最上面；沒有開放中的團購時不會出現',
   '28': '照片下面有價格、已經賣了幾份；有寫「剩 N」的是限量',
   '29': '照片可以左右滑；有口味、大小的要先選一個',
-  '30': '下面「🛒 購物車」的數字是放了幾件；轉帳的送出後會看到帳號',
+  '30': '可以選出攤、自取或配送；付現、轉帳或 LINE Pay',
   '31': '在下面「📋 我的訂單」可以改數量、取消；轉帳的在那裡通知小編'
 };
 const sub = (n, dev) => { const s = SUB[n]; return Array.isArray(s) ? s[dev === 'ios' ? 0 : 1] : (s || ''); };
@@ -285,7 +285,7 @@ async function main() {
     await run(c, `${frame('28', '', '.shop-grid')}`);
     await shoot(c, '28');
     // 商品頁：手工果醬（有口味），選桑葚、加入購物車
-    await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); document.querySelectorAll('.shop-tile')[1].click(); await W(1500);
+    await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); [...document.querySelectorAll('.shop-tile')].find((x) => /手工果醬/.test(x.textContent)).click(); await W(1500);
       document.querySelector('input[data-opt][value="桑葚"]').click(); await W(400); ${frame('29', '', '.shop-opt')}`);
     await shoot(c, '29');
     await run(c, `document.querySelectorAll('.tut-x').forEach((x) => x.remove()); $('[data-add]').click(); await W(500);

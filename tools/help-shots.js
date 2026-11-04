@@ -145,8 +145,8 @@ const SHOTS = [
   // 團購商城：商品大圖格子（示範資料的團購）
   { name: 'shop-page', hash: '#/shop', js: `await __wait(2500);`,
     clip: `const t = document.querySelector('#view-shop .page-title'); t.scrollIntoView(); const r = t.getBoundingClientRect(); const g = document.querySelector('.shop-grid').getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 8, width: innerWidth, height: g.bottom - r.top + 20 };` },
-  // 結帳：怎麼領貨（出攤／自取／配送，2026/11/3）
-  { name: 'shop-method', hash: '#/shop', js: `await __wait(2500); const t = document.querySelector('.shop-tile'); const m = t.getAttribute('href').match(/#\\/shop\\/([^/]+)\\/p\\/([^/]+)/); localStorage.setItem('shumeizi:cart:' + m[1], JSON.stringify([{ id: m[2], option: '', qty: 1 }])); location.hash = '#/shop/' + m[1] + '/cart'; await __wait(1500); const r = document.querySelector('input[name=method][value=自取]'); if (r) r.click(); await __wait(400);`,
+  // 結帳：怎麼領貨（出攤／自取／配送，2026/11/3；自取選地點、日期，2026/11/4）
+  { name: 'shop-method', hash: '#/shop', js: `await __wait(2500); const t = [...document.querySelectorAll('.shop-tile')].find((x) => /手工豆腐/.test(x.textContent)); const m = t.getAttribute('href').match(/#\\/shop\\/([^/]+)\\/p\\/([^/]+)/); localStorage.setItem('shumeizi:cart:' + m[1], JSON.stringify([{ id: m[2], option: '', qty: 1 }])); location.hash = '#/shop/' + m[1] + '/cart'; await __wait(1500); const r = document.querySelector('input[name=method][value=自取]'); if (r) r.click(); await __wait(400); const sp = document.querySelector('input[name=spot][value=示範站A]'); if (sp) sp.click(); await __wait(400); const sd = document.querySelector('input[name=spotDate]'); if (sd) sd.click(); await __wait(400);`,
     clip: `const s = [...document.querySelectorAll('.shop-step')].find((x) => /怎麼領貨/.test(x.textContent)); return __box(s, 8);` },
   // 我的訂單：分頁、訂單卡、待付總額
   { name: 'shop-orders', hash: null, js: `localStorage.setItem('shumeizi:mine-name', '測試甲'); location.hash = '#/shop/orders'; await __wait(2500); window.scrollTo(0, 0);`,

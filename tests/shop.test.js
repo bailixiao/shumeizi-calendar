@@ -1000,3 +1000,17 @@ test('損益表的成本：期初＋進貨＋其他加－其他減－期末＝�
   assert.equal(L.is.cogs, rep.total.saleCost.amount);
   assert.equal(L.is.cogs, L.is.openInv + L.is.purchases + L.is.otherAdd - L.is.otherSub - L.is.closeInv);
 });
+
+test('後台改單：團購網頁的訂單不用選怎麼認識的、不加進成員；錯誤訊息寫「訂單沒有送出」', () => {
+  const { env, call, ok, gid, ids, tofu, order } = setup();
+  const g = ok(call('adminShopGroup', { id: gid })).group;
+  ok(call('adminShopSaveGroup', { group: { id: gid, name: g.name, description: g.description, deadline: g.deadline, pickups: ids, payInfo: g.payInfo, items: g.itemSettings, web: true } }));
+  const w = ok(order({ name: '測試庚', phone: '0912000777', items: [{ id: tofu.id, qty: 1 }] })).order;
+  const members = env.sheets['成員'].data.length;
+  const r = ok(call('adminShopOrder', { groupId: gid, orderId: w.id, name: w.name, method: '出攤', pickupId: ids[0], pay: '現場', items: [{ id: tofu.id, qty: 3 }], note: '改數量' }));
+  assert.equal(r.order.items[0].qty, 3);
+  assert.equal(env.sheets['成員'].data.length, members, '不加進成員');
+  // 後台幫新朋友下單沒選怎麼認識的：訊息是訂單的
+  const bad = call('adminShopOrder', { groupId: gid, name: '測試辛', method: '出攤', pickupId: ids[0], pay: '現場', items: [{ id: tofu.id, qty: 1 }] });
+  assert.match(bad.error.message, /訂單沒有送出/);
+});

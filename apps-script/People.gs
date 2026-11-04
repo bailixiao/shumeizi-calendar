@@ -412,7 +412,7 @@ function adminDeleteMember_(body) {
  * 第一次報名的人（成員名單上任何狀態都沒有這個名字或別名）要選怎麼認識的（SITE.sources；空的＝不問）。
  * 回傳 { 名字: { source, referrer, note } }（只有新朋友），缺了就擋下（整批不寫入）。
  */
-function newcomerSources_(entries) {
+function newcomerSources_(entries, title) {
   var list = SITE.sources || [];
   if (!list.length) return {};
   var known = {};
@@ -433,7 +433,7 @@ function newcomerSources_(entries) {
     else if (birthday === null) errors.push({ name: name, message: '生日不對（不能是以後），不想填可以空著' });
     else out[name] = { source: source, referrer: source === '朋友介紹' ? referrer : '', note: source === '其他' ? cleanText_((e && e.sourceNote) || '').slice(0, 50) : '', birthday: birthday };
   });
-  if (errors.length) throw new ApiError_('VALIDATION', '報名沒有完成，請看下面的說明', errors);
+  if (errors.length) throw new ApiError_('VALIDATION', title || '報名沒有完成，請看下面的說明', errors);
   return out;
 }
 

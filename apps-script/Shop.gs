@@ -347,7 +347,10 @@ function shopOrder_(body, opts) {
   if (NAME_SEPARATORS_.test(who.name)) throw new ApiError_('VALIDATION', '訂單沒有送出，請看下面的說明', [{ message: '一張訂單填一個名字就好' }]);
   var linked = findById_(readTableCached_(SHEETS.SHOP_GROUPS), '團購ID', body.groupId);
   if (linked && linked['賣場連結']) throw new ApiError_('VALIDATION', '訂單沒有送出，請看下面的說明', [{ message: '這次團購請到賣貨便下單' }]);
-  var sources = who.web ? {} : newcomerSources_([{ name: who.name, source: body.source, referrer: body.referrer, sourceNote: body.sourceNote, birthday: body.birthday }]);
+  // 管理者改單（2026/11/4）：不用再選怎麼認識的；改的是團購網頁的訂單就不加進成員名單
+  var editing = admin && body.orderId ? findById_(readTable_(SHEETS.SHOP_ORDERS), '訂單ID', body.orderId) : null;
+  var webOrder = !!(editing && editing['來源'] === '團購網頁');
+  var sources = who.web || editing ? {} : newcomerSources_([{ name: who.name, source: body.source, referrer: body.referrer, sourceNote: body.sourceNote, birthday: body.birthday }], '訂單沒有送出，請看下面的說明');
   return withSignupLock_(function () {
     var groups = readTable_(SHEETS.SHOP_GROUPS);
     var g = findById_(groups, '團購ID', body.groupId);
@@ -441,7 +444,7 @@ function shopOrder_(body, opts) {
     }
     stockMigrateOrders_(); // 以前的訂單先補記（只做一次）
     stockSyncOrder_(row); // 一下單就從庫存扣（改單照新的內容重記）
-    if (!who.web) addPendingMembers_([{ '姓名': who.name, '佛堂': who.temple, '日期': pickup ? pickup.date : todayString_(), '身分': '' }], '團購：' + g['名稱'], sources); // 團購網頁的客人不加進成員
+    if (!who.web && !webOrder) addPendingMembers_([{ '姓名': who.name, '佛堂': who.temple, '日期': pickup ? pickup.date : todayString_(), '身分': '' }], '團購：' + g['名稱'], sources); // 團購網頁的客人不加進成員
     SpreadsheetApp.flush();
     invalidateTable_(SHEETS.SHOP_ORDERS);
     return { order: shopOrderOut_(row, g, true, admin), updated: !!existing, merged: !!existing && body.mode === 'add' };

@@ -814,9 +814,9 @@ test('轉帳對帳：分欄帳號下單後才看得到、通知小編填匯款�
   assert.equal(bank.length, 1, '記帳自動記銷貨收入');
 });
 
-test('團購網頁（植素園happy購）：只列有勾的團；客人填名字＋手機，不加進成員；和行事曆同名的人分開；後台看得到手機、大家的 API 不回傳', () => {
+test('團購網頁（植素園happy購）：行事曆下單的團都列；客人填名字＋手機，不加進成員；和行事曆同名的人分開；後台看得到手機、大家的 API 不回傳', () => {
   const { env, call, ok, gid, ids, tofu, order } = setup();
-  assert.equal(ok(env.get({ action: 'getShop', web: '1' })).groups.length, 0, '沒勾就不列');
+  assert.equal(ok(env.get({ action: 'getShop', web: '1' })).groups.length, 1, '2026/11/4 起不用勾，行事曆下單的團都列（規格 0.6.3）');
   const g = ok(call('adminShopGroup', { id: gid })).group;
   ok(call('adminShopSaveGroup', { group: { id: gid, name: g.name, description: g.description, deadline: g.deadline, pickups: ids, payInfo: g.payInfo, items: g.itemSettings, web: true } }));
   assert.equal(ok(env.get({ action: 'getShop', web: '1' })).groups[0].web, true);

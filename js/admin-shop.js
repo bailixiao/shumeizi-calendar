@@ -39,6 +39,7 @@
     if (stall) return AdminStock.stall(body, guard, stall[1] ? decodeURIComponent(stall[1]) : '');
     if (/^shop\/import/.test(sub)) return AdminStock.importPage(body, guard);
     if (/^shop\/ledger/.test(sub)) return showLedger(body, guard);
+    if (/^shop\/members/.test(sub)) return showMembers(body, guard);
     if (/^shop\/promos/.test(sub)) return AdminStock.promos(body, guard);
     if (/^shop\/count/.test(sub)) return AdminStock.count(body, guard);
     if (/^shop\/year/.test(sub)) return AdminStock.yearClose(body, guard);
@@ -97,7 +98,7 @@
       </div>` : ''}
       <div class="seg shop-tabs">${[['stock', '📦 庫存'], ['groups', '🛒 團購'], ['records', '📜 進出紀錄']].map(([v, l]) => `<label class="seg-item"><input type="radio" name="shoptab" value="${v}"${state.tab === v ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div>
       ${state.tab === 'groups' ? `
-        ${edit ? '<div class="admin-actions"><a class="btn btn-primary" href="#/admin/shop/new">＋ 開團</a></div>' : ''}
+        <div class="admin-actions">${edit ? '<a class="btn btn-primary" href="#/admin/shop/new">＋ 開團</a>' : ''}<a class="btn" href="#/admin/shop/members">👥 會員</a></div>
         ${groupsHtml}` : state.tab === 'records' ? `
         ${edit && st.records.some((r) => r.type === '進' && r.method === '初存' && !r.orderId) ? '<div class="admin-actions"><button type="button" class="btn" data-to-buy>🔁 初存改成買進</button></div>' : ''}
         ${recHtml}
@@ -200,6 +201,41 @@
         ${Object.keys(d.ledgerUrls || {}).length > 1 ? `<div class="ledger-years">${Object.keys(d.ledgerUrls).sort().reverse().map((y) => `<a class="btn" href="${esc(d.ledgerUrls[y])}" target="_blank" rel="noopener">${Number(y) - 1911} 年</a>`).join('')}</div>` : ''}`
         : '<div class="notice"><p>「植素園記帳」Google 試算表還沒建好：每 10 分鐘同步時會自動建立，請等一下再重新整理。</p></div>'}
       <p class="hint">團購付款、取貨還沒付、出攤現場營業額、商品增加的買進會自動寫進試算表的「系統記帳」（幾秒內）；自己的收入、支出打在「手動記帳」。試算表只有建立的人看得到，要給管帳的人請在試算表按「共用」。</p>`;
+  }
+
+  // ---------- 👥 會員（植素園happy購登入的買家，規格 0.6.3） ----------
+
+  async function showMembers(body, guard) {
+    body.innerHTML = '<p class="panel-empty">載入中⋯</p>';
+    let d;
+    try { d = await Api.admin('adminShopMembers', {}); } catch (e) { guard(e, body); return; }
+    const card = (m) => `<li class="shop-member">
+      <details>
+        <summary>
+          <span class="shop-member-name"><strong>${esc(m.name || m.displayName || '（還沒填名字）')}</strong><small>${esc(m.provider)}${m.displayName && m.displayName !== m.name ? '・' + esc(m.displayName) : ''}</small></span>
+          <span class="shop-member-sum">${m.orderCount} 張・${money(m.total)}<small>${m.lastOrder ? '最近 ' + esc(Fmt.shortDate(m.lastOrder.slice(0, 10))) : '還沒下單'}</small></span>
+        </summary>
+        <div class="shop-member-body">
+          <p>${m.phone ? `<a class="btn btn-small tel-btn" href="tel:${esc(m.phone)}">📞 ${esc(m.phone)}</a>` : '<span class="muted">還沒填手機</span>'}${m.email ? ` <span class="muted">✉️ ${esc(m.email)}</span>` : ''}</p>
+          ${m.addresses.length ? `<p class="admin-sub">🚚 地址簿</p><ul class="shop-member-addrs">${m.addresses.map((a) => `<li>${a.main ? '⭐ ' : ''}${esc(a.label || '地址')}：${esc(a.address)}${a.name || a.phone ? `（${esc([a.name, a.phone].filter(Boolean).join(' '))}）` : ''}</li>`).join('')}</ul>` : ''}
+          ${m.orders.length ? `<p class="admin-sub">🧾 訂單</p><ul class="shop-member-orders">${m.orders.map((o) => `<li><a href="#/admin/shop/g/${encodeURIComponent(o.groupId)}">${esc(o.groupName || '團購')}</a>・${esc(Fmt.shortDate(String(o.createdAt).slice(0, 10)))}<br>${esc(itemsText(o.items))}｜${money(o.total)}｜${esc(o.method)}${o.paid ? '・已付' : ''}${o.picked ? '・已取貨' : ''}</li>`).join('')}</ul>` : ''}
+          <p class="hint">加入 ${esc(String(m.createdAt).slice(0, 10))}・最後登入 ${esc(String(m.lastLogin).slice(0, 16))}</p>
+        </div>
+      </details>
+    </li>`;
+    const draw = (q) => {
+      const list = d.members.filter((m) => !q || (m.name + m.displayName + m.phone).indexOf(q) !== -1);
+      body.querySelector('[data-list]').innerHTML = list.length ? list.map(card).join('') : '<li class="panel-empty">找不到</li>';
+    };
+    body.innerHTML = `
+      <a class="btn back-btn" href="#/admin/shop">‹ 回團購</a>
+      <h2>👥 會員<span class="h2-sub">${d.members.length} 位</span></h2>
+      <p class="hint">在「植素園happy購」用 LINE 或 Google 登入的買家。手機、地址、Email 只有登入後台看得到。</p>
+      ${d.members.length ? '<input class="input" type="search" data-q placeholder="找名字或手機">' : ''}
+      <ul class="shop-member-list" data-list></ul>`;
+    draw('');
+    const q = body.querySelector('[data-q]');
+    if (q) q.addEventListener('input', () => draw(q.value.trim()));
   }
 
   // ---------- ➕ 商品增加／➖ 商品減少 ----------
@@ -621,7 +657,6 @@
               <label class="form-row"><span>銀行帳號</span><input class="input" name="bankAccount" inputmode="numeric" maxlength="20" value="${esc(v.bank.account)}" placeholder="數字，可以有 -"></label>
               <label class="form-row"><span>戶名</span><input class="input" name="bankHolder" maxlength="40" value="${esc(v.bank.holder)}"></label>
             </div></div>
-          ${window.SITE.shopWeb ? `<label class="check shop-web-check" data-for-mode="行事曆"${v.mode === '行事曆' ? '' : ' hidden'}><input type="checkbox" name="web"${v.web ? ' checked' : ''}> 🌐 也放到團購網頁「${esc(window.SITE.shopWeb.name)}」（給外面的客人，填名字＋手機下單）</label>` : ''}
           <label class="form-row" data-for-mode="行事曆"${v.mode === '行事曆' ? '' : ' hidden'}><span>付款補充說明（選填）</span><textarea class="input textarea" name="payInfo" rows="2" maxlength="300" placeholder="例：轉好記得按「通知小編」填末五碼">${esc(v.payInfo)}</textarea></label>
           ${id ? `<div class="form-row"><span>狀態</span><div class="seg">${['開放', '結束'].map((s) => `<label class="seg-item"><input type="radio" name="status" value="${s}"${v.status === s ? ' checked' : ''}><span>${s === '結束' ? '結束（大家看不到了）' : '開放'}</span></label>`).join('')}</div></div>` : ''}
         </fieldset>
@@ -722,7 +757,7 @@
       const mode = f.elements.mode.value;
       const group = {
         id, mode, link: mode === '賣貨便' ? f.elements.link.value.trim() : '', cover, name: f.elements.name.value, description: f.elements.description.value, deadline: f.elements.deadline.value,
-        payInfo: f.elements.payInfo.value, web: !!(f.elements.web && f.elements.web.checked),
+        payInfo: f.elements.payInfo.value, web: true, // 2026/11/4：團購都在植素園happy購（規格 0.6.3）
         bank: { bank: f.elements.bankName.value.trim(), branch: f.elements.bankBranch.value.trim(), account: f.elements.bankAccount.value.trim(), holder: f.elements.bankHolder.value.trim() },
         status: f.querySelector('input[name=status]:checked') ? f.querySelector('input[name=status]:checked').value : '開放',
         pickups: [...f.querySelectorAll('input[name=pickup]:checked')].map((x) => x.value),

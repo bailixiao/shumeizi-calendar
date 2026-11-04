@@ -347,6 +347,7 @@ function adminRun_(body) {
     case 'adminSplitSignup': return adminSplitSignup_(body);
     case 'adminShop': return adminShop_(body);
     case 'adminShopGroup': return adminShopGroup_(body);
+    case 'adminShopMembers': return adminShopMembers_(body);
     case 'adminShopSaveProduct': return adminShopSaveProduct_(body);
     case 'adminShopSaveGroup': return adminShopSaveGroup_(body);
     case 'adminShopDeleteGroup': return adminShopDeleteGroup_(body);

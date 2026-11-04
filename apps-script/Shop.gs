@@ -178,7 +178,7 @@ function getShop_(p) {
     .map(function (g) { return shopGroupView_(g, products, orders); })
     // 賣貨便：截止了就不列；行事曆下單：取貨還沒全部過去
     .filter(function (v) { return v.link ? !v.closed : !v.pickups.length || v.pickups[v.pickups.length - 1].date >= today; })
-    .filter(function (v) { return !web || (v.web && !v.link); }) // 團購網頁：只列有勾「也放到團購網頁」的
+    .filter(function (v) { return !web || !v.link; }) // 團購網頁：行事曆下單的團都列（2026/11/4 起不用勾，規格 0.6.3）
     .sort(function (a, b) { return a.deadline < b.deadline ? -1 : 1; });
   return { now: shopNowMinute_(), groups: groups };
 }
@@ -288,6 +288,14 @@ function shopBankOf_(g) {
  * 回傳 { name, temple, phone, web }
  */
 function shopWho_(body) {
+  // 登入的會員（2026/11/4，規格 0.6.3）：用會員ID 認人；名字、手機＝這次的收件人（沒帶＝會員資料的）
+  var mid = shopMemberId_(body);
+  if (mid) {
+    var m = shopRequireMember_(body);
+    var mp = shopPhone_(body.phone !== undefined && body.phone !== null && body.phone !== '' ? body.phone : m['手機']);
+    if (!/^09\d{8}$/.test(mp)) throw new ApiError_('VALIDATION', '手機號碼不對', [{ message: '手機請填 09 開頭的 10 個數字' }]);
+    return { name: normalizeName_(body.name || m['姓名']), temple: '', phone: mp, web: true, member: mid };
+  }
   if (body.phone === undefined || body.phone === null || body.phone === '') { var w = shopName_(body.name, body.temple); w.phone = ''; w.web = false; return w; }
   var phone = String(body.phone).replace(/[\s-]/g, '');
   if (!/^09\d{8}$/.test(phone)) throw new ApiError_('VALIDATION', '手機號碼不對', [{ message: '手機請填 09 開頭的 10 個數字' }]);
@@ -296,6 +304,7 @@ function shopWho_(body) {
 
 /** 這張訂單是不是這個人的：團購網頁的看名字＋手機；行事曆的看名字（兩邊分開） */
 function shopIsMine_(o, who) {
+  if (who.member) return o['會員ID'] === who.member;
   if ((o['來源'] === '團購網頁') !== who.web) return false;
   if (who.web && String(o['手機'] || '') !== who.phone) return false;
   return normalizeName_(o['姓名']) === who.name;
@@ -321,7 +330,6 @@ function shopOrder_(body, opts) {
   if (NAME_SEPARATORS_.test(who.name)) throw new ApiError_('VALIDATION', '訂單沒有送出，請看下面的說明', [{ message: '一張訂單填一個名字就好' }]);
   var linked = findById_(readTableCached_(SHEETS.SHOP_GROUPS), '團購ID', body.groupId);
   if (linked && linked['賣場連結']) throw new ApiError_('VALIDATION', '訂單沒有送出，請看下面的說明', [{ message: '這次團購請到賣貨便下單' }]);
-  if (who.web && linked && linked['團購網頁'] !== '是') throw new ApiError_('NOT_FOUND', '找不到這次團購，可能已經結束了');
   var sources = who.web ? {} : newcomerSources_([{ name: who.name, source: body.source, referrer: body.referrer, sourceNote: body.sourceNote, birthday: body.birthday }]);
   return withSignupLock_(function () {
     var groups = readTable_(SHEETS.SHOP_GROUPS);
@@ -332,7 +340,7 @@ function shopOrder_(body, opts) {
     // 這個人在這次團購的有效訂單（2026/10/13 起可以不只一張：付款方式不同就分開）
     var picked = admin && body.orderId ? findById_(orders, '訂單ID', body.orderId) : null;
     // 後台改團購網頁的單：還是那位客人（名字不對應成員別名）
-    if (picked && picked['來源'] === '團購網頁') who = { name: normalizeName_(body.name || picked['姓名']), temple: '', phone: String(picked['手機'] || ''), web: true };
+    if (picked && picked['來源'] === '團購網頁') who = { name: normalizeName_(body.name || picked['姓名']), temple: '', phone: String(picked['手機'] || ''), web: true, member: picked['會員ID'] || '' };
     var mine = orders.filter(function (o) { return o['團購ID'] === g['團購ID'] && o['狀態'] !== '已取消' && shopIsMine_(o, who); });
     var existing;
     if (admin && body.orderId) existing = picked;
@@ -400,6 +408,7 @@ function shopOrder_(body, opts) {
       '領貨方式': method, '自取地點': input.spot, '地址': address, '方便時間': method === '配送' ? cleanText_(body.deliveryTime !== undefined ? body.deliveryTime : existing ? existing['方便時間'] : '').slice(0, 40) : ''
     };
     if (tel) values['手機'] = tel;
+    if (who.member) values['會員ID'] = who.member;
     if (admin && body.note !== undefined) values['備註'] = cleanText_(body.note).slice(0, 100);
     var summary = who.name + '｜' + g['名稱'] + '｜' + lines.map(function (l) { return l.name + '×' + l.qty; }).join('、') + '｜' + total + ' 元' + (promo.discounts.length ? '（優惠 -' + (promo.discounts.reduce(function (n, d) { return n + d.discount; }, 0)) + '）' : '') + '｜' + (pickup ? pickup.date + ' ' + pickup.name + '｜' : method === '自取' ? '自取 ' + input.spot + (input.spotDate ? ' ' + input.spotDate : '') + '｜' : method === '配送' ? '配送｜' : '') + input.pay;
     var row;
@@ -430,13 +439,13 @@ function shopOrder_(body, opts) {
  */
 function shopMyOrders_(body) {
   var who = shopWho_(body);
-  if (who.name.length < 2) throw new ApiError_('BAD_REQUEST', '請輸入完整的名字');
+  if (!who.member && who.name.length < 2) throw new ApiError_('BAD_REQUEST', '請輸入完整的名字');
   var today = todayString_();
   var groups = readTableCached_(SHEETS.SHOP_GROUPS);
   var since = addDaysStr_(today, -90);
   var orders = readTable_(SHEETS.SHOP_ORDERS).filter(function (o) {
     if (!shopIsMine_(o, who) || o['狀態'] === '已取消') return false;
-    if (body.all) return String(o['建立時間'] || '').slice(0, 10) >= since;
+    if (body.all) return who.member || String(o['建立時間'] || '').slice(0, 10) >= since; // 會員：全部的訂單
     if (o['已取貨'] === '是') return false;
     if (o['取貨日期']) return o['取貨日期'] >= today;
     var g = findById_(groups, '團購ID', o['團購ID']); // 沒有取貨場次：團購還沒結束就列出來
@@ -453,7 +462,8 @@ function shopMyOrders_(body) {
 function shopOwnOrder_(orders, body) {
   var o = findById_(orders, '訂單ID', body.orderId);
   if (!o || o['狀態'] === '已取消') throw new ApiError_('NOT_FOUND', '找不到這張訂單，可能已經取消了，請重新整理');
-  if (!shopIsMine_(o, shopWho_(body))) throw new ApiError_('FORBIDDEN', o['來源'] === '團購網頁' ? '名字或手機和訂單上的不一樣' : '名字和訂單上的不一樣');
+  var who = shopWho_(body);
+  if (!shopIsMine_(o, who)) throw new ApiError_('FORBIDDEN', who.member ? '這不是你的訂單' : o['來源'] === '團購網頁' ? '名字或手機和訂單上的不一樣' : '名字和訂單上的不一樣');
   if (o['已取貨'] === '是') throw new ApiError_('FORBIDDEN', '這張訂單已經取貨了');
   return o;
 }
@@ -849,7 +859,7 @@ function adminShopSaveGroup_(body) {
       '付款說明': external ? '' : String(g.payInfo || '').trim(), '狀態': g.status || '開放', '更新時間': now,
       '賣場連結': external ? link : '', '封面': cover,
       '匯款銀行': external ? '' : bankVals['匯款銀行'], '匯款分行': external ? '' : bankVals['匯款分行'], '匯款帳號': external ? '' : bankVals['匯款帳號'], '匯款戶名': external ? '' : bankVals['匯款戶名'],
-      '團購網頁': !external && g.web ? '是' : '',
+      '團購網頁': !external ? '是' : '', // 2026/11/4：行事曆下單的團一律放到植素園happy購（規格 0.6.3）
       '領貨方式': methods.join(','), '自取地點': spots.length ? JSON.stringify(spots) : '', '配送說明': methods.indexOf('配送') !== -1 ? cleanText_(g.deliveryNote) : '' };
     var warnings = [];
     var row;

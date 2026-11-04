@@ -267,3 +267,51 @@ test('年度結帳（Cloudflare）：只有總管理者；對帳檢查帶 Google
     globalThis.fetch = realFetch;
   }
 });
+
+test('團購會員（規格 0.6.3）：登入、我的資料、只認驗證過的憑證、舊訂單接過來、我的訂單', async () => {
+  const googleEnv = createEnv(OCT_1, { shumeizi: true });
+  const sheets = Object.fromEntries(Object.entries(googleEnv.sheets).map(([n, s]) => [n, s.data]));
+  const store = createMemoryStore();
+  const fakeFetch = async (url) => new Response(JSON.stringify(url.includes('tokeninfo') && url.includes('good')
+    ? { aud: 'cid.apps.googleusercontent.com', iss: 'https://accounts.google.com', sub: 'g-123', email: 'test@example.com', email_verified: 'true', name: '測試甲', exp: String(Math.floor(Date.now() / 1000) + 600) }
+    : { error: 'invalid' }), { status: url.includes('good') ? 200 : 400 });
+  const app = createApp(store, { now: () => OCT_1, fetch: fakeFetch, auth: { sessionSecret: 'test-secret', demoLogin: true, googleClientId: 'cid.apps.googleusercontent.com' } });
+  const post = async (payload) => { const r = await app.handle(new Request('https://w.test/', { method: 'POST', body: JSON.stringify(payload) })); store.persist(); return r.json(); };
+  const ok = (r) => { assert.equal(r.ok, true, JSON.stringify(r.error)); return r.data; };
+  ok(await post({ action: 'import', sheets, props: { ADMIN_PASSWORD: 'test-pass', ADMIN_CONTACT: '測試管理者' } }));
+  const token = ok(await post({ action: 'adminLogin', password: 'test-pass' })).token;
+  const prod = ok(await post({ action: 'adminShopSaveProduct', token, product: { name: '手工豆腐', price: '60', unit: '盒' } })).product;
+  const gid = ok(await post({ action: 'adminShopSaveGroup', token, group: { name: '測試團購', deadline: '2026-10-15 22:00', pickups: [], payInfo: '', web: true, methods: ['出攤'], items: [{ id: prod.id, price: '', limit: '', perPerson: '' }] } })).id;
+  // 還沒登入時在團購網頁下的單（名字＋手機）
+  const old = ok(await post({ action: 'shopOrder', groupId: gid, name: '測試甲', phone: '0912000111', pay: '現場', items: [{ id: prod.id, qty: 1 }] })).order;
+  // Google：驗證不過＝登入失敗；過了＝新會員
+  assert.equal((await post({ action: 'shopLogin', provider: 'google', credential: 'bad' })).error.code, 'LOGIN');
+  const g = ok(await post({ action: 'shopLogin', provider: 'google', credential: 'good' }));
+  assert.equal(g.member.provider, 'Google');
+  assert.equal(g.member.needProfile, true);
+  // 沒登入、假的憑證、自己帶 _member 都不認
+  assert.equal((await post({ action: 'shopMe' })).error.code, 'LOGIN');
+  assert.equal((await post({ action: 'shopMe', memberToken: g.token + 'x' })).error.code, 'LOGIN');
+  assert.equal((await post({ action: 'shopMe', _member: g.member.id })).error.code, 'LOGIN');
+  // 存資料：同一支手機的舊訂單接過來
+  const saved = ok(await post({ action: 'shopSaveProfile', memberToken: g.token, name: '測試甲', phone: '0912-000-111', addresses: [{ label: '家裡', name: '測試甲', phone: '0912000111', address: '測試市測試路 1 號' }, { label: '公司', address: '測試市範例街 2 號', main: true }] }));
+  assert.equal(saved.linked, 1);
+  assert.deepEqual(saved.member.addresses.map((a) => [a.label, a.main]), [['家裡', false], ['公司', true]]);
+  // 會員下單（不用帶名字手機）、我的訂單有舊的和新的
+  const o2 = ok(await post({ action: 'shopOrder', memberToken: g.token, groupId: gid, mode: 'add', pay: '轉帳', items: [{ id: prod.id, qty: 2 }] })).order;
+  assert.equal(o2.name, '測試甲');
+  const mine = ok(await post({ action: 'shopMyOrders', memberToken: g.token, all: true }));
+  assert.deepEqual(mine.orders.map((o) => o.id).sort(), [old.id, o2.id].sort());
+  // 別的會員看不到、取消不了
+  const d = ok(await post({ action: 'shopLogin', provider: 'demo', name: '測試乙' }));
+  ok(await post({ action: 'shopSaveProfile', memberToken: d.token, name: '測試乙', phone: '0912000222', addresses: [] }));
+  assert.equal(ok(await post({ action: 'shopMyOrders', memberToken: d.token, all: true })).orders.length, 0);
+  assert.equal((await post({ action: 'shopCancel', memberToken: d.token, orderId: o2.id })).error.code, 'FORBIDDEN');
+  // 公開的 API 沒有電話、地址、Email；後台會員名單有
+  assert.equal(/0912000111|測試路|example\.com/.test(JSON.stringify(mine)), false);
+  const adm = ok(await post({ action: 'adminShopMembers', token }));
+  const ma = adm.members.find((m) => m.provider === 'Google');
+  assert.deepEqual([ma.phone, ma.email, ma.orderCount, ma.total], ['0912000111', 'test@example.com', 2, 180]);
+  // 同一個 Google 帳號再登入＝同一位
+  assert.equal(ok(await post({ action: 'shopLogin', provider: 'google', credential: 'good' })).member.id, g.member.id);
+});

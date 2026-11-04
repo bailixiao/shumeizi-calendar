@@ -31,7 +31,7 @@ async function startMock() {
   const googleEnv = require('../tests/env').createEnv(undefined, demo ? { shumeizi: true, noSeed: true } : undefined);
   const sheets = Object.fromEntries(Object.entries(googleEnv.sheets).map(([n, sh]) => [n, sh.data]));
   const store = createMemoryStore();
-  const app = createApp(store);
+  const app = createApp(store, { auth: { sessionSecret: 'dev-only', demoLogin: true } }); // 團購會員：本機只有示範登入
   await app.handle(new Request('http://localhost/', { method: 'POST', body: JSON.stringify({ action: 'import', sheets, props: { ADMIN_PASSWORD: 'test-pass', ADMIN_CONTACT: '測試管理者' } }) }));
   app.gs.ensurePushKeys_(); // 本機測試也能開啟手機提醒
   store.persist();
@@ -59,7 +59,7 @@ const server = http.createServer((req, res) => {
   if (mock && urlPath === '/api') return handleApi(req, res, url);
   if (mock && (urlPath === '/js/config.js' || urlPath === '/shop-web/js/config.js')) {
     res.writeHead(200, { 'Content-Type': types['.js'], 'Cache-Control': 'no-store' });
-    res.end(`window.APP_CONFIG = { API_URL: '/api' };`);
+    res.end(`window.APP_CONFIG = { API_URL: '/api', demoLogin: true };`);
     return;
   }
   let file = path.join(root, urlPath.endsWith('/') ? urlPath + 'index.html' : urlPath); // 資料夾（例：/home/）＝裡面的 index.html，和 GitHub Pages 一樣

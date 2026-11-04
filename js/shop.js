@@ -21,6 +21,12 @@
   const LAST_KEY = 'shumeizi:shop-last'; // 最後逛的團購（分頁列的商城、購物車用）
   const SOURCES = WEB ? [] : window.SITE.sources || [];
   const SOURCE_ICON = { 朋友介紹: '👫', '官方 LINE': '💬', 官網: '🌐', Instagram: '📷', Facebook: '📘', 其他: '✨', 不確定: '🤔' };
+  // 會員模式（規格 0.6.3）：植素園happy購有設定 LINE／Google 登入（shop-member.js）。送出訂單、我的訂單要登入
+  const MEMBER = WEB && !!(window.ShopMember && window.ShopMember.enabled);
+  // 行事曆（2026/11/4，規格 0.6.3）：團購都在植素園happy購下單，行事曆只放連結
+  const WEB_URL = !WEB && window.SITE.shopWeb ? window.SITE.shopWeb.url : '';
+  const webLink = (gid) => WEB_URL + (gid ? '#/shop/' + encodeURIComponent(gid) : '');
+  const SM = window.ShopMember;
   let shopCache = null; // { at, data }
   let root = null;
   let token = 0;
@@ -167,6 +173,7 @@
       const data = await loadShop();
       const open = data.groups.filter((g) => !g.closed);
       btn.hidden = !open.length;
+      if (WEB_URL) { btn.href = webLink(open.length === 1 ? open[0].id : ''); btn.target = '_blank'; btn.rel = 'noopener'; }
       if (open.length) btn.textContent = open.length === 1 ? `🛒 團購：${open[0].name}` : `🛒 團購（${open.length}）`;
     } catch (e) { /* 讀不到就不顯示 */ }
   }
@@ -177,7 +184,7 @@
     try {
       const data = await loadShop();
       const list = data.groups.filter((g) => g.pickups.some((p) => p.id === dutyId));
-      el.innerHTML = list.map((g) => `<a class="notice shop-duty-note" href="#/shop/${encodeURIComponent(g.id)}"><strong>🛒 這場可以取團購：${esc(g.name)}</strong><span>${g.closed ? '已經截止了，看看就好' : `${esc(g.deadline)} 截止，點我下單`} ›</span></a>`).join('');
+      el.innerHTML = list.map((g) => `<a class="notice shop-duty-note" href="${WEB_URL ? esc(webLink(g.id)) + '" target="_blank" rel="noopener' : '#/shop/' + encodeURIComponent(g.id)}"><strong>🛒 這場可以取團購：${esc(g.name)}</strong><span>${g.closed ? '已經截止了，看看就好' : `${esc(g.deadline)} 截止，點我下單`} ›</span></a>`).join('');
     } catch (e) { /* 讀不到就不顯示 */ }
   }
 
@@ -187,7 +194,12 @@
   async function show(path) {
     root = document.getElementById('view-shop');
     const t = ++token;
-    const parts = String(path || '').split('/').map(decodeURIComponent);
+    const [p0, query] = String(path || '').split('?');
+    const parts = p0.split('/').map(decodeURIComponent);
+    const next = new URLSearchParams(query || '').get('next') || '';
+    if (WEB_URL) return renderGoWeb(parts[0] && parts[0] !== 'orders' ? parts[0] : '');
+    if (MEMBER && parts[0] === 'login') return SM.loggedIn() ? (location.hash = next || '#/shop') : SM.renderLogin(root, next || '#/shop', tabbar('me', null));
+    if (MEMBER && parts[0] === 'me') return SM.renderProfile(root, next, tabbar('me', null));
     if (parts[0] === 'orders') return showOrders(t);
     root.innerHTML = '<h1 class="page-title">🛒 團購</h1><p class="panel-empty">讀取中⋯</p>';
     let data;
@@ -211,6 +223,19 @@
     renderStore(g, data.now);
   }
 
+  /** 行事曆的 #/shop：團購在植素園happy購 */
+  function renderGoWeb(gid) {
+    const name = window.SITE.shopWeb.name;
+    const lg = window.SITE.shopLogin || {};
+    root.innerHTML = `<h1 class="page-title">🛒 團購</h1>
+      <div class="notice shop-go-web">
+        <p><strong>團購都在「${esc(name)}」下單囉 🌿</strong></p>
+        ${lg.googleClientId || lg.lineChannelId ? '<p>用 LINE 或 Google 登入，收件資料、地址和訂單都會幫你記起來，換手機也看得到。</p>' : ''}
+        <a class="btn btn-primary btn-block" href="${esc(webLink(gid))}" target="_blank" rel="noopener">打開${esc(name)} ↗</a>
+      </div>
+      ${back()}`;
+  }
+
   function back() {
     if (WEB) return '';
     return '<a class="btn btn-block back-bottom" href="#/">‹ 回行事曆</a>';
@@ -230,6 +255,7 @@
       ${tab('store', gid ? `#/shop/${encodeURIComponent(gid)}` : '#/shop', '🏪', '商城')}
       ${tab('cart', gid ? `#/shop/${encodeURIComponent(gid)}/cart` : '#/shop', '🛒', '購物車', n)}
       ${tab('orders', '#/shop/orders', '📋', '我的訂單')}
+      ${MEMBER ? tab('me', '#/shop/me', '👤', '我的') : ''}
     </nav>`;
   }
 
@@ -383,8 +409,11 @@
   }
 
   function renderCart(g, now) {
-    if (!form.name) form.name = savedName();
-    if (!form.phone) form.phone = savedPhone();
+    const mem = MEMBER ? SM.me() : null;
+    if (mem && !form.name) form.name = mem.name;
+    if (mem && !form.phone) form.phone = mem.phone;
+    if (!form.name && !MEMBER) form.name = savedName();
+    if (!form.phone && !MEMBER) form.phone = savedPhone();
     const lines = cartLines(g);
     const closed = g.closed;
     let step = 0;
@@ -416,16 +445,19 @@
           }).join('')}</ul>
           ${(() => { const pr = promoApply(lines, g.promos); return pr.discounts.length || pr.hints.length ? `<div class="shop-promo-box">${pr.discounts.length ? `<p class="shop-promo-row is-sub"><span>商品小計</span><span>${money(pr.subtotal)}</span></p>${promoRows(pr.discounts)}` : ''}${pr.hints.map((h) => `<p class="shop-promo-hint">💡 ${esc(h)}</p>`).join('')}</div>` : ''; })()}
         </section>
-        <section class="shop-step">
-          <h2><span class="step">${n()}</span>你的名字和電話</h2>
+        ${MEMBER && !mem ? `<section class="shop-step">
+          <h2><span class="step">${n()}</span>登入</h2>
+          ${SM.loginBox('送出訂單前要先登入：會幫你記住收件資料、地址，訂單換手機也看得到。購物車裡的東西會留著。')}
+        </section>` : `<section class="shop-step">
+          <h2><span class="step">${n()}</span>${MEMBER ? '收件人' : '你的名字和電話'}</h2>
           <input class="input" data-name maxlength="20" autocomplete="name" placeholder="例：王小明" value="${esc(form.name)}"${closed ? ' disabled' : ''} aria-label="名字">
           ${WEB ? '' : '<div class="suggestions" data-suggestions></div>'}
           <input class="input shop-phone" data-phone type="tel" inputmode="tel" maxlength="12" autocomplete="tel" placeholder="${WEB || form.method !== '出攤' ? '手機' : '手機（選填）'}，例：0912345678" value="${esc(form.phone)}"${closed ? ' disabled' : ''} aria-label="手機">
-          <p class="hint">${WEB ? '手機只給小編聯絡、查訂單用，網頁上不會顯示。' : '電話只給小編聯絡用，網頁上不會顯示。'}名字、電話${form.method === '配送' ? '、地址' : ''}會記在這支手機，下次不用再打。</p>
+          <p class="hint">${MEMBER ? `👤 ${esc(mem.name)}，預設帶入你的資料，這次要寄給別人可以改。<a href="#/shop/me">改我的資料</a>` : `${WEB ? '手機只給小編聯絡、查訂單用，網頁上不會顯示。' : '電話只給小編聯絡用，網頁上不會顯示。'}名字、電話${form.method === '配送' ? '、地址' : ''}會記在這支手機，下次不用再打。`}</p>
           ${form.existing ? `<div class="notice shop-existing"><p>✏️ <strong>${esc(form.name)}</strong> 這次團購已經有一張${esc(payText(form.existing))}的訂單（${form.existing.items.map((x) => esc(x.name) + '×' + x.qty).join('、')}），這次的東西會<strong>加進原本那張</strong>。</p></div>`
             : (form.mineHere || []).length ? `<div class="notice shop-existing"><p>🧾 <strong>${esc(form.name)}</strong> 原本那張是${esc(payText(form.mineHere[0]))}，這次選${esc(payText(form))}，會<strong>另外開一張訂單</strong>（付款分開對帳）。</p></div>` : ''}
           ${sourceHtml()}
-        </section>
+        </section>`}
         ${g.methods.length > 1 || g.pickups.length || form.method !== '出攤' ? `<section class="shop-step">
           <h2><span class="step">${n()}</span>怎麼領貨</h2>
           ${g.methods.length > 1 ? `<div class="segmented shop-method-seg">${g.methods.map((m) => `<label class="segment${form.method === m ? ' is-checked' : ''}"><input type="radio" name="method" value="${m}"${form.method === m ? ' checked' : ''}${closed ? ' disabled' : ''}>${METHOD_LABEL[m]}</label>`).join('')}</div>` : `<p class="shop-method-one">${METHOD_LABEL[form.method]}</p>`}
@@ -436,8 +468,11 @@
             <span class="choice-main">${esc(s.name)}${s.note ? `<small>　🕕 ${esc(s.note)}</small>` : ''}</span>${s.address ? `<span class="choice-sub">📍 ${esc(s.address)}</span>` : ''}</label>`).join('')}</div>
           ${(() => { const ds = spotDates(g, now); return ds.length ? `<p class="hint">選哪一天自取</p><div class="shop-pickups shop-spot-dates">${ds.map((d) => `<label class="choice${form.spotDate === d ? ' is-checked' : ''}"><input type="radio" name="spotDate" value="${esc(d)}"${form.spotDate === d ? ' checked' : ''}${closed ? ' disabled' : ''}><span class="choice-main">${esc(Fmt.shortDate(d))}</span></label>`).join('')}</div>` : spotOf(g) && spotOf(g).dates.length ? '<p class="hint">這個地點的自取日期都過了，請選別的地點或問小編。</p>' : ''; })()}` : ''}
           ${form.method === '配送' ? `${g.deliveryNote ? `<p class="hint">${esc(g.deliveryNote)}</p>` : ''}
-          <label class="form-row"><span>配送地址</span><input class="input" data-address maxlength="120" autocomplete="street-address" placeholder="例：新竹市○○路○號○樓" value="${esc(form.address)}"${closed ? ' disabled' : ''}></label>
+          ${mem && mem.addresses.length ? `<p class="hint">寄到哪裡</p><div class="shop-pickups shop-addr-pick">${mem.addresses.map((a) => `<label class="choice${form.address === a.address ? ' is-checked' : ''}"><input type="radio" name="addrPick" value="${esc(a.id)}"${form.address === a.address ? ' checked' : ''}${closed ? ' disabled' : ''}>
+            <span class="choice-main">${esc(a.label || '地址')}${a.name ? `<small>　${esc(a.name)}</small>` : ''}</span><span class="choice-sub">📍 ${esc(a.address)}</span></label>`).join('')}</div>` : ''}
+          <label class="form-row"><span>${mem && mem.addresses.length ? '或填新的地址' : '配送地址'}</span><input class="input" data-address maxlength="120" autocomplete="street-address" placeholder="例：新竹市○○路○號○樓" value="${esc(mem && mem.addresses.some((a) => a.address === form.address) ? '' : form.address)}"${closed ? ' disabled' : ''}></label>
           <label class="form-row"><span>方便收貨的時間（選填）</span><input class="input" data-dtime maxlength="40" placeholder="例：平日晚上七點後" value="${esc(form.deliveryTime)}"${closed ? ' disabled' : ''}></label>
+          ${mem && form.address && !mem.addresses.some((a) => a.address === form.address) ? `<label class="check"><input type="checkbox" data-save-addr${form.saveAddr !== false ? ' checked' : ''}> 存到我的地址簿</label>` : ''}
           <p class="hint">配送不收運費。</p>` : ''}
         </section>` : ''}
         <section class="shop-step">
@@ -473,11 +508,28 @@
     f.querySelectorAll('[data-cart-minus]').forEach((b) => b.addEventListener('click', () => setQty(Number(b.dataset.cartMinus), -1)));
     f.querySelectorAll('[data-cart-del]').forEach((b) => b.addEventListener('click', () => setQty(Number(b.dataset.cartDel), null)));
     f.querySelectorAll('input[name=pickup]').forEach((r) => r.addEventListener('change', () => { form.pickupId = r.value; redraw(); }));
-    f.querySelectorAll('input[name=method]').forEach((r) => r.addEventListener('change', () => { form.method = r.value; if (r.value === '配送' && !form.address) form.address = savedAddr(); syncExisting(); redraw(); }));
+    f.querySelectorAll('input[name=method]').forEach((r) => r.addEventListener('change', () => {
+      form.method = r.value;
+      if (r.value === '配送' && !form.address) { const m = MEMBER && SM.me(); const a = m ? m.addresses.find((x) => x.main) : null; form.address = m ? (a ? a.address : '') : savedAddr(); }
+      syncExisting(); redraw();
+    }));
     f.querySelectorAll('input[name=spot]').forEach((r) => r.addEventListener('change', () => { form.spot = r.value; const ds = spotDates(g, now); form.spotDate = ds.length === 1 ? ds[0] : ''; syncExisting(); redraw(); }));
     f.querySelectorAll('input[name=spotDate]').forEach((r) => r.addEventListener('change', () => { form.spotDate = r.value; syncExisting(); redraw(); }));
     const addr = f.querySelector('[data-address]');
     if (addr) addr.addEventListener('input', () => { form.address = addr.value; });
+    if (addr && MEMBER) addr.addEventListener('change', redraw);
+    const mem = MEMBER ? SM.me() : null;
+    f.querySelectorAll('input[name=addrPick]').forEach((r) => r.addEventListener('change', () => {
+      const a = mem.addresses.find((x) => x.id === r.value);
+      if (!a) return;
+      form.address = a.address;
+      if (a.name) form.name = a.name;
+      if (a.phone) form.phone = a.phone;
+      redraw();
+    }));
+    const sa = f.querySelector('[data-save-addr]');
+    if (sa) sa.addEventListener('change', () => { form.saveAddr = sa.checked; });
+    if (MEMBER && !mem) SM.bindLogin(root, location.hash);
     const dtime = f.querySelector('[data-dtime]');
     if (dtime) dtime.addEventListener('input', () => { form.deliveryTime = dtime.value; });
     f.querySelectorAll('input[name=pay]').forEach((r) => r.addEventListener('change', () => { form.pay = r.value; syncExisting(); redraw(); }));
@@ -492,6 +544,7 @@
     if (l5) l5.addEventListener('input', () => { form.last5 = l5.value.replace(/\D/g, ''); });
     const nameInput = f.querySelector('[data-name]');
     let timer = null;
+    if (!nameInput) { f.addEventListener('submit', (ev) => { ev.preventDefault(); submit(g, now); }); return; } // 會員還沒登入：沒有名字欄
     nameInput.addEventListener('input', () => {
       form.name = nameInput.value.trim();
       form.known = WEB ? true : undefined;
@@ -532,16 +585,17 @@
   async function lookupName(g, now) {
     const name = form.name.replace(/[\s　]+/g, '');
     if (name.length < 2) return;
-    if (WEB && !phoneOk(form.phone)) return;
+    if (WEB && !MEMBER && !phoneOk(form.phone)) return;
+    if (MEMBER && !SM.loggedIn()) return;
     form.looked = true; // 團購網頁：帶入記住的名字＋手機時查一次就好
-    const phone = WEB ? cleanPhone(form.phone) : '';
+    const phone = WEB && !MEMBER ? cleanPhone(form.phone) : '';
     const t = token;
     try {
       const [members, mine] = await Promise.all([
         form.known === true ? Promise.resolve(null) : Api.searchMembers(name).catch(() => null),
         Api.shopMyOrders(name, false, phone).catch(() => null)
       ]);
-      if (t !== token || form.name.replace(/[\s　]+/g, '') !== name || (WEB && cleanPhone(form.phone) !== phone)) return;
+      if (t !== token || form.name.replace(/[\s　]+/g, '') !== name || (WEB && !MEMBER && cleanPhone(form.phone) !== phone)) return;
       if (members) form.known = members.members.some((m) => m.name === name || m.alias === name);
       // 這次團購還沒取貨的訂單（付款方式不同會分開成兩張）
       form.mineHere = mine ? mine.orders.filter((x) => x.groupId === g.id && !x.picked && x.status !== '已取消') : [];
@@ -567,6 +621,7 @@
 
   function problem(g) {
     if (!cartCount(g)) return '購物車是空的';
+    if (MEMBER && !SM.loggedIn()) return '請先登入（上面的「登入」）';
     if (g.methods.indexOf(form.method) === -1) return '請選怎麼領貨';
     if (form.method === '出攤' && g.pickups.length && !form.pickupId) return '請選在哪一場取貨';
     if (form.method === '自取' && !form.spot) return '請選在哪裡自取';
@@ -599,9 +654,14 @@
         sourceNote: form.known === false && form.source === '其他' ? form.sourceNote.trim() : ''
       });
       Busy.hide();
-      saveName(name);
-      savePhone(tel);
-      if (form.method === '配送') store.set(ADDR_KEY, form.address.trim());
+      if (!MEMBER) {
+        saveName(name);
+        savePhone(tel);
+        if (form.method === '配送') store.set(ADDR_KEY, form.address.trim());
+      } else if (form.method === '配送' && form.saveAddr !== false) {
+        const m = SM.me();
+        if (m && !m.addresses.some((a) => a.address === form.address.trim())) SM.addAddress({ label: '', address: form.address.trim(), name: name === m.name ? '' : name, phone: tel === m.phone ? '' : tel });
+      }
       saveCart(g.id, []);
       shopCache = null;
       form.mineHere = [res.order].concat((form.mineHere || []).filter((x) => x.id !== res.order.id));
@@ -611,6 +671,7 @@
     } catch (err) {
       Busy.hide();
       if (err.code === 'VALIDATION' && err.details && err.details.some((d) => /怎麼認識/.test(d.message))) form.known = false;
+      if (MEMBER) SM.onError(err);
       const msg = `<strong>${esc(err.message || '送出失敗，請稍後再試')}</strong>${(err.details || []).map((d) => '<br>' + esc(d.message)).join('')}`;
       const data = await loadShop(true).catch(() => null);
       renderCart(data ? data.groups.find((x) => x.id === g.id) || g : g, data ? data.now : now);
@@ -721,6 +782,7 @@
   const inTab = (o, tab) => tab === 'all' || (tab === 'unpaid' ? !o.paid && !o.picked : tab === 'topick' ? !o.picked : o.picked);
 
   async function showOrders(t) {
+    if (MEMBER) return showMemberOrders(t);
     const name = savedName();
     ordersState.phone = savedPhone();
     if (!name || (WEB && !phoneOk(ordersState.phone))) return renderOrdersAsk(name);
@@ -730,6 +792,28 @@
     } catch (err) {
       if (t !== token) return;
       return renderOrdersAsk(name, err.message);
+    }
+    if (t !== token) return;
+    renderOrders();
+  }
+
+  /** 會員的我的訂單：要登入；全部的訂單 */
+  async function showMemberOrders(t) {
+    if (!SM.loggedIn()) {
+      root.innerHTML = `<div class="shop-page"><h1 class="page-title">📋 我的訂單</h1>${SM.loginBox('登入就看得到你所有的訂單（換手機也看得到）。')}</div>${tabbar('orders', null)}`;
+      SM.bindLogin(root, '#/shop/orders');
+      return;
+    }
+    ordersState.phone = '';
+    root.innerHTML = '<div class="shop-page"><h1 class="page-title">📋 我的訂單</h1><p class="panel-empty">讀取中⋯</p></div>' + tabbar('orders', null);
+    try {
+      ordersState.data = await Api.shopMyOrders('', true);
+    } catch (err) {
+      if (t !== token) return;
+      SM.onError(err);
+      if (!SM.loggedIn()) return showMemberOrders(t);
+      root.innerHTML = `<div class="shop-page"><h1 class="page-title">📋 我的訂單</h1><div class="notice notice-error" role="alert"><p>${esc(err.message || '讀取失敗，請稍後再試')}</p></div></div>${tabbar('orders', null)}`;
+      return;
     }
     if (t !== token) return;
     renderOrders();
@@ -771,7 +855,7 @@
     root.innerHTML = `
       <div class="shop-page">
       <h1 class="page-title">📋 我的訂單</h1>
-      <p class="muted">${esc(d.name)}・<button type="button" class="link-btn" data-switch>不是我？換名字</button></p>
+      ${MEMBER ? '' : `<p class="muted">${esc(d.name)}・<button type="button" class="link-btn" data-switch>不是我？換名字</button></p>`}
       ${flash || ''}
       <div class="shop-order-tabs" role="tablist">${ORDER_TABS.map(([k, l]) => { const c = d.orders.filter((o) => inTab(o, k)).length; return `<button type="button" role="tab" class="shop-order-tab${ordersState.tab === k ? ' is-active' : ''}" aria-selected="${ordersState.tab === k}" data-otab="${k}">${l}${c ? `<b>${c}</b>` : ''}</button>`; }).join('')}</div>
       ${list.length ? `<ul class="shop-ocards">${list.map((o) => {
@@ -792,13 +876,14 @@
             ${o.confirmed ? '<span class="muted">✅ 小編已確認，要改請找小編</span>' : o.closed ? '<span class="muted">已截止，要改請找小編</span>' : `<button type="button" class="btn btn-small" data-edit="${esc(o.id)}">改數量</button><button type="button" class="btn btn-small btn-quiet-danger" data-cancel="${esc(o.id)}">取消</button>`}
           </div>`}
         </li>`;
-      }).join('')}</ul>` : `<div class="notice shop-empty"><p>${ordersState.tab === 'all' ? '最近 90 天沒有團購訂單' : '這裡沒有訂單'}</p></div>`}
+      }).join('')}</ul>` : `<div class="notice shop-empty"><p>${ordersState.tab === 'all' ? (MEMBER ? '還沒有團購訂單' : '最近 90 天沒有團購訂單') : '這裡沒有訂單'}</p></div>`}
       </div>
       ${d.orders.length ? lineCard() : ''}
       <div class="shop-sumbar"><span>待取貨 <b>${toPick}</b> 張</span><span>待付總額 <b>${money(unpaid)}</b></span></div>
       ${tabbar('orders', null)}`;
     root.querySelectorAll('[data-otab]').forEach((b) => b.addEventListener('click', () => { ordersState.tab = b.dataset.otab; renderOrders(); }));
-    root.querySelector('[data-switch]').addEventListener('click', () => renderOrdersAsk(''));
+    const sw = root.querySelector('[data-switch]');
+    if (sw) sw.addEventListener('click', () => renderOrdersAsk(''));
     const phone = ordersState.phone;
     const find = (id) => d.orders.find((x) => x.id === id);
     root.querySelectorAll('[data-cancel]').forEach((b) => b.addEventListener('click', () => cancelOrder(find(b.dataset.cancel))));

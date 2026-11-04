@@ -9,7 +9,12 @@ export class DutyStore extends DurableObject {
     ctx.blockConcurrencyWhile(async () => {
       this.store = createSqlStore(ctx.storage);
       // ledgerPushUrl：記帳即時更新的 Apps Script 網址（secret）；defer：送出後不用等
-      this.app = createApp(this.store, { ledgerPushUrl: env.LEDGER_PUSH_URL || '', defer: (p) => ctx.waitUntil(p) });
+      this.app = createApp(this.store, { ledgerPushUrl: env.LEDGER_PUSH_URL || '', defer: (p) => ctx.waitUntil(p), auth: {
+        // 團購會員登入（規格 0.6.3）：secret 用 wrangler secret put 設定；ID 在 wrangler.toml 的 vars
+        sessionSecret: env.SHOP_SESSION_SECRET || '', lineChannelSecret: env.LINE_CHANNEL_SECRET || '',
+        googleClientId: env.GOOGLE_CLIENT_ID || '', lineChannelId: env.LINE_CHANNEL_ID || '',
+        lineRedirects: String(env.LINE_REDIRECTS || '').split(',').map((s) => s.trim()).filter(Boolean)
+      } });
       this.store.persist(); // 第一次啟動：建立分頁標題
     });
   }

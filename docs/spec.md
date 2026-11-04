@@ -259,7 +259,7 @@
 - **個資（2026/11/3 使用者決定，放寬原本的規則）**：團購訂單的電話、地址**只有登入後台的管理者**看得到（後台團購頁的訂單名單直接顯示，電話可以按了撥）；公開的網頁、大家的 API（getShop、我的訂單）**一樣不回傳**電話、地址。
 - **後台**：備貨清單、訂單名單依領貨方式分：每個出攤場次、每個自取地點（有日期的話每個地點的每一天）、配送各一區；訂單名字旁標 🚚 配送／🏠 自取。取貨前一天的推播只有出攤的訂單。
 
-### 0.6.3 團購只在「植素園happy購」、買家用 LINE／Google 帳號登入（2026/11/4 討論確定，還沒做）
+### 0.6.3 團購只在「植素園happy購」、買家用 LINE／Google 帳號登入（2026/11/4 討論確定、做好；LINE／Google 設定好才開放登入）
 
 2026/11/4 使用者：團購全部在植素園happy購下單；買家要登入帳號購買，記下買家自己的收件資料、宅配地址、訂單紀錄。**這一節和 0.6.1、0.6.2 衝突時以這一節為準。**
 
@@ -282,6 +282,7 @@
 - **我的資料**（底下分頁多一個「👤 我的」）：姓名、手機、地址簿、登入方式、登出。
 - **後台「👥 會員」**（團購頁多一個分頁，總管理者、植素看得到）：會員名單（姓名、手機、登入方式、訂單數、總金額、最近一次下單），找名字或手機；點進去看地址簿和所有訂單。Email、手機、地址照 0.6.2 只有登入後台看得到。
 - **個資**：公開 API 一律不回傳別人的手機、地址、Email；**會員自己登入後只拿得到自己的資料**（我的資料、我的訂單）。
+- **開關**：`js/site.js` 的 `shopLogin`（googleClientId、lineChannelId）都空白時，植素園happy購照舊填名字＋手機下單（不用登入）；填了才變成要登入。Worker 端：wrangler.toml 的 vars（GOOGLE_CLIENT_ID、LINE_CHANNEL_ID、LINE_REDIRECTS）、secret（SHOP_SESSION_SECRET、LINE_CHANNEL_SECRET）。程式：js/shop-member.js、worker/src/member-auth.js、apps-script/ShopMember.gs。
 - **示範版**：dev-server 的示範版有「示範登入」（不用真的 LINE／Google），截圖、測試用。
 - **上線前要使用者做的**：
   1. LINE Developers 建一個「LINE Login」channel，Callback URL 填 `https://zhisu-shop.pages.dev/`，把 Channel ID 給 Claude；Channel secret 自己用 `npx wrangler secret put LINE_CHANNEL_SECRET` 設到 Worker。

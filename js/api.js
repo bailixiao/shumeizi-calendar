@@ -194,7 +194,15 @@
     if (token) post({ action: 'adminLogout', token }).catch(() => {});
   }
 
+  // 團購會員的登入憑證（植素園happy購，規格 0.6.3；shop-member.js 設定）：團購的寫入、我的訂單都帶上
+  let memberToken = '';
+  const mt = () => memberToken || undefined;
+
   window.Api = {
+    setMemberToken: (t) => { memberToken = t || ''; },
+    shopLogin: (p) => post(Object.assign({ action: 'shopLogin' }, p)),
+    shopMe: () => post({ action: 'shopMe', memberToken: mt() }),
+    shopSaveProfile: (p) => post(Object.assign({ action: 'shopSaveProfile', memberToken: mt() }, p)),
     ApiError,
     retryBusy,
     admin,
@@ -223,11 +231,11 @@
     loginAccounts: () => get('loginAccounts', {}),
     // 團購（見 shop.js）：名字放在 POST 內容（不放網址）
     getShop: (web) => get('getShop', web ? { web: '1' } : {}), // web：團購網頁（只列有勾的團）
-    shopOrder: (p) => post(Object.assign({ action: 'shopOrder' }, p)),
+    shopOrder: (p) => post(Object.assign({ action: 'shopOrder', memberToken: mt() }, p)),
     // phone：團購網頁的客人（名字＋手機；行事曆不帶）
-    shopMyOrders: (name, all, phone) => post({ action: 'shopMyOrders', name, all: !!all, phone: phone || undefined }), // all：我的訂單頁（最近 90 天全部）
-    shopCancel: (orderId, name, phone) => post({ action: 'shopCancel', orderId, name, phone: phone || undefined }),
-    shopSetLast5: (orderId, name, last5, date, phone) => post({ action: 'shopSetLast5', orderId, name, last5, date: date || '', phone: phone || undefined }), // 轉帳通知小編：末五碼＋匯款日期
+    shopMyOrders: (name, all, phone) => post({ action: 'shopMyOrders', name, all: !!all, phone: phone || undefined, memberToken: mt() }), // all：我的訂單頁（最近 90 天全部）
+    shopCancel: (orderId, name, phone) => post({ action: 'shopCancel', orderId, name, phone: phone || undefined, memberToken: mt() }),
+    shopSetLast5: (orderId, name, last5, date, phone) => post({ action: 'shopSetLast5', orderId, name, last5, date: date || '', phone: phone || undefined, memberToken: mt() }), // 轉帳通知小編：末五碼＋匯款日期
     // DM 檔案（照片、PDF）的網址
     fileUrl: (id) => window.APP_CONFIG.API_URL + (window.APP_CONFIG.API_URL.indexOf('?') === -1 ? '?' : '&') + 'action=file&id=' + encodeURIComponent(id),
     // 開網站時一次打包：行事曆＋近 30 天勤務詳情（資料較多，第一次等久一點）

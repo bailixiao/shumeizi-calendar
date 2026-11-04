@@ -9,7 +9,7 @@ const crypto = require('node:crypto');
 const root = path.join(__dirname, '..');
 const src = path.join(__dirname, 'shop-web');
 const out = path.resolve(process.argv[2] || path.join(root, '..', '植素園團購'));
-const JS = ['site', 'config', 'api', 'format', 'share', 'addcal', 'confirm', 'shop'];
+const JS = ['site', 'config', 'api', 'format', 'share', 'addcal', 'confirm', 'shop-member', 'shop'];
 
 const copy = (from, to) => { fs.mkdirSync(path.dirname(to), { recursive: true }); fs.copyFileSync(from, to); };
 const ver = (file) => crypto.createHash('sha1').update(fs.readFileSync(file)).digest('hex').slice(0, 8);

@@ -5,6 +5,7 @@ import { createGs } from './gs.generated.js';
 import * as A from './async-actions.js';
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
+import { signSession, verifySession, verifyLogin } from './member-auth.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -17,6 +18,9 @@ const json = (obj) => new Response(typeof obj === 'string' ? obj : JSON.stringif
 
 export function createApp(store, opts) {
   const gs = createGs(createRuntime(store, opts));
+  const nowMs = () => (opts && opts.now ? opts.now() : Date.now());
+  // 團購會員登入（規格 0.6.3）：設定都從 Worker 的 vars／secret 來（index.js），本機示範版用 demoLogin
+  const auth = Object.assign({ sessionSecret: '', googleClientId: '', lineChannelId: '', lineChannelSecret: '', lineRedirects: [], demoLogin: false }, (opts && opts.auth) || {});
 
   // 每個分頁都要在、標題列要是最新的（後來新增的欄位加在最後）
   Object.values(gs.SHEETS).forEach((def) => {
@@ -147,6 +151,13 @@ export function createApp(store, opts) {
 
   const asyncActions = {
     adminDraftFromImages: (body) => A.adminDraftFromImages(gs, body),
+    /** 團購會員登入：驗證 LINE／Google，回傳登入憑證和我的資料 */
+    shopLogin: async (body) => {
+      if (!auth.sessionSecret) throw new gs.ApiError_('CONFIG', '還沒設定會員登入');
+      const who = await verifyLogin(gs, auth, body, opts && opts.fetch);
+      const member = gs.shopMemberLogin_(who);
+      return { token: signSession(auth.sessionSecret, member.id, nowMs()), member };
+    },
     pushTest: (body) => A.pushTest(gs, body),
     // 年度結帳（YearClose.gs）：對帳檢查＝這邊的訂單、庫存＋Google 試算表的帳戶餘額、資產負債表
     adminYearCheck: async (body) => {
@@ -204,8 +215,16 @@ export function createApp(store, opts) {
     // 防止亂報名：公開的寫入動作帶上「網路位址的雜湊」給 .gs 計數（RateLimit.gs）；位址本身不存
     let contents = text;
     if (body && typeof body === 'object' && String(action || '').indexOf('admin') !== 0) {
+      const extra = {};
       const ip = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || '';
-      if (ip) contents = JSON.stringify(Object.assign({}, body, { _client: createHash('sha256').update('dc|' + ip).digest('hex').slice(0, 16) }));
+      if (ip) extra._client = createHash('sha256').update('dc|' + ip).digest('hex').slice(0, 16);
+      // 團購會員：只認驗證過的登入憑證（客人自己帶的 _member 一律清掉）
+      const mid = verifySession(auth.sessionSecret, body.memberToken, nowMs());
+      const clean = Object.assign({}, body);
+      delete clean._member;
+      delete clean.memberToken;
+      if (mid) extra._member = mid;
+      if (ip || mid || body._member !== undefined || body.memberToken !== undefined) contents = JSON.stringify(Object.assign(clean, extra));
     }
     const out = gs.doPost({ postData: { contents } }).text;
     await flushPush();

@@ -5,6 +5,9 @@
 readTableCached_ = function (def) { return readTable_(def); };
 cachedRead_ = function (action, params, fn) { return fn(); };
 
+// 團購會員（規格 0.6.3）：Worker 驗證過登入憑證才會帶 _member（app.js 會先清掉客人自己帶的）
+SHOP_TRUST_MEMBER_ = true;
+
 // 保溫排程：Cloudflare 不需要
 keepWarm = function () {};
 

@@ -81,6 +81,8 @@ function doPost(e) {
       case 'shopMyOrders': return shopMyOrders_(body);
       case 'shopCancel': return shopCancel_(body);
       case 'shopSetLast5': return shopSetLast5_(body);
+      case 'shopMe': return shopMe_(body); // 團購會員（ShopMember.gs）
+      case 'shopSaveProfile': return shopSaveProfile_(body);
       default: throw new ApiError_('BAD_REQUEST', '未知的 action：' + (body.action || '（空白）'));
     }
   });

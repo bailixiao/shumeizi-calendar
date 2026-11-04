@@ -23,5 +23,6 @@
     ShopPage.show(m[1]);
   }
   window.addEventListener('hashchange', route);
-  route();
+  // LINE 登入回來（?code=&state=）先處理，再顯示畫面
+  (window.ShopMember ? ShopMember.handleCallback().catch(() => false) : Promise.resolve(false)).then((done) => { if (!done) route(); });
 })();

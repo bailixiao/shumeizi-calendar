@@ -2423,6 +2423,27 @@ button.veg-chip:hover { border-color: var(--ok); }
 .shop-three-hint { grid-column: 1 / -1; color: var(--muted); margin-left: 0 !important; }
 .shop-three .shop-stock-limit { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: flex-start; }
 .shop-three .shop-stock-limit input { flex: none; }
+/* 團購會員登入（2026/11/4，規格 0.6.3） */
+.shop-member-list { list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 8px; }
+.shop-member details { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
+.shop-member summary { display: flex; justify-content: space-between; gap: 10px; padding: 10px 12px; cursor: pointer; }
+.shop-member-name, .shop-member-sum { display: grid; }
+.shop-member-sum { text-align: right; font-weight: 700; }
+.shop-member small { color: var(--muted); font-weight: 400; }
+.shop-member-body { padding: 0 12px 10px; }
+.shop-member-addrs, .shop-member-orders { margin: 4px 0 8px; padding-left: 18px; }
+.shop-login { display: grid; gap: 10px; }
+.shop-login-why { margin: 0; }
+.shop-login-line { background: #06c755; border-color: #06c755; color: #fff; font-weight: 700; }
+.shop-login-google { min-height: 44px; display: flex; justify-content: center; }
+.shop-login-demo { display: flex; gap: 8px; }
+.shop-profile { display: grid; gap: 10px; }
+.shop-profile-sub { font-size: 1.05rem; margin: 10px 0 0; }
+.shop-profile-who { margin-top: 16px; }
+.shop-addr { display: grid; gap: 6px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: var(--radius); margin-bottom: 8px; }
+.shop-addr label span { display: block; font-size: .85rem; color: var(--muted); }
+.shop-addr .btn { justify-self: start; }
+.shop-addr-main { align-self: end; padding-bottom: 8px; }
 /* LINE Pay、浮動 IG／LINE（2026/11/4） */
 .shop-linepay { margin: 12px 0; }
 .shop-linepay-btn { background: #06c755; border-color: #06c755; color: #fff; font-weight: 700; }
@@ -2546,7 +2567,7 @@ span.shop-thumb { cursor: default; }
 
 /* ===== 團購改版（像愛+1）：商城格子、商品頁、購物車、我的訂單、下方分頁列 ===== */
 .shop-page { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
-.shop-tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: grid; grid-template-columns: repeat(3, 1fr); background: var(--card); border-top: 1px solid var(--line); box-shadow: 0 -4px 16px rgba(0, 0, 0, .06); padding-bottom: env(safe-area-inset-bottom); }
+.shop-tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--card); border-top: 1px solid var(--line); box-shadow: 0 -4px 16px rgba(0, 0, 0, .06); padding-bottom: env(safe-area-inset-bottom); }
 .shop-tab { display: grid; justify-items: center; gap: 2px; padding: 8px 4px 10px; color: var(--muted); font-size: .85rem; font-weight: 700; text-decoration: none; }
 .shop-tab:hover { text-decoration: none; color: var(--ink); }
 .shop-tab.is-active { color: var(--ok); }

@@ -17,5 +17,11 @@ new_sqlite_classes = ["DutyStore"]
 [triggers]
 crons = ["*/5 * * * *"]
 
+# 團購會員登入（規格 0.6.3）：公開的 ID（不是密碼）。Channel secret、登入憑證金鑰用 wrangler secret put 設定，不寫在這裡。
+[vars]
+GOOGLE_CLIENT_ID = ""
+LINE_CHANNEL_ID = ""
+LINE_REDIRECTS = "https://zhisu-shop.pages.dev/"
+
 [observability]
 enabled = true

@@ -76,7 +76,7 @@ test('有吃飯的活動：報名勾吃飯，算這天要準備幾份；沒開�
   assert.equal(c.ok, true, JSON.stringify(c.error));
   const d = env.get({ action: 'getDuty', id: c.data.ids[0] }).data;
   assert.equal(d.meal, true);
-  const r = env.post({ action: 'signup', dutyId: d.id, positionId: d.positions[0].id, dates: ['2026-10-16'], entries: [{ name: '測試甲', source: '官網', meal: true }, { name: '測試乙', source: '官網' }] });
+  const r = env.post({ action: 'signup', dutyId: d.id, positionId: d.positions[0].id, dates: ['2026-10-16'], entries: [{ name: '測試甲', source: '官網', meal: true, area: '測試區' }, { area: '測試區', name: '測試乙', source: '官網' }] });
   assert.equal(r.ok, true, JSON.stringify(r.error));
   const after = env.get({ action: 'getDuty', id: d.id }).data;
   assert.equal(after.days['2026-10-16'].meals, 1);
@@ -88,6 +88,18 @@ test('有吃飯的活動：報名勾吃飯，算這天要準備幾份；沒開�
   assert.equal(env.sheets['報名'].data.slice(-1)[0][14] || '', '');
   // 編輯畫面帶得回「有吃飯」
   assert.equal(call('adminDutyForEdit', { id: d.id }).data.duty.meal, '是');
+  // 有吃飯的活動：區別必填、備註選填，只有後台看得到（2026/11/4）
+  const noArea = env.post({ action: 'signup', dutyId: d.id, positionId: d.positions[0].id, dates: ['2026-10-16'], entries: [{ name: '測試丁', source: '官網', meal: false }] });
+  assert.equal(noArea.ok, false);
+  assert.match(JSON.stringify(noArea.error), /請選區別/);
+  const withArea = env.post({ action: 'signup', dutyId: d.id, positionId: d.positions[0].id, dates: ['2026-10-16'], entries: [{ name: '測試丁', source: '官網', meal: false, area: '測試區', signupNote: '會晚到' }] });
+  assert.equal(withArea.ok, true, JSON.stringify(withArea.error));
+  const pub = env.get({ action: 'getDuty', id: d.id }).data.signups.find((s) => s.name === '測試丁');
+  assert.equal(pub.area, undefined);
+  assert.equal(pub.signupNote, undefined);
+  const adm = call('adminDuty', { id: d.id }).data.signups.find((s) => s.name === '測試丁');
+  assert.equal(adm.area, '測試區');
+  assert.equal(adm.signupNote, '會晚到');
 });
 
 test('後台幫人報名、補登：新朋友一樣要選管道（可以不確定），不用身分', () => {

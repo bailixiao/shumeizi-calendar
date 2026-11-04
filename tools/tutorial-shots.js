@@ -145,7 +145,7 @@ const SUB = {
   '12': '打一兩個字，跳出名字就點它；沒有就打完整名字按「加入」',
   '13': '只有第一次要選；朋友介紹的話，填一下介紹人',
   '14': '靈魂健身房、槑青韜課館、植素園工作坊不用選項目',
-  '15': '有一起吃飯的活動才會出現；每組選一個（有價錢的會算好餐費，當天再給），特別需求寫在備註',
+  '15': '區別、吃不吃一定要選；要吃再選餐點（有價錢的會算好餐費，當天再給），會晚到可以寫在備註',
   '16': '想揪朋友？名字一個一個加進來就好',
   '17': '名字都加好了，按這裡送出',
   '18': '可以按「加到手機行事曆」，前一天會提醒你',
@@ -247,9 +247,9 @@ async function main() {
     await sleep(800);
     await run(c, `${frame('14', '', '.signup-form')}`);
     await shoot(c, '14');
-    await run(c, `await addName('測試戊', '官方 LINE'); const m = $('[data-meal]'); if (!m.checked) m.click(); await W(300); const pk = (g, o) => { const r = document.querySelector('input[data-meal-group="' + g + '"][value="' + o + '"]'); if (r) r.click(); }; pk('主餐', '素便當'); await W(200); pk('飲料', '紅茶'); await W(300); ${frame('15', '', '.meal-row')}`);
+    await run(c, `await addName('測試戊', '官方 LINE'); const ar = document.querySelector('input[data-area][value="教全區"]'); if (ar) { ar.click(); await W(300); } const m = document.querySelector('input[data-meal][value="yes"]'); if (m && !m.checked) m.click(); await W(300); const pk = (g, o) => { const r = document.querySelector('input[data-meal-group="' + g + '"][value="' + o + '"]'); if (r) r.click(); }; pk('主餐', '素便當'); await W(200); pk('飲料', '紅茶'); await W(300); ${frame('15', '', '.meal-row')}`);
     await shoot(c, '15');
-    await run(c, `await addName('測試己', '朋友介紹', '測試戊'); ${frame('16', '', '[data-names]')}`);
+    await run(c, `await addName('測試己', '朋友介紹', '測試戊'); const a2 = document.querySelector('input[data-area="1"][value="教全區"]'); if (a2) { a2.click(); await W(300); } const m2 = document.querySelector('input[data-meal="1"][value="no"]'); if (m2) { m2.click(); await W(300); } ${frame('16', '', '[data-names]')}`);
     await shoot(c, '16');
     await run(c, `${frame('17', '', '[data-submit]')}`);
     await shoot(c, '17');

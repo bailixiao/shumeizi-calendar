@@ -8,7 +8,8 @@ var MAX_ENTRIES_PER_SIGNUP = 20;
 var MAX_DATES_PER_SIGNUP = 31;
 
 /**
- * body = { dutyId, positionId | positionIds: [..]（可兼任的勤務可多個）, dates: ['yyyy-MM-dd'], entries: [{ name, identity, accompany, note, leader, meal, source, referrer, sourceNote }] }
+ * body = { dutyId, positionId | positionIds: [..]（可兼任的勤務可多個）, dates: ['yyyy-MM-dd'], entries: [{ name, identity, accompany, note, leader, meal, source, referrer, sourceNote, area, signupNote }] }
+ * area、signupNote：有吃飯的活動每個人的區別（必填）、報名備註（選填），只有後台看得到（規格 0.5，2026/11/4）
  * meal：活動有開「有吃飯」時，這個人會一起吃飯；mealChoice＝{ 組名: 選項 }（活動有餐點選項時每組必選）、mealNote＝餐點備註（Meal.gs）
  * source、referrer、sourceNote：第一次報名的人（成員名單上沒有）怎麼認識的（SITE.sources；朋友介紹要填介紹人），記在成員名單
  * leader：勤務有組長職稱時，這次報名的其中一位當組長（一天一位）
@@ -63,6 +64,16 @@ function signup_(body) {
     var created = [];
     var errors = [];
     meals.forEach(function (m, i) { if (m.error) errors.push({ name: normalizeName_(entries[i].name), message: m.error }); });
+    // 有吃飯的活動：區別必填（規格 0.5，2026/11/4）
+    var needArea = !!(duty && duty['有吃飯'] === '是');
+    if (needArea) {
+      entries.forEach(function (e) {
+        var a = cleanText_(e.area);
+        if (!a) errors.push({ name: normalizeName_(e.name), message: '請選區別' });
+        else if (a.length > 20) errors.push({ name: normalizeName_(e.name), message: '區別最多 20 字' });
+        if (cleanText_(e.signupNote).length > 100) errors.push({ name: normalizeName_(e.name), message: '備註最多 100 字' });
+      });
+    }
     if (duty && meals.some(function (m) { return m['吃飯'] === '是'; })) {
       var closed = dates.filter(function (d) { return !mealOpen_(duty, d, now); });
       if (closed.length) errors.push({ message: closed.map(Fmt_shortDate_).join('、') + ' 的訂餐已經截止，這次不能點餐（取消勾選「我會一起吃飯」就能報名）' });
@@ -114,6 +125,10 @@ function signup_(body) {
             '更新時間': now
           };
           if (duty['版面'] === '職司表' && e.note) row['註記'] = cleanText_(e.note).replace(/[\r\n]+/g, ' ').slice(0, 100);
+          if (needArea) {
+            row['區別'] = cleanText_(e.area).slice(0, 20);
+            row['報名備註'] = cleanText_(e.signupNote).replace(/[\r\n]+/g, ' ').slice(0, 100);
+          }
           signupRows.push(row);
           logRows.push({
             '時間': now,

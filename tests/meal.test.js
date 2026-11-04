@@ -13,7 +13,7 @@ function setup(mealOptions) {
   const c = call('adminCreateDuties', { duties: [{ name: '槑子的靈魂健身房', category: '道務', nature: '課程', start: '2026-10-16', startTime: '19:30', location: '竹北', meal: true, mealOptions, positions: [{ name: '參加', min: '0' }] }] });
   assert.equal(c.ok, true, JSON.stringify(c.error));
   const d = env.get({ action: 'getEvents', from: '2026-10-16', to: '2026-10-16' }).data.duties.find((x) => x.name === '槑子的靈魂健身房');
-  const signup = (entries) => env.post({ action: 'signup', dutyId: d.id, positionId: d.positions[0].id, dates: ['2026-10-16'], entries });
+  const signup = (entries) => env.post({ action: 'signup', dutyId: d.id, positionId: d.positions[0].id, dates: ['2026-10-16'], entries: entries.map((e) => Object.assign({ area: '測試區' }, e)) });
   return { env, call, d, signup };
 }
 

@@ -68,6 +68,8 @@ function adminDuty_(body) {
     s.identity = row['身分'] || '';
     s.createdAt = row['建立時間'] || '';
     s.attend = row['出席'] || '出席';
+    s.area = row['區別'] || ''; // 有吃飯的活動報名時填的（只給後台，2026/11/4）
+    s.signupNote = row['報名備註'] || '';
     if (s.meal) {
       s.mealChoice = parseMealChoice_(row['餐點']); // 吃飯選的（只給後台）
       s.mealNote = row['餐點備註'] || '';

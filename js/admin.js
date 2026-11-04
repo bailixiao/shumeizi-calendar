@@ -455,6 +455,7 @@
                 ${s.accompany ? '<span class="tag">陪同</span>' : ''}
                 ${past && s.attend === '未到' ? '<span class="tag tag-warn">未到</span>' : ''}
                 ${s.note ? `<span class="tag">註：${esc(s.note)}</span>` : ''}
+                ${s.area ? `<span class="tag">📍 ${esc(s.area)}</span>` : ''}${s.signupNote ? `<span class="tag">📝 ${esc(s.signupNote)}</span>` : ''}
               </span>
               ${canEdit ? `<span class="person-actions">
                 ${past ? `<button type="button" class="btn btn-small" data-attend="${esc(s.id)}">${s.attend === '未到' ? '改出席' : '改未到'}</button>

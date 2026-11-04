@@ -46,13 +46,13 @@ async function seedDemo(call, get) {
   const all = (await get({ action: 'getEvents', from: today, to: addDays(today, 60) })).data.duties;
   const find = (name, date) => all.find((d) => d.name === name && d.start === date);
   const signup = async (d, date, entries, positionId, extra) => {
-    const res = await call(Object.assign({ action: 'signup', dutyId: d.id, positionId: positionId || d.positions[0].id, dates: [date], entries }, extra));
+    const res = await call(Object.assign({ action: 'signup', dutyId: d.id, positionId: positionId || d.positions[0].id, dates: [date], entries: d.meal ? entries.map((e, i) => Object.assign({ area: i % 2 ? '教孝區' : '教全區' }, e)) : entries }, extra)); // 有吃飯的活動要選區別（2026/11/4）
     if (!res.ok) throw new Error('示範報名失敗：' + JSON.stringify(res.error));
   };
   await signup(find('槑子的靈魂健身房', gym), gym, [
     { name: '測試甲', source: '朋友介紹', referrer: '王小明', meal: true, mealChoice: { 主餐: '素便當', 飲料: '紅茶' }, mealNote: '不吃辣' },
     { name: '王小明', source: '官方 LINE', meal: true, mealChoice: { 主餐: '素麵', 飲料: '不用' } },
-    { name: '測試乙', source: 'Instagram' }
+    { name: '測試乙', source: 'Instagram', meal: false, signupNote: '會晚半小時到' }
   ]);
   await signup(find('槑子的靈魂健身房', gym2), gym2, [{ name: '測試甲', meal: true, mealChoice: { 主餐: '素便當', 飲料: '綠茶' } }]);
   await signup(find('槑青韜課館', sun), sun, [{ name: '測試甲', meal: true, mealOrder: [{ name: '咖哩飯', price: 90, qty: 1 }, { name: '豆漿', price: 25, qty: 1 }] }, { name: '測試丙', source: '官網', meal: true, mealOrder: [{ name: '炒麵', price: 75, qty: 2 }], mealNote: '一份不要香菇' }]);

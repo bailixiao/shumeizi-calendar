@@ -1,6 +1,6 @@
 // 報名表單：選項目（額滿反灰）→ 選日期（多天活動）→ 填名字（自動提示、可多人）→ 確認報名。
 // SITE.identity＝false（書槑子）：不選身分、沒有陪同；成員名單上沒有的名字（第一次來）要選認識管道（SITE.sources）。
-// 活動有開「有吃飯」時，每個名字可以勾「我會一起吃飯」。教全區原本：選道親／壇辦／未求道；壇辦可選了愿／陪同。
+// 活動有開「有吃飯」時，每個名字要選區別（SITE.areas）、吃不吃（一定要選），可以寫備註（規格 0.5，2026/11/4）。教全區原本：選道親／壇辦／未求道；壇辦可選了愿／陪同。
 // 名額與重複的最終判斷在伺服器（LockService 鎖定），這裡只做提示。
 (function () {
   'use strict';
@@ -11,6 +11,10 @@
   const KNOWN_IDENTITIES = IDENTITIES.concat(['點傳師']); // 成員名單上可能登記的（點傳師只由名單帶入）
   const NO_IDENTITY = window.SITE.identity === false; // 書槑子：不選身分
   const SOURCES = window.SITE.sources || []; // 第一次來的人：怎麼認識的
+  const AREAS = window.SITE.areas || [];
+  const AREA_KEY = 'shumeizi:area:'; // 這支手機記住每個名字上次選的區別
+  const areaGet = (name) => { try { return localStorage.getItem(AREA_KEY + name) || ''; } catch (e) { return ''; } };
+  const areaSet = (name, v) => { try { localStorage.setItem(AREA_KEY + name, v); } catch (e) { /* 無痕模式 */ } };
   const SOURCE_ICON = { 朋友介紹: '👫', '官方 LINE': '💬', 官網: '🌐', Instagram: '📷', Facebook: '📘', 其他: '✨', 不確定: '🤔' };
 
   function normalize(name) {
@@ -180,7 +184,11 @@
       }
       if (SELF_ORDER && !Array.isArray(e.mealOrder)) e.mealOrder = [MealUI.blankLine()];
       const why = state.showMissing && e.meal ? MealUI.problem(duty, e) : '';
-      return `<div class="option-row meal-row"><span class="option-label">吃飯</span><div><label class="check"><input type="checkbox" data-meal="${i}"${e.meal ? ' checked' : ''}> 🍱 我會一起吃飯</label>
+      // 吃不吃一定要選（2026/11/4：只有勾選框的話，不吃的人不勾，分不出是不吃還是忘了）
+      return `<div class="option-row meal-row"><span class="option-label">吃飯</span><div><div class="segmented meal-yn${state.showMissing && e.meal === undefined ? ' is-missing' : ''}" role="radiogroup" aria-label="${esc(e.name)} 要不要一起吃飯">
+          <label class="segment${e.meal === true ? ' is-checked' : ''}"><input type="radio" name="meal-${i}" value="yes" data-meal="${i}"${e.meal === true ? ' checked' : ''}>🍱 要吃</label>
+          <label class="segment${e.meal === false ? ' is-checked' : ''}"><input type="radio" name="meal-${i}" value="no" data-meal="${i}"${e.meal === false ? ' checked' : ''}>不吃</label>
+        </div>
         ${e.meal ? (SELF_ORDER ? MealUI.orderHtml(e.mealOrder, e.mealNote, i, !!why) : MealUI.html(duty.mealOptions, e.mealChoice, e.mealNote, i, state.showMissing)) : ''}</div></div>`;
     }
     /** 這次報名的餐費：每個人每一天 */
@@ -202,14 +210,38 @@
       payBox.innerHTML = MealUI.payHtml(total, days > 1 ? days + ' 天一起算' : '');
     }
 
+    /** 有吃飯的活動：區別（必填） */
+    function areaRow(e, i) {
+      const opts = AREAS.concat(['其他']);
+      const other = e.area === '其他' || (!!e.area && AREAS.indexOf(e.area) === -1);
+      const missing = state.showMissing && !!areaProblem(e);
+      return `<div class="option-row area-row${missing ? ' is-missing' : ''}">
+        <span class="option-label">區別</span>
+        <div>
+          <div class="pos-chips" role="radiogroup" aria-label="${esc(e.name)} 的區別">
+            ${opts.map((a) => { const on = a === '其他' ? other : e.area === a; return `<label class="pos-chip${on ? ' is-checked' : ''}"><input type="radio" name="area-${i}" value="${esc(a)}" data-area="${i}"${on ? ' checked' : ''}>${esc(a)}</label>`; }).join('')}
+          </div>
+          ${other ? `<input class="input source-extra" data-area-other="${i}" maxlength="20" value="${esc(e.area === '其他' ? '' : e.area)}" placeholder="哪一區？" aria-label="${esc(e.name)} 的區別">` : ''}
+        </div>
+      </div>`;
+    }
+    function areaProblem(e) {
+      if (!duty.meal) return '';
+      return !e.area || e.area === '其他' ? '請選區別' : '';
+    }
+    /** 吃不吃沒選（訂餐截止了就不用選） */
+    const mealUnset = (e) => !!duty.meal && !mealClosedDate() && e.meal === undefined;
+
     function renderNames() {
       setTimeout(renderMealExtra, 0);
       $('[data-names]').innerHTML = state.entries.map((e, i) => {
         const missing = state.showMissing && !NO_IDENTITY && !e.identity;
         const srcMissing = state.showMissing && sourceProblem(e);
         const posMissing = state.showMissing && e.custom && !e.positionIds.size;
+        const areaMissing = state.showMissing && !!areaProblem(e);
+        const mealMissing = state.showMissing && mealUnset(e);
         return `
-        <li class="name-item${missing || posMissing || srcMissing ? ' is-missing' : ''}">
+        <li class="name-item${missing || posMissing || srcMissing || areaMissing || mealMissing ? ' is-missing' : ''}">
           <div class="name-top">
             <span class="name-text">${esc(e.name)}${e.temple ? `<small class="name-temple">${esc(e.temple)}</small>` : ''}${e.typed ? `<small class="name-typed">打「${esc(e.typed)}」，已對到成員名單</small>` : ''}</span>
             <button type="button" class="btn-remove" data-remove="${i}" aria-label="移除 ${esc(e.name)}">×</button>
@@ -226,7 +258,10 @@
               </div>`}
             </div>`}
             ${SOURCES.length && e.known === false ? sourceHtml(e, i) : ''}
-            ${duty.meal ? mealRow(e, i) : ''}
+            ${duty.meal ? areaRow(e, i) + mealRow(e, i) + (duty.layout === '職司表' ? '' : `<label class="option-row note-row">
+              <span class="option-label">備註</span>
+              <input class="input" data-signup-note="${i}" maxlength="100" value="${esc(e.signupNote || '')}" placeholder="選填，例：會晚到、要先走" aria-label="${esc(e.name)} 的備註">
+            </label>`) : ''}
             ${duty.positions.length > 1 ? (e.custom ? `<div class="option-row">
               <span class="option-label">項目</span>
               <div>
@@ -260,6 +295,8 @@
           ${missing ? '<p class="name-missing">請選擇道親、壇辦或未求道</p>' : ''}
           ${posMissing ? '<p class="name-missing">請選這個人的項目</p>' : ''}
           ${srcMissing ? `<p class="name-missing">${esc(sourceProblem(e))}</p>` : ''}
+          ${areaMissing ? '<p class="name-missing">請選區別</p>' : ''}
+          ${mealMissing ? '<p class="name-missing">請選要不要一起吃飯</p>' : ''}
         </li>`;
       }).join('');
       renderLeader();
@@ -309,7 +346,7 @@
       const known = identity !== undefined ? identity : knownIdentity.get(name + '|');
       const fixed = KNOWN_IDENTITIES.indexOf(known) !== -1 ? known : '';
       // 項目先用上面選的；之後可以在名字卡各自改（custom＝改過，上面再改就不跟著變）
-      const entry = { name, temple, identity: fixed, accompany: false, locked: !!fixed, positionIds: perPerson ? new Set() : new Set(state.positionIds), custom: perPerson, known: fromSuggest ? true : undefined };
+      const entry = { name, temple, area: duty.meal ? areaGet(name) : '', identity: fixed, accompany: false, locked: !!fixed, positionIds: perPerson ? new Set() : new Set(state.positionIds), custom: perPerson, known: fromSuggest ? true : undefined };
       state.entries.push(entry);
       hideError();
       renderNames();
@@ -526,6 +563,16 @@
         state.showMissing = true;
         renderNames();
       }
+      if (state.entries.some((e) => areaProblem(e))) {
+        problems.push('請選每個人的區別');
+        state.showMissing = true;
+        renderNames();
+      }
+      if (state.entries.some(mealUnset)) {
+        problems.push('請選每個人要不要一起吃飯');
+        state.showMissing = true;
+        renderNames();
+      }
       const mealWhy = duty.meal && !mealClosedDate() ? state.entries.filter((e) => e.meal).map((e) => MealUI.problem(duty, e)).find(Boolean) : '';
       if (mealWhy) {
         problems.push(SELF_ORDER ? '會一起吃飯的人，' + mealWhy : '會一起吃飯的人，請選' + (duty.mealOptions || []).map((g) => '「' + g.name + '」').join(''));
@@ -559,7 +606,7 @@
         dates: Array.from(state.dates).sort(),
         entries: state.entries.map((e) => ({ name: e.name, temple: e.temple || '', identity: e.identity, accompany: e.accompany,
           meal: !!duty.meal && !!e.meal && !mealClosedDate(), mealChoice: duty.meal && e.meal && !SELF_ORDER ? e.mealChoice || {} : {}, mealOrder: duty.meal && e.meal && SELF_ORDER ? MealUI.orderPayload(e.mealOrder) : undefined, mealNote: duty.meal && e.meal ? String(e.mealNote || '').trim() : '', source: e.known === false ? e.source || '' : '', referrer: e.known === false && e.source === '朋友介紹' ? normalize(e.referrer) : '',
-          sourceNote: e.known === false && e.source === '其他' ? normalize(e.sourceNote) : '', birthday: e.known === false ? e.birthday || '' : '', leader: !!duty.leaderTitle && !e.accompany && e.name === state.leader, note: duty.layout === '職司表' ? String(e.note || '').trim() : '', positionIds: duty.positions.filter((p) => e.positionIds.has(p.id)).map((p) => p.id) }))
+          sourceNote: e.known === false && e.source === '其他' ? normalize(e.sourceNote) : '', birthday: e.known === false ? e.birthday || '' : '', leader: !!duty.leaderTitle && !e.accompany && e.name === state.leader, area: duty.meal ? normalize(e.area) : '', signupNote: duty.meal && duty.layout !== '職司表' ? String(e.signupNote || '').trim() : '', note: duty.layout === '職司表' ? String(e.note || '').trim() : '', positionIds: duty.positions.filter((p) => e.positionIds.has(p.id)).map((p) => p.id) }))
       };
       // 每個人報的項目不一樣時，成功訊息逐人列出
       const same = payload.entries.every((e) => e.positionIds.join() === payload.entries[0].positionIds.join());
@@ -757,8 +804,16 @@
         if (extra) extra.focus();
         return;
       }
+      if (t.dataset.area !== undefined) {
+        const e = state.entries[Number(t.dataset.area)];
+        e.area = t.value;
+        if (t.value !== '其他') areaSet(e.name, t.value);
+        renderNames();
+        if (t.value === '其他') { const o = form.querySelector('[data-area-other="' + t.dataset.area + '"]'); if (o) o.focus(); }
+        return;
+      }
       if (t.dataset.meal !== undefined) {
-        state.entries[Number(t.dataset.meal)].meal = t.checked;
+        state.entries[Number(t.dataset.meal)].meal = t.value === 'yes';
         renderNames(); // 勾了才出現點餐、備註、菜單、付款
         return;
       }
@@ -790,6 +845,12 @@
       if (t.dataset.sourceNote !== undefined) state.entries[Number(t.dataset.sourceNote)].sourceNote = t.value;
       if (t.dataset.birthday !== undefined) state.entries[Number(t.dataset.birthday)].birthday = t.value;
       if (t.dataset.mealNote !== undefined) state.entries[Number(t.dataset.mealNote)].mealNote = t.value;
+      if (t.dataset.signupNote !== undefined) state.entries[Number(t.dataset.signupNote)].signupNote = t.value;
+      if (t.dataset.areaOther !== undefined) {
+        const e = state.entries[Number(t.dataset.areaOther)];
+        e.area = t.value.trim() || '其他';
+        if (t.value.trim()) areaSet(e.name, t.value.trim());
+      }
     });
     // 自己點：打字不重畫，只更新小計和餐費
     if (duty.meal && SELF_ORDER) {

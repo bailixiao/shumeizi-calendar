@@ -2423,6 +2423,15 @@ button.veg-chip:hover { border-color: var(--ok); }
 .shop-three-hint { grid-column: 1 / -1; color: var(--muted); margin-left: 0 !important; }
 .shop-three .shop-stock-limit { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: flex-start; }
 .shop-three .shop-stock-limit input { flex: none; }
+/* LINE Pay、浮動 IG／LINE（2026/11/4） */
+.shop-linepay { margin: 12px 0; }
+.shop-linepay-btn { background: #06c755; border-color: #06c755; color: #fff; font-weight: 700; }
+.shop-linepay .hint { margin-top: 6px; }
+.shop-float { position: fixed; right: 10px; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 30; display: grid; gap: 10px; }
+.shop-float-btn { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; color: #fff; text-decoration: none; box-shadow: 0 3px 10px rgba(0,0,0,.25); }
+.shop-float-btn.is-ig { background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fd5949 45%, #d6249f 60%, #285aeb 90%); }
+.shop-float-btn.is-line { background: #06c755; }
+.shop-float-line { font: 800 .72rem/1 system-ui, sans-serif; letter-spacing: .02em; }
 /* 領貨方式（2026/11/3） */
 .shop-method-seg { flex-wrap: wrap; }
 .shop-method-one { margin: 0; font-weight: 700; }
@@ -2437,6 +2446,10 @@ button.veg-chip:hover { border-color: var(--ok); }
 .shop-spot { display: grid; gap: 6px; padding: 8px 0 10px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
 .shop-spot label span { display: block; font-size: .85rem; color: var(--muted); }
 .shop-spot .btn { justify-self: start; }
+.shop-spot-label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 4px; }
+.shop-spot-dates { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.shop-spot-date { display: inline-flex; align-items: center; gap: 2px; }
+.shop-spot-date .input { width: auto; }
 .shop-order-where { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0; }
 .shop-order-where .tel-btn { margin-top: 0; }
 /* 🔥 強力推薦商品（2026/11/3） */

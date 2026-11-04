@@ -333,7 +333,7 @@ function ledgerSyncOrder_(o) {
   var note = '團購：' + o['姓名'] + (g ? '（' + g['名稱'] + '）' : '');
   var amount = Number(o['金額']) || 0;
   var today = todayString_();
-  ledgerUpsertAuto_('O:' + o['訂單ID'] + ':paid', paid ? { date: today, type: '收入', account: o['付款方式'] === '轉帳' ? '銀行存款' : '零用金', category: '銷貨收入', amount: amount, note: note } : null);
+  ledgerUpsertAuto_('O:' + o['訂單ID'] + ':paid', paid ? { date: today, type: '收入', account: o['付款方式'] === '轉帳' || o['付款方式'] === 'LINE Pay' ? '銀行存款' : '零用金', category: '銷貨收入', amount: amount, note: note } : null);
   ledgerUpsertAuto_('O:' + o['訂單ID'] + ':due', due ? { date: today, type: '收入', account: '應收帳款', category: '銷貨收入', amount: amount, note: note + '（還沒付款）' } : null);
 }
 

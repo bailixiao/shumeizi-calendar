@@ -8,7 +8,7 @@
  *   - 轉帳帳號等付款說明存在「團購」分頁，只在下單後與查我的訂單顯示，不寫進程式碼。
  */
 
-var SHOP_PAY = ['現場', '轉帳'];
+var SHOP_PAY = ['現場', '轉帳', 'LINE Pay']; // LINE Pay：2026/11/4（送出後按按鈕去付款，小編再打勾已付款）
 var SHOP_MAX_QTY = 99;
 var SHOP_GROUP_STATUS = ['開放', '結束'];
 var SHOP_METHODS = ['出攤', '自取', '配送']; // 領貨方式（2026/11/3）：植素園出攤領貨、自取、配送
@@ -19,11 +19,19 @@ function shopMethods_(g) {
   return list.length ? list : ['出攤'];
 }
 
-/** 自取地點：[{ name, address, note }] */
+/** 自取地點：[{ name, address, note, dates }]；dates＝可以自取的日期（2026/11/4，空的＝不用選日期） */
 function shopSpots_(g) {
   return shopJson_(g['自取地點'], []).filter(function (s) { return s && s.name; })
-    .map(function (s) { return { name: String(s.name), address: String(s.address || ''), note: String(s.note || '') }; });
+    .map(function (s) { return { name: String(s.name), address: String(s.address || ''), note: String(s.note || ''), dates: shopDates_(s.dates) }; });
 }
+
+/** 日期清單：只留 yyyy-MM-dd、去重複、排好 */
+function shopDates_(list) {
+  return (Array.isArray(list) ? list : []).map(String).filter(function (d, i, arr) { return /^\d{4}-\d{2}-\d{2}$/.test(d) && arr.indexOf(d) === i; }).sort();
+}
+
+/** '2026-11-20' → '11/20' */
+function shopMd_(d) { return d ? Number(d.slice(5, 7)) + '/' + Number(d.slice(8, 10)) : ''; }
 
 /** 電話：去掉空白和 - */
 function shopPhone_(p) { return String(p || '').replace(/[\s-]/g, ''); }
@@ -192,6 +200,12 @@ function shopValidate_(ctx, input) {
   if (g.methods && g.methods.indexOf(method) === -1) errors.push({ message: '這次團購不能用「' + method + '」，請重新選領貨方式' });
   else if (method === '出攤' && g.pickups.length && !g.pickups.some(function (p) { return p.id === input.pickupId; })) errors.push({ message: '請選取貨場次' });
   else if (method === '自取' && !(g.spots || []).some(function (s) { return s.name === input.spot; })) errors.push({ message: '請選自取地點' });
+  else if (method === '自取') {
+    // 這個地點有設日期：要選其中一天；大家不能選已經過去的（原本那張的日期照舊可以）
+    var sp = g.spots.filter(function (s) { return s.name === input.spot; })[0];
+    if (sp.dates.length && sp.dates.indexOf(input.spotDate) === -1) errors.push({ message: '請選哪一天自取' });
+    else if (sp.dates.length && !ctx.admin && input.spotDate < String(ctx.now).slice(0, 10) && input.spotDate !== input.keepDate) errors.push({ message: '這天已經過了，請選別天自取' });
+  }
   else if (method === '配送' && String(input.address || '').trim().length < 5) errors.push({ message: '配送請填地址' });
   if (String(input.address || '').length > 120) errors.push({ message: '地址太長（最多 120 字）' });
   var items = Array.isArray(input.items) ? input.items : [];
@@ -234,7 +248,7 @@ function shopValidate_(ctx, input) {
     }
   });
   if (!total) errors.push({ message: '請至少選一樣商品' });
-  if (SHOP_PAY.indexOf(input.pay) === -1) errors.push({ message: '請選付款方式（付現或轉帳）' });
+  if (SHOP_PAY.indexOf(input.pay) === -1) errors.push({ message: '請選付款方式（付現、轉帳或 LINE Pay）' });
   if (input.last5 && !/^\d{5}$/.test(String(input.last5))) errors.push({ message: '轉帳末五碼要是 5 個數字' });
   return errors;
 }
@@ -246,7 +260,7 @@ function shopOrderOut_(o, group, withPay, admin) {
     items: shopJson_(o['品項'], []), total: Number(o['金額']) || 0, discounts: shopJson_(o['優惠'], []), pay: o['付款方式'], last5: o['末五碼'] || '',
     paid: o['已付款'] === '是', picked: o['已取貨'] === '是', confirmed: o['已確認'] === '是', status: o['狀態'] || '有效', note: o['備註'] || '',
     transferDate: o['匯款日期'] || '', web: o['來源'] === '團購網頁', // 團購網頁的客人
-    method: o['領貨方式'] || '出攤', spot: o['自取地點'] || '', deliveryTime: o['方便時間'] || '', // 領貨方式（2026/11/3）
+    method: o['領貨方式'] || '出攤', spot: o['自取地點'] || '', spotDate: o['自取日期'] || '', deliveryTime: o['方便時間'] || '', // 領貨方式（2026/11/3）、自取日期（2026/11/4）
     createdAt: o['建立時間'], updatedAt: o['更新時間']
   };
   if (admin) { out.phone = String(o['手機'] || ''); out.address = o['地址'] || ''; }
@@ -326,7 +340,8 @@ function shopOrder_(body, opts) {
       existing = mine.filter(function (o) { return o['訂單ID'] === body.orderId; })[0];
       if (!existing) throw new ApiError_('NOT_FOUND', '找不到這張訂單（名字要和下單時一樣）');
     } else if (body.mode === 'add') { // 購物車結帳：加進付款方式、領貨方式都一樣、還沒取貨的那張；沒有就另外開一張
-      existing = mine.filter(function (o) { return o['付款方式'] === body.pay && (o['領貨方式'] || '出攤') === (body.method || '出攤') && o['已取貨'] !== '是' && o['已確認'] !== '是'; })[0] || null;
+      // 自取還要地點、日期一樣（2026/11/4）
+      existing = mine.filter(function (o) { return o['付款方式'] === body.pay && (o['領貨方式'] || '出攤') === (body.method || '出攤') && (body.method !== '自取' || (o['自取地點'] === body.spot && (o['自取日期'] || '') === (body.spotDate || ''))) && o['已取貨'] !== '是' && o['已確認'] !== '是'; })[0] || null;
     } else existing = mine[0] || null;
     if (existing && existing['狀態'] === '已取消') existing = null;
     if (existing && existing['已取貨'] === '是' && !admin) throw new ApiError_('FORBIDDEN', '這張訂單已經取貨了，要改請找小編');
@@ -349,6 +364,7 @@ function shopOrder_(body, opts) {
     var method = body.method || (existing ? existing['領貨方式'] || '出攤' : view.methods.indexOf('出攤') !== -1 ? '出攤' : view.methods[0]);
     var address = method !== '配送' ? '' : body.address !== undefined ? cleanText_(body.address) : existing ? existing['地址'] || '' : '';
     var input = { method: method, spot: method === '自取' ? String(body.spot || (existing ? existing['自取地點'] : '') || '') : '', address: address,
+      spotDate: method === '自取' ? String((body.spotDate !== undefined && body.spotDate !== null ? body.spotDate : existing ? existing['自取日期'] : '') || '') : '', keepDate: existing ? String(existing['自取日期'] || '') : '',
       pickupId: method !== '出攤' ? '' : body.pickupId || (existing && body.mode === 'add' && !body.pickupId ? existing['取貨活動ID'] : ''), items: items, pay: body.pay, last5: body.last5 ? String(body.last5).trim() : '' };
     // 電話：團購網頁＝手機（身分）；行事曆的人選自取、配送一定要填（tel）
     var tel = who.web ? who.phone : shopPhone_(body.tel) || (existing ? shopPhone_(existing['手機']) : ''); // 改數量沒帶電話＝照原本那張
@@ -380,11 +396,12 @@ function shopOrder_(body, opts) {
       // 沒有設取貨場次的團購（2026/10/10）：取貨活動、日期空白
       '姓名': who.name, '取貨活動ID': pickup ? pickup.id : '', '取貨日期': pickup ? pickup.date : '', '品項': JSON.stringify(lines), '金額': String(total), '優惠': promo.discounts.length ? JSON.stringify(promo.discounts) : '',
       '付款方式': input.pay, '末五碼': input.pay === '轉帳' ? (input.last5 || (existing ? existing['末五碼'] : '') || '') : '', '更新時間': now,
+      '自取日期': input.spot && view.spots.some(function (s) { return s.name === input.spot && s.dates.length; }) ? input.spotDate : '',
       '領貨方式': method, '自取地點': input.spot, '地址': address, '方便時間': method === '配送' ? cleanText_(body.deliveryTime !== undefined ? body.deliveryTime : existing ? existing['方便時間'] : '').slice(0, 40) : ''
     };
     if (tel) values['手機'] = tel;
     if (admin && body.note !== undefined) values['備註'] = cleanText_(body.note).slice(0, 100);
-    var summary = who.name + '｜' + g['名稱'] + '｜' + lines.map(function (l) { return l.name + '×' + l.qty; }).join('、') + '｜' + total + ' 元' + (promo.discounts.length ? '（優惠 -' + (promo.discounts.reduce(function (n, d) { return n + d.discount; }, 0)) + '）' : '') + '｜' + (pickup ? pickup.date + ' ' + pickup.name + '｜' : method === '自取' ? '自取 ' + input.spot + '｜' : method === '配送' ? '配送｜' : '') + input.pay;
+    var summary = who.name + '｜' + g['名稱'] + '｜' + lines.map(function (l) { return l.name + '×' + l.qty; }).join('、') + '｜' + total + ' 元' + (promo.discounts.length ? '（優惠 -' + (promo.discounts.reduce(function (n, d) { return n + d.discount; }, 0)) + '）' : '') + '｜' + (pickup ? pickup.date + ' ' + pickup.name + '｜' : method === '自取' ? '自取 ' + input.spot + (input.spotDate ? ' ' + input.spotDate : '') + '｜' : method === '配送' ? '配送｜' : '') + input.pay;
     var row;
     if (existing) {
       var before = rowSnapshot_(SHEETS.SHOP_ORDERS, existing);
@@ -577,9 +594,15 @@ function adminShopGroup_(body) {
   var buckets = (view.pickups.length ? view.pickups : [null]).map(function (p) {
     return { key: p ? p.id : '', pickup: p, label: '', match: function (o) { return isPickup(o) && (!p || o['取貨活動ID'] === p.id); } };
   });
-  var spotNames = view.spots.map(function (s) { return s.name; });
-  active.forEach(function (o) { if (o['領貨方式'] === '自取' && spotNames.indexOf(o['自取地點']) === -1) spotNames.push(o['自取地點']); });
-  spotNames.forEach(function (n) { buckets.push({ key: 'spot:' + n, pickup: null, label: '🏠 自取：' + n, match: function (o) { return o['領貨方式'] === '自取' && o['自取地點'] === n; } }); });
+  // 自取：每個地點一區；地點有設日期＝每一天一區（2026/11/4）；訂單的地點、日期已經拿掉的也列
+  var spotKeys = [];
+  var addSpot = function (n, d) { if (!spotKeys.some(function (x) { return x.n === n && x.d === d; })) spotKeys.push({ n: n, d: d }); };
+  view.spots.forEach(function (s) { (s.dates.length ? s.dates : ['']).forEach(function (d) { addSpot(s.name, d); }); });
+  active.forEach(function (o) { if (o['領貨方式'] === '自取') addSpot(o['自取地點'], String(o['自取日期'] || '')); });
+  spotKeys.forEach(function (x) {
+    buckets.push({ key: 'spot:' + x.n + (x.d ? '|' + x.d : ''), pickup: null, spotDate: x.d, label: '🏠 自取：' + x.n + (x.d ? ' ' + shopMd_(x.d) : ''),
+      match: function (o) { return o['領貨方式'] === '自取' && o['自取地點'] === x.n && String(o['自取日期'] || '') === x.d; } });
+  });
   buckets.push({ key: 'delivery', pickup: null, label: '🚚 配送', match: function (o) { return o['領貨方式'] === '配送'; } });
   // 自取、配送有訂單才列；出攤的場次照舊都列（這團沒有出攤又沒有出攤的訂單就不列）
   buckets = buckets.filter(function (b) { return b.label ? active.some(b.match) : view.methods.indexOf('出攤') !== -1 || active.some(b.match); });
@@ -597,7 +620,7 @@ function adminShopGroup_(body) {
       });
     });
     return {
-      key: b.key, pickup: p, label: b.label, orders: list.length, total: list.reduce(function (n, o) { return n + (Number(o['金額']) || 0); }, 0),
+      key: b.key, pickup: p, label: b.label, spotDate: b.spotDate || '', orders: list.length, total: list.reduce(function (n, o) { return n + (Number(o['金額']) || 0); }, 0),
       items: rows
     };
   });
@@ -791,10 +814,12 @@ function adminShopSaveGroup_(body) {
       var sn = cleanText_(s && s.name).slice(0, 20);
       var sa = cleanText_(s && s.address).slice(0, 100);
       var so = cleanText_(s && s.note).slice(0, 40);
-      if (!sn && !sa && !so) return;
+      var sd = shopDates_(s && s.dates);
+      if (!sn && !sa && !so && !sd.length) return;
       if (!sn) errors.push('自取地點請填名稱（例：竹北）');
       else if (spots.some(function (x) { return x.name === sn; })) errors.push('自取地點「' + sn + '」重複了');
-      else spots.push({ name: sn, address: sa, note: so });
+      else if (sd.length > 30) errors.push('「' + sn + '」的自取日期太多了（最多 30 天）');
+      else spots.push(sd.length ? { name: sn, address: sa, note: so, dates: sd } : { name: sn, address: sa, note: so });
     });
     if (!spots.length) errors.push('勾了自取，請至少填一個自取地點');
   }
@@ -915,7 +940,8 @@ function adminShopOrderSet_(body) {
       if (g) {
         var view = shopGroupView_(g, readTable_(SHEETS.SHOP_PRODUCTS), orders);
         var errs = shopValidate_({ group: view, sold: shopSold_(orders, g['團購ID'], o['訂單ID']), now: shopNowMinute_(), admin: true },
-          { pickupId: o['取貨活動ID'], items: shopJson_(o['品項'], []), pay: o['付款方式'], last5: o['末五碼'] });
+          { pickupId: o['取貨活動ID'], items: shopJson_(o['品項'], []), pay: o['付款方式'], last5: o['末五碼'],
+            method: o['領貨方式'] || '出攤', spot: o['自取地點'] || '', spotDate: o['自取日期'] || '', address: o['地址'] || '' });
         if (errs.length) throw new ApiError_('VALIDATION', '沒有恢復', errs);
       }
     }

@@ -74,7 +74,7 @@ async function seedDemo(call, get) {
     bank: { bank: '測試銀行', branch: '示範分行', account: '000-0000000-000', holder: '示範帳戶' },
     web: true, // 也放到團購網頁（植素園happy購）
     methods: ['出攤', '自取', '配送'], deliveryNote: '（示範）新竹市區配送，小編會再跟你約時間',
-    spots: [{ name: '示範站A', address: '測試市示範路1號', note: '晚上六點後' }, { name: '示範站B', address: '測試市範例街2號', note: '晚上六點後' }],
+    spots: [{ name: '示範站A', address: '測試市示範路1號', note: '晚上六點後', dates: [sun, sun2] }, { name: '示範站B', address: '測試市範例街2號', note: '晚上六點後' }],
     items: [{ id: tofu, price: '', limit: '', perPerson: '' }, { id: jam, price: '', limit: '10', perPerson: '2', featured: true }, { id: bread, price: '', limit: '', perPerson: '' }]
   } });
   if (!g.ok) throw new Error('示範團購建立失敗：' + JSON.stringify(g.error));

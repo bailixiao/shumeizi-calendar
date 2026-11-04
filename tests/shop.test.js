@@ -908,3 +908,34 @@ test('領貨方式：出攤、自取、配送；電話、地址只給後台；�
   const mineStr = JSON.stringify(ok(env.post({ action: 'shopMyOrders', name: '測試乙', all: true })));
   assert.equal(/0912000222|幸福路/.test(mineStr), false);
 });
+
+test('自取日期：每個地點各自設，要選其中一天；備貨清單依地點＋日期分區', () => {
+  const { call, ok, gid, ids, tofu, order } = setup();
+  const g = ok(call('adminShopGroup', { id: gid })).group;
+  ok(call('adminShopSaveGroup', { group: { id: gid, name: g.name, deadline: g.deadline, pickups: ids, payInfo: g.payInfo, items: g.itemSettings, methods: ['自取'],
+    spots: [{ name: '竹北', address: '測試市測試路1號', note: '晚上六點後', dates: ['2099-01-09', '2099-01-02', '2099-01-02', 'x'] }, { name: '新竹', address: '測試市測試街2號', note: '' }] } }));
+  const view = ok(call('adminShopGroup', { id: gid })).group;
+  assert.deepEqual(view.spots.map((s) => s.dates), [['2099-01-02', '2099-01-09'], []], '日期排好、去重複');
+  const base = { source: '官網', method: '自取', tel: '0912000111', items: [{ id: tofu.id, qty: 1 }] };
+  assert.equal(order(Object.assign({ name: '測試甲', spot: '竹北' }, base)).error.code, 'VALIDATION', '沒選日期');
+  assert.equal(order(Object.assign({ name: '測試甲', spot: '竹北', spotDate: '2099-01-03' }, base)).error.code, 'VALIDATION', '不在清單');
+  const a = ok(order(Object.assign({ name: '測試甲', spot: '竹北', spotDate: '2099-01-09' }, base))).order;
+  assert.equal(a.spotDate, '2099-01-09');
+  const b = ok(order(Object.assign({ name: '測試乙', spot: '新竹', spotDate: '2099-01-09' }, base))).order;
+  assert.equal(b.spotDate, '', '沒設日期的地點不存日期');
+  // 同一個人換一天＝另外一張；同一天＝加進去
+  const a2 = ok(order(Object.assign({ name: '測試甲', spot: '竹北', spotDate: '2099-01-02', mode: 'add' }, base))).order;
+  assert.notEqual(a2.id, a.id);
+  const a3 = ok(order(Object.assign({ name: '測試甲', spot: '竹北', spotDate: '2099-01-02', mode: 'add' }, base)));
+  assert.equal(a3.order.id, a2.id);
+  const adm = ok(call('adminShopGroup', { id: gid }));
+  assert.deepEqual(adm.prep.map((p) => [p.key, p.label, p.orders]), [
+    ['spot:竹北|2099-01-02', '🏠 自取：竹北 1/2', 1], ['spot:竹北|2099-01-09', '🏠 自取：竹北 1/9', 1], ['spot:新竹', '🏠 自取：新竹', 1]]);
+});
+
+test('LINE Pay：可以選，沒有末五碼', () => {
+  const { ok, tofu, order } = setup();
+  const o = ok(order({ name: '測試甲', source: '官網', items: [{ id: tofu.id, qty: 1 }], pay: 'LINE Pay', last5: '12345' })).order;
+  assert.deepEqual([o.pay, o.last5], ['LINE Pay', '']);
+  assert.equal(order({ name: '測試乙', source: '官網', items: [{ id: tofu.id, qty: 1 }], pay: '信用卡' }).error.code, 'VALIDATION');
+});

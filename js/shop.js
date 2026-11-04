@@ -25,7 +25,7 @@
   let root = null;
   let token = 0;
   // 結帳表單（換團購時清掉）
-  const form = { groupId: '', method: '', spot: '', address: '', deliveryTime: '', pickupId: '', pay: '現場', last5: '', name: '', phone: '', known: WEB ? true : undefined, source: '', referrer: '', sourceNote: '', birthday: '', existing: null };
+  const form = { groupId: '', method: '', spot: '', spotDate: '', address: '', deliveryTime: '', pickupId: '', pay: '現場', last5: '', name: '', phone: '', known: WEB ? true : undefined, source: '', referrer: '', sourceNote: '', birthday: '', existing: null };
 
   const money = (n) => `${Number(n || 0).toLocaleString('zh-TW')} 元`;
   const pickupText = (p) => `${Fmt.shortDate(p.date)}${p.startTime ? ' ' + p.startTime : ''}　${p.location || p.name}`;
@@ -39,14 +39,24 @@
   const savedPhone = () => store.get(PHONE_KEY) || '';
   const savePhone = (p) => { if (p) store.set(PHONE_KEY, p); };
   const savedAddr = () => store.get(ADDR_KEY) || '';
-  /** 客服 LINE@ 按鈕（結帳、下單完成、我的訂單最下面） */
+  /** 客服 LINE@ 按鈕（下單完成、我的訂單最下面；購物車不放，2026/11/4：有人按了客服就沒送出訂單） */
   const lineCard = () => window.SITE.shopLine ? `<div class="shop-line">
       <a class="btn btn-block shop-line-btn" href="${esc(window.SITE.shopLine.url)}" target="_blank" rel="noopener">💬 ${esc(window.SITE.shopLine.name)}</a>
       <p>有任何問題歡迎洽詢客服</p>
     </div>` : '';
   /** 訂單怎麼領貨（給買的人看） */
-  const whereText = (o) => o.method === '自取' ? `🏠 自取：${esc(o.spot)}${o.spotInfo ? '　' + esc(o.spotInfo.address) + (o.spotInfo.note ? '（' + esc(o.spotInfo.note) + '）' : '') : ''}`
+  const whereText = (o) => o.method === '自取' ? `🏠 自取：${esc(o.spot)}${o.spotDate ? ' ' + esc(Fmt.shortDate(o.spotDate)) : ''}${o.spotInfo ? '　' + esc(o.spotInfo.address) + (o.spotInfo.note ? '（' + esc(o.spotInfo.note) + '）' : '') : ''}`
     : o.method === '配送' ? `🚚 配送${o.deliveryTime ? '（' + esc(o.deliveryTime) + '）' : ''}，小編會再跟你聯絡` : o.pickup ? '📦 ' + esc(pickupText(o.pickup)) + ' 取貨' : '';
+  /** 選的自取地點；那個地點今天以後可以自取的日期（2026/11/4） */
+  const spotOf = (g) => g.spots.find((s) => s.name === form.spot);
+  const spotDates = (g, now) => { const s = spotOf(g); return s ? s.dates.filter((d) => d >= String(now || '').slice(0, 10)) : []; };
+  /** 付款方式的字：轉帳／LINE Pay／付現（配送＝貨到付現） */
+  const payText = (o, cash) => o.pay === '轉帳' ? '轉帳' : o.pay === 'LINE Pay' ? 'LINE Pay' : cash || '付現';
+  /** LINE Pay 付款按鈕（下單完成、我的訂單還沒付款的） */
+  const linePayCard = (o) => window.SITE.linePay ? `<div class="shop-linepay">
+      <a class="btn btn-block shop-linepay-btn" href="${esc(window.SITE.linePay)}" target="_blank" rel="noopener">💚 用 LINE Pay 付 ${money(o.total)}</a>
+      <p class="hint">金額請自己輸入 ${money(o.total)}；付好小編對帳後會改成「已付款」。</p>
+    </div>` : '';
   const cleanPhone = (p) => String(p || '').replace(/[\s-]/g, '');
   const phoneOk = (p) => /^09\d{8}$/.test(cleanPhone(p));
 
@@ -192,7 +202,7 @@
     if (!g) return renderList(data, gid);
     if (g.link) return renderLinkGroup(g, data.now); // 賣貨便：只放按鈕連過去
     store.set(LAST_KEY, g.id);
-    if (form.groupId !== g.id) Object.assign(form, { groupId: g.id, method: g.methods[0], spot: g.spots.length === 1 ? g.spots[0].name : '', pickupId: g.pickups.length === 1 ? g.pickups[0].id : '', pay: '現場', last5: '', existing: null });
+    if (form.groupId !== g.id) Object.assign(form, { groupId: g.id, method: g.methods[0], spot: g.spots.length === 1 ? g.spots[0].name : '', spotDate: '', pickupId: g.pickups.length === 1 ? g.pickups[0].id : '', pay: '現場', last5: '', existing: null });
     if (parts[1] === 'p') {
       const it = g.items.find((x) => x.id === parts[2]);
       return it ? renderProduct(g, it, data.now) : renderStore(g, data.now);
@@ -207,11 +217,16 @@
   }
 
   /** 下方固定分頁列：商城／購物車（件數）／我的訂單 */
+  const SOCIAL_ICON = {
+    ig: '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="#fff" stroke-width="2"/><circle cx="12" cy="12" r="4.2" fill="none" stroke="#fff" stroke-width="2"/><circle cx="17.3" cy="6.7" r="1.3" fill="#fff"/></svg>',
+    line: '<span class="shop-float-line">LINE</span>'
+  };
   function tabbar(active, g) {
     const gid = g ? g.id : store.get(LAST_KEY) || '';
     const n = g ? cartCount(g) : 0;
     const tab = (key, href, icon, label, badge) => `<a class="shop-tab${active === key ? ' is-active' : ''}" href="${href}"${active === key ? ' aria-current="page"' : ''}><span class="shop-tab-icon" aria-hidden="true">${icon}${badge ? `<b class="shop-tab-badge">${badge}</b>` : ''}</span><span>${label}</span></a>`;
-    return `<nav class="shop-tabbar" aria-label="團購">
+    const social = WEB && active !== 'cart' && (window.SITE.shopSocial || []).length ? `<div class="shop-float" aria-label="追蹤植素園">${window.SITE.shopSocial.map((s) => `<a class="shop-float-btn is-${esc(s.kind)}" href="${esc(s.url)}" target="_blank" rel="noopener" aria-label="${esc(s.name)}" title="${esc(s.name)}">${SOCIAL_ICON[s.kind] || ''}</a>`).join('')}</div>` : '';
+    return `${social}<nav class="shop-tabbar" aria-label="團購">
       ${tab('store', gid ? `#/shop/${encodeURIComponent(gid)}` : '#/shop', '🏪', '商城')}
       ${tab('cart', gid ? `#/shop/${encodeURIComponent(gid)}/cart` : '#/shop', '🛒', '購物車', n)}
       ${tab('orders', '#/shop/orders', '📋', '我的訂單')}
@@ -401,6 +416,16 @@
           }).join('')}</ul>
           ${(() => { const pr = promoApply(lines, g.promos); return pr.discounts.length || pr.hints.length ? `<div class="shop-promo-box">${pr.discounts.length ? `<p class="shop-promo-row is-sub"><span>商品小計</span><span>${money(pr.subtotal)}</span></p>${promoRows(pr.discounts)}` : ''}${pr.hints.map((h) => `<p class="shop-promo-hint">💡 ${esc(h)}</p>`).join('')}</div>` : ''; })()}
         </section>
+        <section class="shop-step">
+          <h2><span class="step">${n()}</span>你的名字和電話</h2>
+          <input class="input" data-name maxlength="20" autocomplete="name" placeholder="例：王小明" value="${esc(form.name)}"${closed ? ' disabled' : ''} aria-label="名字">
+          ${WEB ? '' : '<div class="suggestions" data-suggestions></div>'}
+          <input class="input shop-phone" data-phone type="tel" inputmode="tel" maxlength="12" autocomplete="tel" placeholder="${WEB || form.method !== '出攤' ? '手機' : '手機（選填）'}，例：0912345678" value="${esc(form.phone)}"${closed ? ' disabled' : ''} aria-label="手機">
+          <p class="hint">${WEB ? '手機只給小編聯絡、查訂單用，網頁上不會顯示。' : '電話只給小編聯絡用，網頁上不會顯示。'}名字、電話${form.method === '配送' ? '、地址' : ''}會記在這支手機，下次不用再打。</p>
+          ${form.existing ? `<div class="notice shop-existing"><p>✏️ <strong>${esc(form.name)}</strong> 這次團購已經有一張${esc(payText(form.existing))}的訂單（${form.existing.items.map((x) => esc(x.name) + '×' + x.qty).join('、')}），這次的東西會<strong>加進原本那張</strong>。</p></div>`
+            : (form.mineHere || []).length ? `<div class="notice shop-existing"><p>🧾 <strong>${esc(form.name)}</strong> 原本那張是${esc(payText(form.mineHere[0]))}，這次選${esc(payText(form))}，會<strong>另外開一張訂單</strong>（付款分開對帳）。</p></div>` : ''}
+          ${sourceHtml()}
+        </section>
         ${g.methods.length > 1 || g.pickups.length || form.method !== '出攤' ? `<section class="shop-step">
           <h2><span class="step">${n()}</span>怎麼領貨</h2>
           ${g.methods.length > 1 ? `<div class="segmented shop-method-seg">${g.methods.map((m) => `<label class="segment${form.method === m ? ' is-checked' : ''}"><input type="radio" name="method" value="${m}"${form.method === m ? ' checked' : ''}${closed ? ' disabled' : ''}>${METHOD_LABEL[m]}</label>`).join('')}</div>` : `<p class="shop-method-one">${METHOD_LABEL[form.method]}</p>`}
@@ -408,25 +433,17 @@
             <span class="choice-main">${esc(Fmt.shortDate(p.date))}${p.startTime ? ' ' + esc(p.startTime) : ''}</span><span class="choice-sub">📍 ${esc(p.location || p.name)}</span></label>`).join('')}</div>` : ''}
           ${form.method === '出攤' && !g.pickups.length ? '<p class="hint">在植素園出攤的時候取貨，時間地點小編會公布。</p>' : ''}
           ${form.method === '自取' ? `<p class="hint">選在哪裡自取</p><div class="shop-pickups">${g.spots.map((s) => `<label class="choice${form.spot === s.name ? ' is-checked' : ''}"><input type="radio" name="spot" value="${esc(s.name)}"${form.spot === s.name ? ' checked' : ''}${closed ? ' disabled' : ''}>
-            <span class="choice-main">${esc(s.name)}${s.note ? `<small>　🕕 ${esc(s.note)}</small>` : ''}</span>${s.address ? `<span class="choice-sub">📍 ${esc(s.address)}</span>` : ''}</label>`).join('')}</div>` : ''}
+            <span class="choice-main">${esc(s.name)}${s.note ? `<small>　🕕 ${esc(s.note)}</small>` : ''}</span>${s.address ? `<span class="choice-sub">📍 ${esc(s.address)}</span>` : ''}</label>`).join('')}</div>
+          ${(() => { const ds = spotDates(g, now); return ds.length ? `<p class="hint">選哪一天自取</p><div class="shop-pickups shop-spot-dates">${ds.map((d) => `<label class="choice${form.spotDate === d ? ' is-checked' : ''}"><input type="radio" name="spotDate" value="${esc(d)}"${form.spotDate === d ? ' checked' : ''}${closed ? ' disabled' : ''}><span class="choice-main">${esc(Fmt.shortDate(d))}</span></label>`).join('')}</div>` : spotOf(g) && spotOf(g).dates.length ? '<p class="hint">這個地點的自取日期都過了，請選別的地點或問小編。</p>' : ''; })()}` : ''}
           ${form.method === '配送' ? `${g.deliveryNote ? `<p class="hint">${esc(g.deliveryNote)}</p>` : ''}
           <label class="form-row"><span>配送地址</span><input class="input" data-address maxlength="120" autocomplete="street-address" placeholder="例：新竹市○○路○號○樓" value="${esc(form.address)}"${closed ? ' disabled' : ''}></label>
           <label class="form-row"><span>方便收貨的時間（選填）</span><input class="input" data-dtime maxlength="40" placeholder="例：平日晚上七點後" value="${esc(form.deliveryTime)}"${closed ? ' disabled' : ''}></label>
           <p class="hint">配送不收運費。</p>` : ''}
         </section>` : ''}
         <section class="shop-step">
-          <h2><span class="step">${n()}</span>你的名字和電話</h2>
-          <input class="input" data-name maxlength="20" autocomplete="name" placeholder="例：王小明" value="${esc(form.name)}"${closed ? ' disabled' : ''} aria-label="名字">
-          ${WEB ? '' : '<div class="suggestions" data-suggestions></div>'}
-          <input class="input shop-phone" data-phone type="tel" inputmode="tel" maxlength="12" autocomplete="tel" placeholder="${WEB || form.method !== '出攤' ? '手機' : '手機（選填）'}，例：0912345678" value="${esc(form.phone)}"${closed ? ' disabled' : ''} aria-label="手機">
-          <p class="hint">${WEB ? '手機只給小編聯絡、查訂單用，網頁上不會顯示。' : '電話只給小編聯絡用，網頁上不會顯示。'}名字、電話${form.method === '配送' ? '、地址' : ''}會記在這支手機，下次不用再打。</p>
-          ${form.existing ? `<div class="notice shop-existing"><p>✏️ <strong>${esc(form.name)}</strong> 這次團購已經有一張${esc(form.existing.pay === '轉帳' ? '轉帳' : '付現')}的訂單（${form.existing.items.map((x) => esc(x.name) + '×' + x.qty).join('、')}），這次的東西會<strong>加進原本那張</strong>。</p></div>`
-            : (form.mineHere || []).length ? `<div class="notice shop-existing"><p>🧾 <strong>${esc(form.name)}</strong> 原本那張是${esc(form.mineHere[0].pay === '轉帳' ? '轉帳' : '付現')}，這次選${esc(form.pay === '轉帳' ? '轉帳' : '付現')}，會<strong>另外開一張訂單</strong>（付款分開對帳）。</p></div>` : ''}
-          ${sourceHtml()}
-        </section>
-        <section class="shop-step">
           <h2><span class="step">${n()}</span>怎麼付款</h2>
-          <div class="segmented">${[['現場', form.method === '配送' ? '💵 貨到付現' : '💵 取貨時付現'], ['轉帳', '🏦 轉帳']].map(([v, l]) => `<label class="segment${form.pay === v ? ' is-checked' : ''}"><input type="radio" name="pay" value="${v}"${form.pay === v ? ' checked' : ''}${closed ? ' disabled' : ''}>${l}</label>`).join('')}</div>
+          <div class="segmented">${[['現場', form.method === '配送' ? '💵 貨到付現' : '💵 取貨時付現'], ['轉帳', '🏦 轉帳']].concat(window.SITE.linePay ? [['LINE Pay', '💚 LINE Pay']] : []).map(([v, l]) => `<label class="segment${form.pay === v ? ' is-checked' : ''}"><input type="radio" name="pay" value="${v}"${form.pay === v ? ' checked' : ''}${closed ? ' disabled' : ''}>${l}</label>`).join('')}</div>
+          ${form.pay === 'LINE Pay' ? '<p class="hint">送出訂單後會出現 LINE Pay 付款按鈕。</p>' : ''}
           ${form.pay === '轉帳' ? `<p class="hint">${g.hasPayInfo ? '送出訂單後會顯示轉帳帳號，轉好在那裡填末五碼就好。' : '轉帳帳號請問小編。'}</p>` : ''}
         </section>
         <div class="form-error" data-error role="alert" hidden></div>
@@ -434,8 +451,7 @@
           <span class="shop-total"><small>共 ${cartCount(g)} 件</small><strong>${money(cartTotal(g))}</strong></span>
           <button type="submit" class="btn btn-primary" data-submit${closed ? ' disabled' : ''}>送出訂單</button>
         </div>
-      </form>
-      ${lineCard()}` : `${lineCard()}<div class="notice shop-empty"><p>購物車是空的</p><p><a class="btn btn-primary" href="#/shop/${encodeURIComponent(g.id)}">去逛逛 ›</a></p></div>`}
+      </form>` : `<div class="notice shop-empty"><p>購物車是空的</p><p><a class="btn btn-primary" href="#/shop/${encodeURIComponent(g.id)}">去逛逛 ›</a></p></div>`}
       </div>
       ${tabbar('cart', g)}`;
     if (lines.length) bindCart(g, now);
@@ -458,7 +474,8 @@
     f.querySelectorAll('[data-cart-del]').forEach((b) => b.addEventListener('click', () => setQty(Number(b.dataset.cartDel), null)));
     f.querySelectorAll('input[name=pickup]').forEach((r) => r.addEventListener('change', () => { form.pickupId = r.value; redraw(); }));
     f.querySelectorAll('input[name=method]').forEach((r) => r.addEventListener('change', () => { form.method = r.value; if (r.value === '配送' && !form.address) form.address = savedAddr(); syncExisting(); redraw(); }));
-    f.querySelectorAll('input[name=spot]').forEach((r) => r.addEventListener('change', () => { form.spot = r.value; redraw(); }));
+    f.querySelectorAll('input[name=spot]').forEach((r) => r.addEventListener('change', () => { form.spot = r.value; const ds = spotDates(g, now); form.spotDate = ds.length === 1 ? ds[0] : ''; syncExisting(); redraw(); }));
+    f.querySelectorAll('input[name=spotDate]').forEach((r) => r.addEventListener('change', () => { form.spotDate = r.value; syncExisting(); redraw(); }));
     const addr = f.querySelector('[data-address]');
     if (addr) addr.addEventListener('input', () => { form.address = addr.value; });
     const dtime = f.querySelector('[data-dtime]');
@@ -533,7 +550,7 @@
         form.known = true;
         if (o.pickupId) form.pickupId = o.pickupId;
         if (g.methods.indexOf(o.method) !== -1) form.method = o.method;
-        if (o.spot) form.spot = o.spot;
+        if (o.spot) { form.spot = o.spot; form.spotDate = o.spotDate || ''; }
         form.pay = o.pay;
       }
       syncExisting();
@@ -544,7 +561,7 @@
   /** 付款方式一樣的那張＝這次會加進去的；末五碼帶那張的 */
   function syncExisting() {
     const list = form.mineHere || [];
-    form.existing = list.find((x) => x.pay === form.pay && (x.method || '出攤') === form.method) || null;
+    form.existing = list.find((x) => x.pay === form.pay && (x.method || '出攤') === form.method && (form.method !== '自取' || (x.spot === form.spot && (x.spotDate || '') === form.spotDate))) || null;
     if (form.existing) form.last5 = form.existing.last5 || form.last5;
   }
 
@@ -553,6 +570,7 @@
     if (g.methods.indexOf(form.method) === -1) return '請選怎麼領貨';
     if (form.method === '出攤' && g.pickups.length && !form.pickupId) return '請選在哪一場取貨';
     if (form.method === '自取' && !form.spot) return '請選在哪裡自取';
+    if (form.method === '自取' && spotOf(g) && spotOf(g).dates.length && !form.spotDate) return '請選哪一天自取';
     if (form.method === '配送' && form.address.trim().length < 5) return '配送請填地址';
     if (form.name.replace(/[\s　]+/g, '').length < 2) return '請填你的名字';
     if ((WEB || form.method !== '出攤' || form.phone) && !phoneOk(form.phone)) return '請填手機（09 開頭的 10 個數字）';
@@ -573,7 +591,7 @@
       const tel = cleanPhone(form.phone);
       const phone = WEB ? tel : undefined;
       const res = await Api.shopOrder({
-        groupId: g.id, name, phone, tel: WEB ? undefined : tel, mode: 'add', method: form.method, spot: form.method === '自取' ? form.spot : '',
+        groupId: g.id, name, phone, tel: WEB ? undefined : tel, mode: 'add', method: form.method, spot: form.method === '自取' ? form.spot : '', spotDate: form.method === '自取' ? form.spotDate : '',
         address: form.method === '配送' ? form.address.trim() : '', deliveryTime: form.method === '配送' ? form.deliveryTime.trim() : '',
         pickupId: form.method === '出攤' ? form.pickupId : '', pay: form.pay, last5: form.pay === '轉帳' ? form.last5 : '',
         items: cartLines(g).map((l) => ({ id: l.id, option: l.option, qty: l.qty })),
@@ -612,11 +630,12 @@
         <p><strong>✅ ${res.merged ? '加進你原本的訂單了！' : res.updated ? '訂單更新好了！' : '訂好了！'}</strong></p>
         <p>${esc(o.name)}：${o.items.map((it) => esc(it.name) + ' × ' + it.qty).join('、')}</p>
         ${(o.discounts || []).map((d) => `<p>🏷️ ${esc(d.name)}：省 ${money(d.discount)}</p>`).join('')}
-        <p>💰 共 <strong>${money(o.total)}</strong>（${o.pay === '轉帳' ? '轉帳' : o.method === '配送' ? '貨到付現' : '取貨時付現'}）</p>
+        <p>💰 共 <strong>${money(o.total)}</strong>（${payText(o, o.method === '配送' ? '貨到付現' : '取貨時付現')}）</p>
         ${whereText(Object.assign({}, o, { pickup: p })) ? `<p>${whereText(Object.assign({}, o, { pickup: p }))}</p>` : ''}
         ${p && o.method === '出攤' && window.AddCal ? `<div class="addcal-row">${AddCal.button({ name: '取團購：' + g.name, location: p.location, start: p.date, end: p.date, startTime: p.startTime, endTime: p.endTime || '', dutyId: p.id, date: p.date }, '加到手機行事曆（取貨那天）')}</div>` : ''}
       </div>
       ${o.pay === '轉帳' ? bankCard(o) : ''}
+      ${o.pay === 'LINE Pay' && !o.paid ? linePayCard(o) : ''}
       <p class="hint">截止前（${esc(g.deadline)}）都可以到「我的訂單」改數量或取消。</p>
       <a class="btn btn-block btn-primary" href="#/shop/orders">📋 看我的訂單</a>
       <a class="btn btn-block" href="#/shop/${encodeURIComponent(g.id)}">繼續逛</a>
@@ -690,6 +709,7 @@
   function orderStatus(o) {
     if (o.picked) return { label: '已完成', cls: 'badge-full' };
     // 轉帳：待付款 → 待對帳 → 出貨中（對帳 OK，等取貨）→ 已完成（2026/10/28）
+    if (o.pay === 'LINE Pay') return o.paid ? { label: '出貨中', cls: 'badge-ok' } : { label: '待付款', cls: 'badge-notice' };
     if (o.pay === '轉帳') {
       if (o.paid) return { label: '出貨中', cls: 'badge-ok' };
       if (o.last5) return { label: '待對帳', cls: 'badge-notice' };
@@ -763,9 +783,10 @@
             <span class="shop-ocard-img">${first.photo ? `<img src="${esc(photoUrl(first.photo))}" alt="" loading="lazy">` : '<span class="shop-noimg" aria-hidden="true">🌿</span>'}</span>
             <div class="shop-ocard-items">${o.items.map((it) => `<p><span>${esc(it.name)}</span><span>${money(it.price)} × ${it.qty}</span></p>`).join('')}</div>
           </div>
-          <p class="shop-ocard-meta">${whereText(o) ? whereText(o) + '・' : ''}${o.pay === '轉帳' ? `轉帳${o.last5 ? '（' + (o.transferDate ? esc(Fmt.shortDate(o.transferDate)) + ' ' : '') + '末五碼 ' + esc(o.last5) + '）' : '・還沒通知小編'}` : '付現'}${o.paid ? '・✅ 已付款' : ''}</p>
+          <p class="shop-ocard-meta">${whereText(o) ? whereText(o) + '・' : ''}${o.pay === '轉帳' ? `轉帳${o.last5 ? '（' + (o.transferDate ? esc(Fmt.shortDate(o.transferDate)) + ' ' : '') + '末五碼 ' + esc(o.last5) + '）' : '・還沒通知小編'}` : payText(o)}${o.paid ? '・✅ 已付款' : ''}</p>
           ${(o.discounts || []).length ? `<div class="shop-ocard-promo">${promoRows(o.discounts)}</div>` : ''}
           <p class="shop-ocard-total">應付總額 <b>${money(o.total)}</b></p>
+          ${o.pay === 'LINE Pay' && !o.paid && !o.picked ? linePayCard(o) : ''}
           ${o.pay === '轉帳' && !o.paid && !o.picked ? `<details class="shop-bank-fold"${o.last5 ? '' : ' open'}><summary>🏦 匯款帳號・${o.last5 ? '改通知內容' : '通知小編'}</summary>${bankCard(o)}</details>` : ''}
           ${o.picked ? '' : `<div class="shop-order-actions">
             ${o.confirmed ? '<span class="muted">✅ 小編已確認，要改請找小編</span>' : o.closed ? '<span class="muted">已截止，要改請找小編</span>' : `<button type="button" class="btn btn-small" data-edit="${esc(o.id)}">改數量</button><button type="button" class="btn btn-small btn-quiet-danger" data-cancel="${esc(o.id)}">取消</button>`}
@@ -773,7 +794,7 @@
         </li>`;
       }).join('')}</ul>` : `<div class="notice shop-empty"><p>${ordersState.tab === 'all' ? '最近 90 天沒有團購訂單' : '這裡沒有訂單'}</p></div>`}
       </div>
-      ${lineCard()}
+      ${d.orders.length ? lineCard() : ''}
       <div class="shop-sumbar"><span>待取貨 <b>${toPick}</b> 張</span><span>待付總額 <b>${money(unpaid)}</b></span></div>
       ${tabbar('orders', null)}`;
     root.querySelectorAll('[data-otab]').forEach((b) => b.addEventListener('click', () => { ordersState.tab = b.dataset.otab; renderOrders(); }));
@@ -858,7 +879,7 @@
         <li class="shop-order">
           <div class="shop-order-head"><strong>${esc(o.groupName)}</strong><span>${money(o.total)}</span></div>
           <p>${o.items.map((it) => esc(it.name) + ' × ' + it.qty).join('、')}</p>
-          <p class="muted">${o.pickup ? '📦 ' + esc(pickupText(o.pickup)) + ' 取貨・' : ''}${o.pay === '轉帳' ? `轉帳${o.last5 ? '（末五碼 ' + esc(o.last5) + '）' : '・還沒填末五碼'}` : '付現'}${o.paid ? '・✅ 已付款' : ''}</p>
+          <p class="muted">${o.pickup ? '📦 ' + esc(pickupText(o.pickup)) + ' 取貨・' : ''}${o.pay === '轉帳' ? `轉帳${o.last5 ? '（末五碼 ' + esc(o.last5) + '）' : '・還沒填末五碼'}` : payText(o)}${o.paid ? '・✅ 已付款' : ''}</p>
         </li>`).join('')}</ul>
       <a class="btn btn-block shop-mine-btn" href="#/shop/orders"><span class="shop-mine-icon" aria-hidden="true">📋</span><span class="shop-mine-text"><strong>我的訂單</strong><small>改數量、取消、補轉帳末五碼</small></span><span class="shop-mine-go" aria-hidden="true">›</span></a>`;
   }

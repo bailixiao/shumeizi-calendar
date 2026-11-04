@@ -22,7 +22,7 @@
     { "code": "A012", "option": "", "buy": [9, 540], "sale": [2, 180] },
     { "code": "B007", "option": "", "open": [2, 80] },
     { "code": "B004", "option": "", "open": [6, 456] },
-    { "code": "B002", "option": "", "open": [2, 392] },
+    { "code": "B002", "option": "小包", "open": [2, 392] },
     { "code": "B008", "option": "", "open": [1, 40], "sale": [1, 95] },
     { "code": "B005", "option": "", "open": [56, 336] },
     { "code": "B003", "option": "", "open": [3, 480] },

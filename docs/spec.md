@@ -283,6 +283,7 @@
 - **後台「👥 會員」**（團購頁多一個分頁，總管理者、植素看得到）：會員名單（姓名、手機、登入方式、訂單數、總金額、最近一次下單），找名字或手機；點進去看地址簿和所有訂單。Email、手機、地址照 0.6.2 只有登入後台看得到。
 - **個資**：公開 API 一律不回傳別人的手機、地址、Email；**會員自己登入後只拿得到自己的資料**（我的資料、我的訂單）。
 - **開關**：`js/site.js` 的 `shopLogin`（googleClientId、liffId）都空白時，植素園happy購照舊填名字＋手機下單（不用登入）；填了才變成要登入。Worker 端：wrangler.toml 的 vars（GOOGLE_CLIENT_ID、LINE_CHANNEL_ID）。程式：js/shop-member.js、worker/src/member-auth.js、apps-script/ShopMember.gs。
+- **隱私權政策**（2026/11/4，Google 登入發布要有）：植素園happy購的 privacy.html（tools/shop-web/privacy.html），寫收集哪些資料、用途、誰看得到、怎麼刪除、聯絡植素園客服 LINE@；登入畫面下面有連結。Google 的品牌設定：首頁 https://zhisu-shop.pages.dev/、隱私權政策 https://zhisu-shop.pages.dev/privacy.html、授權網域 zhisu-shop.pages.dev。
 - **示範版**：dev-server 的示範版有「示範登入」（不用真的 LINE／Google），截圖、測試用。
 - **上線前要使用者做的**：
   1. LINE Developers 建一個「LINE Login」channel（Published），裡面加一個 LIFF app：Endpoint URL `https://zhisu-shop.pages.dev/`、Scope 勾 openid＋profile、大小 Full。Channel ID、LIFF ID 給 Claude（使用者登入，Claude 可以在瀏覽器幫忙按）。

@@ -16,7 +16,7 @@ const ver = (file) => crypto.createHash('sha1').update(fs.readFileSync(file)).di
 
 copy(path.join(root, 'css', 'app.css'), path.join(out, 'css', 'app.css'));
 JS.forEach((n) => copy(path.join(root, 'js', n + '.js'), path.join(out, 'js', n + '.js')));
-['web.js', 'web.css', 'manifest.webmanifest', 'img/zhisu-logo.png', 'img/zhisu-head.png'].forEach((f) => copy(path.join(src, f), path.join(out, f)));
+['web.js', 'web.css', 'privacy.html', 'manifest.webmanifest', 'img/zhisu-logo.png', 'img/zhisu-head.png'].forEach((f) => copy(path.join(src, f), path.join(out, f)));
 fs.writeFileSync(path.join(out, '.nojekyll'), '');
 
 // 每個 css、js 加 ?v=內容雜湊，改了手機才會拿到新的

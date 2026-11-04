@@ -153,7 +153,7 @@
         : '<div class="shop-login-google" data-login-google></div>') : ''}
       ${demo ? `<div class="shop-login-demo"><input class="input" data-demo-name maxlength="20" value="測試甲" aria-label="示範登入的名字"><button type="button" class="btn" data-login-demo>🧪 示範登入</button></div>` : ''}
       <p class="form-error" data-login-error hidden></p>
-      <p class="hint">登入只用來記住你的收件資料、地址和訂單，不會在網頁上公開。</p>
+      <p class="hint">登入只用來記住你的收件資料、地址和訂單，不會在網頁上公開。<a href="privacy.html">隱私權政策</a></p>
     </div>`;
   }
 

@@ -2997,6 +2997,8 @@ span.shop-thumb { cursor: default; }
 .coupon-fields[hidden] { display: none; }
 
 /* 配送：找 7-11 門市（2026/11/4） */
-.shop-cvs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 2px; }
+.shop-cvs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 6px 0 2px; }
+.shop-cvs span { grid-column: 1 / -1; }
+.shop-cvs .btn { width: 100%; justify-content: center; text-align: center; white-space: nowrap; padding-left: 6px; padding-right: 6px; }
 .shop-cvs span { font-size: .9rem; color: var(--muted); }
 .shop-cvs + .hint { margin-bottom: 14px; }

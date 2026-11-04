@@ -861,7 +861,7 @@
         <div class="stat-card"><span class="stat-label">總金額</span><span class="stat-num">${Number(s.total).toLocaleString('zh-TW')}</span><span class="stat-hint">已付 ${money(s.paid)}<br>未付 ${money(s.unpaid)}</span></div>
         <div class="stat-card shop-profit"><span class="stat-label">毛利</span><span class="stat-num">${Number(s.profit).toLocaleString('zh-TW')}</span><span class="stat-hint">成本 ${money(s.cost)}${s.total ? `・毛利率 ${Math.round(s.profit / s.total * 100)}%` : ''}${s.costMissing && s.costMissing.length ? `<br>⚠️ 沒填成本：${esc(s.costMissing.join('、'))}` : ''}</span></div>
       </div>
-      <ul class="shop-sold">${g.items.map((it) => `<li>${thumb(it.photo, it.name, 'shop-thumb-sm')}<span>${it.featured ? '🔥 ' : ''}${esc(it.name)}</span><strong>${it.sold}${it.unit ? ' ' + esc(it.unit) : ''}</strong>${it.stockMode ? `<small>${it.left ? `可賣 ${it.left}` : '已售完'}（照庫存${it.options ? '：' + it.options.options.map((o) => esc(o.name) + ' ' + o.left).join('、') : ''}）</small>` : it.limit !== null ? `<small>${it.left ? `剩 ${it.left}` : '已售完'}／限量 ${it.limit}</small>` : ''}</li>`).join('')}</ul>
+      <ul class="shop-sold">${g.items.map((it) => `<li>${thumb(it.photo, it.name, 'shop-thumb-sm')}<span class="shop-sold-name">${it.featured ? '🔥 ' : ''}${esc(it.name)}</span><strong class="shop-sold-num">${it.sold}${it.unit ? ' ' + esc(it.unit) : ''}</strong>${it.stockMode ? `<small class="shop-sold-note">${it.left ? `可賣 ${it.left}` : '已售完'}（照庫存${it.options ? '：' + it.options.options.map((o) => esc(o.name) + ' ' + o.left).join('、') : ''}）</small>` : it.limit !== null ? `<small class="shop-sold-note">${it.left ? `剩 ${it.left}` : '已售完'}／限量 ${it.limit}</small>` : ''}</li>`).join('')}</ul>
 
       ${(() => {
         // 💰 對帳（2026/10/28）：轉帳、填了末五碼、還沒付款的訂單

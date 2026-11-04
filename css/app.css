@@ -2395,9 +2395,12 @@ button.veg-chip:hover { border-color: var(--ok); }
 .shop-item-set small { color: var(--muted); margin-left: 6px; }
 .shop-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .shop-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.shop-sold li { display: flex; gap: 10px; align-items: baseline; padding: 6px 10px; border-bottom: 1px dashed var(--line); }
-.shop-sold li span { flex: 1; }
-.shop-sold small { color: var(--muted); }
+/* 賣了多少（2026/11/4 改排版：照片｜名稱＋數量，下一行可賣幾個；手機上名稱不會被擠成直的） */
+.shop-sold li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "pic name num" "pic note note"; column-gap: 10px; row-gap: 2px; align-items: center; padding: 8px 10px; border-bottom: 1px dashed var(--line); }
+.shop-sold li > .shop-thumb { grid-area: pic; align-self: start; }
+.shop-sold-name { grid-area: name; font-weight: 600; overflow-wrap: anywhere; }
+.shop-sold-num { grid-area: num; white-space: nowrap; text-align: right; }
+.shop-sold-note { grid-area: note; color: var(--muted); font-size: .85rem; line-height: 1.4; }
 .shop-prep { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 8px; background: var(--card); }
 .shop-prep-head { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 0 0 6px; }
 .shop-prep ul { margin: 0; padding-left: 1.2em; }
@@ -2508,7 +2511,6 @@ span.shop-thumb { cursor: default; }
 .shop-product-name { flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 4px 0; font: inherit; color: inherit; cursor: pointer; }
 .shop-product-name:disabled { cursor: default; }
 .shop-product-name small { display: block; color: var(--muted); }
-.shop-sold li { align-items: center; }
 
 /* ---------- 團購（大家） ---------- */
 .shop-deadline { margin: 0 0 8px; color: var(--accent); font-weight: 700; }

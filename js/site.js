@@ -17,8 +17,6 @@
       { kind: 'ig', name: 'Instagram', url: 'https://www.instagram.com/zhishuyuan_happy' },
       { kind: 'line', name: 'LINE 社群', url: 'https://line.me/ti/g2/54nufHfVxf8vBencGmHK4fvJH408_CUpuOEWIA' }
     ],
-    // 有吃飯的活動報名時要選的「區別」（規格 0.5，2026/11/4）；最後會自動多一個「其他」可以自己打
-    areas: ['教全區', '教孝區'],
     homepage: './home/', // 頁首「🏠 回到主頁」：App 裡的官網（官網專案 build 產生到 home/，規格 0.10；空白＝不顯示）
     venue: '場地',                    // 可以借的場地名稱（書槑子目前不借場地，features.venue＝false）
     temple: '佛堂',                   // 「佛堂」這個用詞（書槑子不用，features.temple＝false 時整個藏起來）

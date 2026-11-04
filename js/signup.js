@@ -1,6 +1,6 @@
 // 報名表單：選項目（額滿反灰）→ 選日期（多天活動）→ 填名字（自動提示、可多人）→ 確認報名。
 // SITE.identity＝false（書槑子）：不選身分、沒有陪同；成員名單上沒有的名字（第一次來）要選認識管道（SITE.sources）。
-// 活動有開「有吃飯」時，每個名字要選區別（SITE.areas）、吃不吃（一定要選），可以寫備註（規格 0.5，2026/11/4）。教全區原本：選道親／壇辦／未求道；壇辦可選了愿／陪同。
+// 活動有開「有吃飯」時，每個名字要填區別（自己打）、吃不吃（一定要選），可以寫備註（規格 0.5，2026/11/4）。教全區原本：選道親／壇辦／未求道；壇辦可選了愿／陪同。
 // 名額與重複的最終判斷在伺服器（LockService 鎖定），這裡只做提示。
 (function () {
   'use strict';
@@ -11,7 +11,6 @@
   const KNOWN_IDENTITIES = IDENTITIES.concat(['點傳師']); // 成員名單上可能登記的（點傳師只由名單帶入）
   const NO_IDENTITY = window.SITE.identity === false; // 書槑子：不選身分
   const SOURCES = window.SITE.sources || []; // 第一次來的人：怎麼認識的
-  const AREAS = window.SITE.areas || [];
   const AREA_KEY = 'shumeizi:area:'; // 這支手機記住每個名字上次選的區別
   const areaGet = (name) => { try { return localStorage.getItem(AREA_KEY + name) || ''; } catch (e) { return ''; } };
   const areaSet = (name, v) => { try { localStorage.setItem(AREA_KEY + name, v); } catch (e) { /* 無痕模式 */ } };
@@ -212,22 +211,15 @@
 
     /** 有吃飯的活動：區別（必填） */
     function areaRow(e, i) {
-      const opts = AREAS.concat(['其他']);
-      const other = e.area === '其他' || (!!e.area && AREAS.indexOf(e.area) === -1);
       const missing = state.showMissing && !!areaProblem(e);
-      return `<div class="option-row area-row${missing ? ' is-missing' : ''}">
+      return `<label class="option-row area-row${missing ? ' is-missing' : ''}">
         <span class="option-label">區別</span>
-        <div>
-          <div class="pos-chips" role="radiogroup" aria-label="${esc(e.name)} 的區別">
-            ${opts.map((a) => { const on = a === '其他' ? other : e.area === a; return `<label class="pos-chip${on ? ' is-checked' : ''}"><input type="radio" name="area-${i}" value="${esc(a)}" data-area="${i}"${on ? ' checked' : ''}>${esc(a)}</label>`; }).join('')}
-          </div>
-          ${other ? `<input class="input source-extra" data-area-other="${i}" maxlength="20" value="${esc(e.area === '其他' ? '' : e.area)}" placeholder="哪一區？" aria-label="${esc(e.name)} 的區別">` : ''}
-        </div>
-      </div>`;
+        <input class="input" data-area="${i}" maxlength="20" value="${esc(e.area || '')}" placeholder="你是哪一區？（必填）" aria-label="${esc(e.name)} 的區別">
+      </label>`;
     }
     function areaProblem(e) {
       if (!duty.meal) return '';
-      return !e.area || e.area === '其他' ? '請選區別' : '';
+      return !String(e.area || '').trim() ? '請填區別' : '';
     }
     /** 吃不吃沒選（訂餐截止了就不用選） */
     const mealUnset = (e) => !!duty.meal && !mealClosedDate() && e.meal === undefined;
@@ -295,7 +287,7 @@
           ${missing ? '<p class="name-missing">請選擇道親、壇辦或未求道</p>' : ''}
           ${posMissing ? '<p class="name-missing">請選這個人的項目</p>' : ''}
           ${srcMissing ? `<p class="name-missing">${esc(sourceProblem(e))}</p>` : ''}
-          ${areaMissing ? '<p class="name-missing">請選區別</p>' : ''}
+          ${areaMissing ? '<p class="name-missing">請填區別</p>' : ''}
           ${mealMissing ? '<p class="name-missing">請選要不要一起吃飯</p>' : ''}
         </li>`;
       }).join('');
@@ -564,7 +556,7 @@
         renderNames();
       }
       if (state.entries.some((e) => areaProblem(e))) {
-        problems.push('請選每個人的區別');
+        problems.push('請填每個人的區別');
         state.showMissing = true;
         renderNames();
       }
@@ -804,14 +796,6 @@
         if (extra) extra.focus();
         return;
       }
-      if (t.dataset.area !== undefined) {
-        const e = state.entries[Number(t.dataset.area)];
-        e.area = t.value;
-        if (t.value !== '其他') areaSet(e.name, t.value);
-        renderNames();
-        if (t.value === '其他') { const o = form.querySelector('[data-area-other="' + t.dataset.area + '"]'); if (o) o.focus(); }
-        return;
-      }
       if (t.dataset.meal !== undefined) {
         state.entries[Number(t.dataset.meal)].meal = t.value === 'yes';
         renderNames(); // 勾了才出現點餐、備註、菜單、付款
@@ -846,9 +830,9 @@
       if (t.dataset.birthday !== undefined) state.entries[Number(t.dataset.birthday)].birthday = t.value;
       if (t.dataset.mealNote !== undefined) state.entries[Number(t.dataset.mealNote)].mealNote = t.value;
       if (t.dataset.signupNote !== undefined) state.entries[Number(t.dataset.signupNote)].signupNote = t.value;
-      if (t.dataset.areaOther !== undefined) {
-        const e = state.entries[Number(t.dataset.areaOther)];
-        e.area = t.value.trim() || '其他';
+      if (t.dataset.area !== undefined) {
+        const e = state.entries[Number(t.dataset.area)];
+        e.area = t.value;
         if (t.value.trim()) areaSet(e.name, t.value.trim());
       }
     });

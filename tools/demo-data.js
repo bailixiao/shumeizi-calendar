@@ -46,7 +46,7 @@ async function seedDemo(call, get) {
   const all = (await get({ action: 'getEvents', from: today, to: addDays(today, 60) })).data.duties;
   const find = (name, date) => all.find((d) => d.name === name && d.start === date);
   const signup = async (d, date, entries, positionId, extra) => {
-    const res = await call(Object.assign({ action: 'signup', dutyId: d.id, positionId: positionId || d.positions[0].id, dates: [date], entries: d.meal ? entries.map((e, i) => Object.assign({ area: i % 2 ? '教孝區' : '教全區' }, e)) : entries }, extra)); // 有吃飯的活動要選區別（2026/11/4）
+    const res = await call(Object.assign({ action: 'signup', dutyId: d.id, positionId: positionId || d.positions[0].id, dates: [date], entries: d.meal ? entries.map((e, i) => Object.assign({ area: i % 2 ? '測試二區' : '測試一區' }, e)) : entries }, extra)); // 有吃飯的活動要選區別（2026/11/4）
     if (!res.ok) throw new Error('示範報名失敗：' + JSON.stringify(res.error));
   };
   await signup(find('槑子的靈魂健身房', gym), gym, [

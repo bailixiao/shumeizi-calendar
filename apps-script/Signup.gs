@@ -69,7 +69,7 @@ function signup_(body) {
     if (needArea) {
       entries.forEach(function (e) {
         var a = cleanText_(e.area);
-        if (!a) errors.push({ name: normalizeName_(e.name), message: '請選區別' });
+        if (!a) errors.push({ name: normalizeName_(e.name), message: '請填區別' });
         else if (a.length > 20) errors.push({ name: normalizeName_(e.name), message: '區別最多 20 字' });
         if (cleanText_(e.signupNote).length > 100) errors.push({ name: normalizeName_(e.name), message: '備註最多 100 字' });
       });

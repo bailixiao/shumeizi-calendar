@@ -109,7 +109,7 @@ const SHOTS = [
       document.querySelector('[data-add]').click(); await __wait(2500);
       const src = document.querySelector('input[data-source][value="朋友介紹"]'); if (src) { src.click(); await __wait(300); }
       const ref = document.querySelector('[data-referrer]'); if (ref) { ref.value = '測試甲'; ref.dispatchEvent(new Event('input', { bubbles: true })); ref.blur(); }
-      const ar = document.querySelector('input[data-area][value="教全區"]'); if (ar) { ar.click(); await __wait(300); } const meal = document.querySelector('input[data-meal][value="yes"]'); if (meal && !meal.checked) meal.click(); await __wait(300);
+      const ar = document.querySelector('input[data-area]'); if (ar) { ar.value = '測試區'; ar.dispatchEvent(new Event('input', { bubbles: true })); } await __wait(200); const meal = document.querySelector('input[data-meal][value="yes"]'); if (meal && !meal.checked) meal.click(); await __wait(300);
       const pk = (g, o) => { const r = document.querySelector('input[data-meal-group="' + g + '"][value="' + o + '"]'); if (r) r.click(); }; pk('主餐', '素便當'); await __wait(200); pk('飲料', '紅茶'); await __wait(300);`,
     clip: `const h = [...document.querySelectorAll('#view-duty h2')].find((x) => x.textContent.includes('我要報名')); h.scrollIntoView(); const r2 = h.getBoundingClientRect(); const end = document.querySelector('[data-submit]').getBoundingClientRect(); return { x: 0, y: r2.top + scrollY - 8, width: innerWidth, height: end.bottom - r2.top + 20 };` },
   // 訂餐（2026/10/16）：自己點（槑青韜課館，示範資料是「自己點」）
@@ -117,7 +117,7 @@ const SHOTS = [
       location.hash = '#/duty/' + encodeURIComponent(d.id) + '?date=${SUN}'; await __wait(2500);
       const inp = document.querySelector('[data-name-input]'); inp.value = '王小明'; inp.dispatchEvent(new Event('input', { bubbles: true }));
       document.querySelector('[data-add]').click(); await __wait(2500);
-      const ar = document.querySelector('input[data-area][value="教全區"]'); if (ar) { ar.click(); await __wait(300); } const meal = document.querySelector('input[data-meal][value="yes"]'); if (meal && !meal.checked) meal.click(); await __wait(300);
+      const ar = document.querySelector('input[data-area]'); if (ar) { ar.value = '測試區'; ar.dispatchEvent(new Event('input', { bubbles: true })); } await __wait(200); const meal = document.querySelector('input[data-meal][value="yes"]'); if (meal && !meal.checked) meal.click(); await __wait(300);
       const set = (sel, i, v) => { const e = document.querySelectorAll(sel)[i]; e.value = v; e.dispatchEvent(new Event('input', { bubbles: true })); };
       set('[data-of="name"]', 0, '咖哩飯'); set('[data-of="price"]', 0, '90');
       document.querySelector('[data-order-add]').click(); await __wait(300);
@@ -128,7 +128,7 @@ const SHOTS = [
       location.hash = '#/duty/' + encodeURIComponent(d.id) + '?date=${GYM}'; await __wait(2500);
       const inp = document.querySelector('[data-name-input]'); inp.value = '王小明'; inp.dispatchEvent(new Event('input', { bubbles: true }));
       document.querySelector('[data-add]').click(); await __wait(2500);
-      const ar = document.querySelector('input[data-area][value="教全區"]'); if (ar) { ar.click(); await __wait(300); } const meal = document.querySelector('input[data-meal][value="yes"]'); if (meal && !meal.checked) meal.click(); await __wait(300);
+      const ar = document.querySelector('input[data-area]'); if (ar) { ar.value = '測試區'; ar.dispatchEvent(new Event('input', { bubbles: true })); } await __wait(200); const meal = document.querySelector('input[data-meal][value="yes"]'); if (meal && !meal.checked) meal.click(); await __wait(300);
       const pk = (g, o) => { const r = document.querySelector('input[data-meal-group="' + g + '"][value="' + o + '"]'); if (r) r.click(); }; pk('主餐', '素麵'); await __wait(200); pk('飲料', '紅茶'); await __wait(300);
 `,
     clip: `const a = document.querySelector('.meal-pick'); a.scrollIntoView(); const r = a.getBoundingClientRect(); const b = document.querySelector('[data-submit]').getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 8, width: innerWidth, height: b.bottom - r.top + 16 };` },

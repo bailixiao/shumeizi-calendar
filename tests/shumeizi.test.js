@@ -91,7 +91,7 @@ test('有吃飯的活動：報名勾吃飯，算這天要準備幾份；沒開�
   // 有吃飯的活動：區別必填、備註選填，只有後台看得到（2026/11/4）
   const noArea = env.post({ action: 'signup', dutyId: d.id, positionId: d.positions[0].id, dates: ['2026-10-16'], entries: [{ name: '測試丁', source: '官網', meal: false }] });
   assert.equal(noArea.ok, false);
-  assert.match(JSON.stringify(noArea.error), /請選區別/);
+  assert.match(JSON.stringify(noArea.error), /請填區別/);
   const withArea = env.post({ action: 'signup', dutyId: d.id, positionId: d.positions[0].id, dates: ['2026-10-16'], entries: [{ name: '測試丁', source: '官網', meal: false, area: '測試區', signupNote: '會晚到' }] });
   assert.equal(withArea.ok, true, JSON.stringify(withArea.error));
   const pub = env.get({ action: 'getDuty', id: d.id }).data.signups.find((s) => s.name === '測試丁');

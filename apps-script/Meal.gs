@@ -39,6 +39,12 @@ function mealOptionPrice_(o) {
 }
 
 /** 「勤務」餐點選項原文 → [{ name, options: [..], prices: [..] }]（格式不對的行略過；prices 和 options 一一對應） */
+// 只有「吃、不吃」這種的組：報名時已經有「要吃／不吃」，這組多餘，不顯示（2026/11/4）
+var MEAL_YES_NO = ['吃', '不吃', '要吃', '要', '不要', '是', '否', '有', '沒有', '不用'];
+function mealYesNoGroup_(options) {
+  return options.length > 0 && options.every(function (o) { return MEAL_YES_NO.indexOf(o) !== -1; });
+}
+
 function parseMealOptions_(text) {
   var groups = [];
   String(text || '').split(/\r?\n/).forEach(function (line) {
@@ -52,7 +58,7 @@ function parseMealOptions_(text) {
       var o = mealOptionPrice_(raw);
       if (o.name && options.indexOf(o.name) === -1) { options.push(o.name); prices.push(o.price); }
     });
-    if (!options.length || groups.some(function (g) { return g.name === name; })) return;
+    if (!options.length || mealYesNoGroup_(options) || groups.some(function (g) { return g.name === name; })) return;
     groups.push({ name: name, options: options.slice(0, MEAL_MAX_OPTIONS), prices: prices.slice(0, MEAL_MAX_OPTIONS) });
   });
   return groups.slice(0, MEAL_MAX_GROUPS);
@@ -65,7 +71,12 @@ function mealOptionText_(name, price) {
 
 /** 後台填的餐點選項 → { text（整理過的原文）, errors } */
 function normalizeMealOptions_(text) {
-  var lines = String(text || '').split(/\r?\n/).filter(function (l) { return cleanText_(l); });
+  var lines = String(text || '').split(/\r?\n/).filter(function (l) { // 「吃、不吃」那種的行直接拿掉
+    l = cleanText_(l);
+    if (!l) return false;
+    var m = l.match(/^([^：:]*)[：:](.*)$/);
+    return !mealYesNoGroup_((m ? m[2] : l).split(/[、,，\/／]/).map(function (r) { return mealOptionPrice_(r).name; }).filter(Boolean));
+  });
   var groups = parseMealOptions_(text);
   var errors = [];
   if (lines.length > MEAL_MAX_GROUPS) errors.push('餐點選項最多 ' + MEAL_MAX_GROUPS + ' 組（一行一組）');

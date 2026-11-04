@@ -114,3 +114,11 @@ test('用過的菜單：同樣內容只列一次，最近用過的在前面', ()
   ]);
   assert.equal(menus[1].dutyName, '槑子的靈魂健身房');
 });
+
+test('餐點選項只寫「吃、不吃」：跟「要吃／不吃」重複，不顯示也不擋', () => {
+  const { d, call } = setup('吃、不吃');
+  assert.deepEqual(d.mealOptions, []);
+  assert.equal(call('adminDutyForEdit', { id: d.id }).data.duty.mealOptions, '');
+  const { d: d2 } = setup('餐點：吃、不吃\n主餐：素便當、素麵');
+  assert.deepEqual(d2.mealOptions, [{ name: '主餐', options: ['素便當', '素麵'], prices: [0, 0] }]);
+});

@@ -328,7 +328,7 @@
           <span class="shop-tile-name">${esc(it.name)}</span>
           <span class="shop-tile-price">${priceText(it)}${it.unit ? `<small>／${esc(it.unit)}</small>` : ''}</span>
           ${promoOf(g, it.id) ? `<span class="shop-tile-promo">${promoTag(g, it)}</span>` : ''}
-          <span class="shop-tile-meta">已售出 ${it.sold}${it.options ? `・${it.options.options.length} 種${esc(it.options.label)}` : ''}</span>
+          ${it.options ? `<span class="shop-tile-meta">${it.options.options.length} 種${esc(it.options.label)}</span>` : ''}
         </a></li>`;
       }).join('')}</ul>
       ${cartCount(g) ? `<a class="btn btn-primary btn-block shop-go-cart" href="#/shop/${encodeURIComponent(g.id)}/cart">🛒 去結帳（${cartCount(g)} 件・${money(cartTotal(g))}）</a>` : ''}
@@ -357,7 +357,7 @@
       <h1 class="shop-product-name">${esc(it.name)}</h1>
       <p class="shop-product-price">${money(price)}${it.unit ? `<small>／${esc(it.unit)}</small>` : ''}</p>
       ${promoOf(g, it.id) ? `<p class="shop-product-promo">${promoTag(g, it, true)}</p>` : ''}
-      <p class="shop-product-meta">已售出 ${it.sold}${it.left !== null ? `・${soldOut ? '已售完' : '剩 ' + it.left + ' ' + esc(it.unit || '份')}` : ''}${it.perPerson !== null ? `・每人最多 ${it.perPerson}` : ''}</p>
+      ${(() => { const m = [it.left !== null ? (soldOut ? '已售完' : '剩 ' + it.left + ' ' + esc(it.unit || '份')) : '', it.perPerson !== null ? '每人最多 ' + it.perPerson : ''].filter(Boolean); return m.length ? `<p class="shop-product-meta">${m.join('・')}</p>` : ''; })()}
       ${deadlineLine(g, now)}
       ${it.description ? `<p class="shop-desc">${Fmt.linkText(it.description)}</p>` : ''}
       ${it.options ? `<div class="shop-opt${st.needOpt ? ' is-missing' : ''}" data-opt-box><p class="shop-opt-label">${esc(it.options.label)}${st.needOpt ? `<strong class="shop-opt-need" role="alert">👇 請先選${esc(it.options.label)}</strong>` : ''}</p><div class="pos-chips">${it.options.options.map((o) => { const out = it.stockMode && !o.left; return `<label class="pos-chip${st.option === o.name ? ' is-checked' : ''}${out ? ' is-disabled' : ''}"><input type="radio" name="opt" value="${esc(o.name)}" data-opt${st.option === o.name ? ' checked' : ''}${out ? ' disabled' : ''}>${esc(o.name)}${o.price !== null && o.price !== it.price ? `<small>${money(o.price)}</small>` : ''}${it.stockMode ? `<small>${out ? '已售完' : o.left <= 5 ? '剩 ' + o.left : ''}</small>` : ''}</label>`; }).join('')}</div></div>` : ''}

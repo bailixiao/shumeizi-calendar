@@ -855,7 +855,7 @@
         <a class="btn" href="#/admin/shop/edit/${encodeURIComponent(g.id)}">✏️ 修改團購</a>
         <a class="btn" href="#/admin/shop/new?from=${encodeURIComponent(g.id)}">另存成新團購</a>
         ${g.link ? '' : '<button type="button" class="btn" data-admin-order>＋ 幫人下單</button>'}
-        <a class="btn" href="#/admin/shop/stock/gift/${encodeURIComponent(g.id)}">💝 關心道親</a>
+        <button type="button" class="btn" data-gift>💝 關心道親</button>
         ${g.status !== '結束' && !g.closed ? '<button type="button" class="btn" data-push-open>📣 推播開團通知</button>' : ''}
         ${s.orders ? '' : '<button type="button" class="btn btn-quiet-danger" data-delete>刪除這次團購</button>'}
       </div>` : ''}
@@ -976,6 +976,8 @@
     if (po) po.addEventListener('click', () => pushForm(g, guard, reload));
     const ao = body.querySelector('[data-admin-order]');
     if (ao) ao.addEventListener('click', () => orderForm(d, null, guard, reload));
+    const gf = body.querySelector('[data-gift]');
+    if (gf) gf.addEventListener('click', () => giftForm(d, guard, reload));
     const del = body.querySelector('[data-delete]');
     if (del) del.addEventListener('click', async () => {
       const ok = await Confirm.open({ title: '刪除這次團購？', rows: [['名稱', g.name]], confirmText: '確定刪除', danger: true });
@@ -1018,6 +1020,58 @@
         Busy.hide();
         m.close();
         flash = AdminPage.notice('success', now ? '已推播出去了 📣' : '已排定 ⏰', '可以到「📣 推播」分頁看送出的情形');
+        after();
+      } catch (e) {
+        Busy.hide();
+        if (e.code === 'UNAUTHORIZED') { m.close(); guard(e); return; }
+        box.innerHTML = `<strong>${esc(e.message)}</strong>${(e.details || []).map((x) => '<br>' + esc(x.message)).join('')}`;
+        box.hidden = false;
+      }
+    });
+  }
+
+  /** 💝 關心道親（2026/11/4）：和幫人下單一樣列這次團購的商品填數量，存成「商品減少」的贈送（從庫存扣，不算營業額） */
+  async function giftForm(d, guard, after) {
+    const g = d.group;
+    let st;
+    Busy.show('載入中⋯');
+    try { st = await Api.admin('adminShopStock', {}, true); } catch (e) { Busy.hide(); guard(e); return; }
+    Busy.hide();
+    const stockOf = (id, option) => { const p = st.products.find((x) => x.id === id); if (!p) return null; if (!option) return p.stock; const v = (p.variants || []).find((x) => x.option === option); return v ? v.stock : 0; };
+    const rows = [];
+    g.items.forEach((it) => {
+      if (it.options) it.options.options.forEach((op) => rows.push({ it, option: op.name, label: `${it.name}（${op.name}）` }));
+      else rows.push({ it, option: '', label: it.name });
+    });
+    const m = Modal.open(`
+      <form class="modal-form admin-form" novalidate>
+        <h2 class="modal-title">💝 關心道親</h2>
+        <p class="modal-note">送出去關心的，從庫存扣掉，記成「商品減少」的<b>贈送</b>（進銷存算在其他減，不算營業額）。</p>
+        <label class="form-row"><span>送給誰（選填）</span><input class="input" name="who" maxlength="40" autocomplete="off" placeholder="例：住院的○○"></label>
+        <label class="form-row"><span>日期</span><input class="input" type="date" name="date" max="${esc(st.today)}" value="${esc(st.today)}"></label>
+        <div class="form-row"><span>數量</span><div class="shop-qty-list">${rows.map((r) => { const s = stockOf(r.it.id, r.option); return `<label class="shop-qty-row">${thumb(r.it.photo, r.it.name, 'shop-thumb-sm')}<span>${esc(r.label)}${s !== null ? `<small>庫存 ${s}</small>` : ''}</span><input class="input" type="number" min="0" max="99" data-qty="${esc(r.it.id)}" data-opt="${esc(r.option)}" value="0"></label>`; }).join('')}</div></div>
+        <div class="form-error" data-error hidden></div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-block btn-primary">存檔</button>
+          <button type="button" class="btn btn-block" data-close>返回</button>
+        </div>
+      </form>`);
+    const f = m.el.querySelector('form');
+    bindZoom(f);
+    m.el.querySelector('[data-close]').addEventListener('click', () => m.close());
+    f.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const box = f.querySelector('[data-error]');
+      const who = f.elements.who.value.trim();
+      const items = [...f.querySelectorAll('[data-qty]')].map((x) => ({ id: x.dataset.qty, option: x.dataset.opt, qty: Number(x.value) || 0 })).filter((x) => x.qty > 0);
+      if (!items.length) { box.textContent = '請至少填一樣的數量'; box.hidden = false; return; }
+      Busy.show('存檔中⋯');
+      try {
+        const res = await Api.admin('adminShopStockMove', { type: 'out', rows: items.map((x) => ({ id: x.id, option: x.option, qty: x.qty, method: '贈送', date: f.elements.date.value, note: '關心道親' + (who ? '：' + who : '') })) });
+        Busy.hide();
+        m.close();
+        AdminPage.clearMemo();
+        flash = res.warnings.length ? AdminPage.notice('error', '已存檔，請注意', res.warnings.join('；')) : AdminPage.notice('success', '💝 關心道親記好了', `共 ${items.reduce((n, x) => n + x.qty, 0)} 份${who ? '，送給 ' + esc(who) : ''}`);
         after();
       } catch (e) {
         Busy.hide();

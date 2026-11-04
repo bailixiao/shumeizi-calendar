@@ -971,3 +971,19 @@ test('以 Excel 為準重設庫存：手動記的拿掉改記初存／買進／�
   // 團購賣得比 Excel 多：擋下
   assert.match(JSON.stringify(call('adminShopStockRealign', { openDate: '2026-09-20', items: [{ code, option: '', sale: [1, 60] }] }).error), /團購訂單已經賣了 2/);
 });
+
+test('記帳的進貨跟庫存同步：重設拿掉的買進從記帳拿掉，重設記的買進補進記帳；預覽不改', () => {
+  const { call, ok, tofu } = setup();
+  ok(call('adminShopStockMove', { type: 'in', rows: [{ id: tofu.id, date: '2026-09-01', qty: 30, amount: 900, method: '買進' }] }));
+  const buys = () => ok(call('adminShopLedger', { year: 2026 })).accounts.find((a) => a.name === '零用金').entries.filter((e) => e.category === '進貨').map((e) => e.amount);
+  assert.deepEqual(buys(), [900]);
+  const code = ok(call('adminShopStock', {})).products.find((p) => p.id === tofu.id).code;
+  ok(call('adminShopStockRealign', { openDate: '2026-09-20', date: '2026-09-30', items: [{ code, option: '', open: [7, 210], buy: [3, 90] }] }));
+  assert.deepEqual(buys(), [900], '重設不動記帳');
+  const pre = ok(call('adminShopLedgerStockSync', { dryRun: true }));
+  assert.deepEqual([pre.before, pre.after, pre.changes.length], [900, 90, 2]);
+  assert.deepEqual(buys(), [900], '預覽不改');
+  ok(call('adminShopLedgerStockSync', {}));
+  assert.deepEqual(buys(), [90]);
+  assert.equal(ok(call('adminShopLedgerStockSync', { dryRun: true })).changes.length, 0, '再同步一次沒有要改的');
+});

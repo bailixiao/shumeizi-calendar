@@ -106,3 +106,41 @@ function adminShopStockRealign_(body) {
   };
   return dry ? run() : withSignupLock_(run);
 }
+
+/**
+ * 記帳的進貨跟庫存同步（2026/11/4）：自動記的進貨（來源 K:批次）照現在庫存紀錄的「買進」重算，
+ * 批次裡已經沒有買進了就拿掉；有買進、記帳還沒有的批次補記（零用金，日期＝那批最早的日期）。
+ * body = { dryRun }；回傳 { changes: [{ source, note, date, before, after }], before, after }
+ */
+function adminShopLedgerStockSync_(body) {
+  var run = function () {
+    var stock = readTable_(SHEETS.SHOP_STOCK).filter(function (r) { return r['類型'] === '進' && r['方式'] === '買進' && r['批次ID']; });
+    var ledger = readTable_(SHEETS.SHOP_LEDGER).filter(function (r) { return /^K:/.test(r['來源'] || ''); });
+    var products = readTable_(SHEETS.SHOP_PRODUCTS);
+    var byBatch = {};
+    stock.forEach(function (r) { (byBatch[r['批次ID']] = byBatch[r['批次ID']] || []).push(r); });
+    var batches = {};
+    ledger.forEach(function (r) { batches[r['來源'].slice(2)] = true; });
+    Object.keys(byBatch).forEach(function (b) { batches[b] = true; });
+    var changes = [];
+    var before = 0, after = 0;
+    Object.keys(batches).forEach(function (b) {
+      var rows = byBatch[b] || [];
+      var have = ledger.filter(function (r) { return r['來源'] === 'K:' + b; });
+      var was = have.reduce(function (n, r) { return n + (Number(r['金額']) || 0); }, 0);
+      var now = rows.reduce(function (n, r) { return n + stockAmount_(r); }, 0);
+      before += was; after += now;
+      if (was === now && have.length <= 1) return;
+      ledgerLockCheck_(have.length ? have[0]['日期'] : rows.map(stockDate_).sort()[0], '那一年的帳');
+      var names = rows.map(function (r) { var p = findById_(products, '商品ID', r['商品ID']); return p ? p['名稱'] : ''; }).filter(function (n, i, a) { return n && a.indexOf(n) === i; });
+      changes.push({ source: 'K:' + b, date: have.length ? have[0]['日期'] : rows.map(stockDate_).sort()[0], note: have.length ? have[0]['備註'] : '進貨：' + names.join('、'), before: was, after: now });
+    });
+    if (!body.dryRun) {
+      changes.forEach(function (c) { ledgerSyncStockBatch_(c.source.slice(2), '零用金'); });
+      if (changes.length) writeDutyLog_('記帳進貨同步', changes.length + ' 筆：進貨 ' + before + ' → ' + after + adminTag_());
+      SpreadsheetApp.flush();
+    }
+    return { changes: changes, before: before, after: after };
+  };
+  return body.dryRun ? run() : withSignupLock_(run);
+}

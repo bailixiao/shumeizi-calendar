@@ -93,13 +93,15 @@ function ledgerBook_(rows, rep, year) {
   var closeInv = rep.total.end.amount;
   var purchases = secTotal('成本');
   var income = secTotal('收入');
-  var cogs = openInv + purchases - closeInv;
+  var otherAdd = rep.total.add.amount; // 進銷存的其他加、其他減（2026/11/4：損益表的成本照 Excel 加這兩行）
+  var otherSub = rep.total.sub.amount;
+  var cogs = Math.round((openInv + purchases + otherAdd - otherSub - closeInv) * 100) / 100;
   var expense = secTotal('費用');
   var other = secTotal('其他收入') - secTotal('其他損失');
   var profit = income - cogs - expense + other;
   var is = {
     income: lines('收入'), incomeTotal: income,
-    openInv: openInv, purchases: purchases, closeInv: closeInv, cogs: cogs, stockBuy: rep.total.buy.amount, // stockBuy：進銷存的本期進貨（對帳用）
+    openInv: openInv, purchases: purchases, otherAdd: otherAdd, otherSub: otherSub, closeInv: closeInv, cogs: cogs, stockBuy: rep.total.buy.amount, // stockBuy：進銷存的本期進貨（對帳用）
     expenses: lines('費用'), expenseTotal: expense,
     others: lines('其他收入').concat(lines('其他損失').map(function (l) { return { subject: l.subject, amount: -l.amount }; })), otherTotal: other,
     profit: profit

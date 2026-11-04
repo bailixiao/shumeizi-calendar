@@ -31,13 +31,13 @@ function ledgerSheetSystemRows_(rows) {
   }).sort(function (a, b) { return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : (a[7] < b[7] ? -1 : 1); }).map(function (x) { return x.slice(0, 7); });
 }
 
-/** 「系統存貨」的列（純函式）：每一年 [年度, 期初存貨, 進銷存本期進貨, 期末存貨]；starts＝{ 年度: 開始記帳日 }（沒有＝1/1） */
+/** 「系統存貨」的列（純函式）：每一年 [年度, 期初存貨, 進銷存本期進貨, 期末存貨, 其他加, 其他減]；starts＝{ 年度: 開始記帳日 }（沒有＝1/1） */
 function ledgerSheetStockRows_(records, products, firstYear, lastYear, starts) {
   var out = [];
   for (var y = firstYear; y <= lastYear; y++) {
     var from = (starts && starts[y]) || y + '-01-01';
     var rep = stockReport_(records, products, from, y + '-12-31');
-    out.push([y, rep.total.open.amount, rep.total.buy.amount, rep.total.end.amount]);
+    out.push([y, rep.total.open.amount, rep.total.buy.amount, rep.total.end.amount, rep.total.add.amount, rep.total.sub.amount]);
   }
   return out;
 }
@@ -167,9 +167,10 @@ function ledgerSheetWriteSystem_(ss, rows, inv) {
     sys.getRange(2, 5, data.length, 1).setNumberFormat('#,##0');
   }
   var st = ss.getSheetByName(LS.stock);
-  if (st.getLastRow() > 1) st.getRange(2, 1, st.getLastRow() - 1, 4).clearContent();
-  st.getRange(2, 1, inv.length, 4).setValues(inv);
-  st.getRange(2, 2, inv.length, 3).setNumberFormat('#,##0');
+  st.getRange(1, 5, 1, 2).setValues([['其他加', '其他減']]).setFontWeight('bold').setBackground('#f3ead8');
+  if (st.getLastRow() > 1) st.getRange(2, 1, st.getLastRow() - 1, 6).clearContent();
+  st.getRange(2, 1, inv.length, 6).setValues(inv);
+  st.getRange(2, 2, inv.length, 5).setNumberFormat('#,##0');
 }
 
 // 使用說明後來加的段落（版本號：加過的不再加；往下接在最後面，不蓋掉原本的）
@@ -207,6 +208,26 @@ function ledgerSheetHelpMore_(ss) {
   props.setProperty(key, String(LS_HELP_VERSION));
 }
 
+/** 系統存貨的第 col 欄（2 期初、3 進貨、4 期末、5 其他加、6 其他減） */
+function lsInv_(col, Y) {
+  return 'IFERROR(VLOOKUP(' + (Y || '設定!$B$1') + ',系統存貨!$A:$F,' + col + ',FALSE),0)';
+}
+
+/** v4：(7) IS 的成本在「進貨」下面加「加：其他」「減：其他」兩列（進銷存的其他加減），銷貨成本的 SUM 會自動包進去 */
+function lsIsOtherRows_(ss) {
+  var is = ss.getSheetByName(LS.is);
+  if (!is) return;
+  var b = is.getRange(1, 2, is.getLastRow(), 1).getValues().map(function (r) { return String(r[0]); });
+  if (b.indexOf('加：其他') !== -1) return;
+  var r = b.indexOf('進貨') + 1;
+  if (!r) return;
+  is.insertRowsAfter(r, 2);
+  is.getRange(r + 1, 2, 2, 1).setValues([['加：其他'], ['減：其他']]);
+  is.getRange(r + 1, 4).setFormula('=' + lsInv_(5)).setBackground('#fff2cc');
+  is.getRange(r + 2, 4).setFormula('=-' + lsInv_(6)).setBackground('#fff2cc');
+  is.getRange(r + 1, 4, 2, 1).setNumberFormat('#,##0');
+}
+
 /** v3：各帳戶的期初餘額（E4）改成自己打的數字：照現在算出來的值寫死，設定那幾列拿掉 */
 function lsOpeningToTabs_(ss) {
   LS_ACCOUNT_TABS.forEach(function (t) {
@@ -227,9 +248,10 @@ function lsOpeningToTabs_(ss) {
 /**
  * 舊的試算表升級（只做一次，記在 LEDGER_SHEET_VER:ID）：
  *   v3（2026/11/4）：各帳戶的期初餘額（E4）改成自己打的數字（以前＝設定的餘額＋公式）。
+ *   v4（2026/11/4）：(7) IS 的成本加「加：其他」「減：其他」（進銷存的其他加減，系統存貨 E、F 欄）。
  *   v2（一年一份）：改檔名「115年植素園記帳」；設定加「開始記帳日」（B2，預設＝收支記帳最早的日期）；各帳戶、IS 的期間改成從開始記帳日算。
  */
-var LS_SHEET_VERSION = 3;
+var LS_SHEET_VERSION = 4;
 function ledgerSheetUpgrade_(ss, year, rows) {
   var props = PropertiesService.getScriptProperties();
   var key = 'LEDGER_SHEET_VER:' + ss.getId();
@@ -249,6 +271,7 @@ function ledgerSheetUpgrade_(ss, year, rows) {
     if (is) is.getRange('A3').setFormula(LS_RANGE_FORMULA);
   }
   if (v < 3) lsOpeningToTabs_(ss);
+  if (v < 4) lsIsOtherRows_(ss);
   props.setProperty(key, String(LS_SHEET_VERSION));
 }
 
@@ -339,7 +362,7 @@ function ledgerSheetBuild_(ss, rows, year) {
   sys.setTabColor('#999999');
   sys.setColumnWidth(4, 260);
   var st = sheet(LS.stock, 5);
-  head(st, ['年度', '期初存貨', '進銷存本期進貨', '期末存貨']);
+  head(st, ['年度', '期初存貨', '進銷存本期進貨', '期末存貨', '其他加', '其他減']);
   st.setTabColor('#999999');
 
   // 全部記帳（公式：系統＋手動）
@@ -393,7 +416,7 @@ function ledgerSheetBuild_(ss, rows, year) {
   var lines = [];
   var put = function (a, b, d, f, opt) { lines.push({ a: a || '', b: b || '', d: d || '', f: f || '', opt: opt || {} }); return lines.length + 4; }; // 第 5 列開始
   var sumif = function (r, neg) { return '=IF(B' + r + '="","",' + (neg ? '-' : '') + 'SUMIFS(全部記帳!$H:$H,全部記帳!$C:$C,B' + r + ',全部記帳!$F:$F,' + Y + '))'; };
-  var inv = function (col) { return 'IFERROR(VLOOKUP(' + Y + ',系統存貨!$A:$D,' + col + ',FALSE),0)'; };
+  var inv = function (col) { return lsInv_(col, Y); };
   var block = function (sec, blanks, neg) {
     var first = lines.length + 5;
     subjects.filter(function (s) { return s[1] === sec; }).forEach(function (s) { var r = lines.length + 5; put('', s[0], sumif(r, neg)); });
@@ -407,6 +430,8 @@ function ledgerSheetBuild_(ss, rows, year) {
   put('成本', '', '', '', { b: true });
   var c1 = put('', '期初存貨', '=' + inv(2));
   put('', '進貨', '=SUMIFS(全部記帳!$H:$H,全部記帳!$C:$C,"進貨",全部記帳!$F:$F,' + Y + ')', '="進銷存的本期進貨："&TEXT(' + inv(3) + ',"#,##0")', { note: true });
+  put('', '加：其他', '=' + inv(5)); // 進銷存的其他加、其他減（2026/11/4）
+  put('', '減：其他', '=-' + inv(6));
   var c3 = put('', '減：期末存貨', '=-' + inv(4));
   var cogs = put('銷貨成本', '', '', '=SUM(D' + c1 + ':D' + c3 + ')', { b: true, y: true });
   put('', '', '', '');

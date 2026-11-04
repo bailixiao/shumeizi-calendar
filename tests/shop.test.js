@@ -552,7 +552,7 @@ test('植素園記帳 Google 試算表：系統記帳的列（帳戶增減、來
     ['2026-10-01', '零用金', '銷貨收入', 120, '團購訂單']
   ]);
   const stock = env.fn('ledgerSheetStockRows_')(env.fn('readTable_')(env.fn('SHEETS').SHOP_STOCK), env.fn('readTable_')(env.fn('SHEETS').SHOP_PRODUCTS), 2026, 2027);
-  assert.deepEqual(stock, [[2026, 0, 300, 240], [2027, 240, 0, 240]]);
+  assert.deepEqual(stock, [[2026, 0, 300, 240, 0, 0], [2027, 240, 0, 240, 0, 0]]); // 後兩欄：其他加、其他減
   const subjects = env.fn('ledgerSheetSubjects_')(rows);
   assert.ok(subjects.some((s) => s[0] === '進貨' && s[1] === '成本'));
   assert.ok(subjects.some((s) => s[0] === '存提款' && s[1] === '移轉'));
@@ -986,4 +986,17 @@ test('記帳的進貨跟庫存同步：重設拿掉的買進從記帳拿掉，�
   ok(call('adminShopLedgerStockSync', {}));
   assert.deepEqual(buys(), [90]);
   assert.equal(ok(call('adminShopLedgerStockSync', { dryRun: true })).changes.length, 0, '再同步一次沒有要改的');
+});
+
+test('損益表的成本：期初＋進貨＋其他加－其他減－期末＝銷貨成本（和進銷存一樣）', () => {
+  const { call, ok, tofu } = setup();
+  ok(call('adminShopStockMove', { type: 'in', rows: [{ id: tofu.id, date: '2026-09-01', qty: 10, amount: 300, method: '買進' }] }));
+  ok(call('adminShopStockMove', { type: 'in', rows: [{ id: tofu.id, date: '2026-09-02', qty: 2, amount: 60, method: '盤盈' }] }));
+  ok(call('adminShopStockMove', { type: 'out', rows: [{ id: tofu.id, date: '2026-09-03', qty: 1, method: '試吃' }] }));
+  ok(call('adminShopStockMove', { type: 'out', rows: [{ id: tofu.id, date: '2026-09-04', qty: 3, method: '售出' }] }));
+  const L = ok(call('adminShopLedger', { year: 2026 }));
+  const rep = ok(call('adminShopStockReport', { from: '2026-01-01', to: '2026-12-31' }));
+  assert.deepEqual([L.is.otherAdd, L.is.otherSub], [60, 30]);
+  assert.equal(L.is.cogs, rep.total.saleCost.amount);
+  assert.equal(L.is.cogs, L.is.openInv + L.is.purchases + L.is.otherAdd - L.is.otherSub - L.is.closeInv);
 });

@@ -25,6 +25,23 @@ window.AdminStock = (function () {
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   }
 
+  /**
+   * 凍結窗格：表頭第二列黏在第一列下面、左邊 cols 欄固定（照實際寬度、高度量）。
+   * 表頭第一列左邊幾格是跨兩列的（rowspan），第二列不用固定左邊。
+   */
+  function freezeTable(t, cols) {
+    if (!t) return;
+    const one = [...t.tHead.rows[0].cells].find((c) => c.rowSpan === 1);
+    if (one) t.style.setProperty('--freeze-head1', one.getBoundingClientRect().height + 'px');
+    const body1 = t.tBodies[0] && t.tBodies[0].rows[0];
+    if (!body1) return;
+    const lefts = [];
+    let x = 0;
+    for (let i = 0; i < cols; i++) { lefts.push(x); x += body1.cells[i].getBoundingClientRect().width; }
+    const rows = [t.tHead.rows[0], ...t.tBodies[0].rows, ...(t.tFoot ? t.tFoot.rows : [])];
+    rows.forEach((r) => { for (let i = 0; i < cols && i < r.cells.length; i++) { r.cells[i].classList.add('is-frozen'); r.cells[i].style.left = lefts[i] + 'px'; } });
+  }
+
   // ---------- 進銷存報表 ----------
 
   const repState = { from: '', to: '' };
@@ -56,7 +73,7 @@ window.AdminStock = (function () {
         <div class="stat-card"><span class="stat-label">毛利</span><span class="stat-num">${m0(d.profit)}</span><span class="stat-hint">毛利率 ${Math.round(d.margin * 1000) / 10}%</span></div>
         <div class="stat-card"><span class="stat-label">期末存貨</span><span class="stat-num">${m0(d.total.end.amount)}</span><span class="stat-hint">${d.total.end.qty} 件</span></div>
       </div>
-      ${d.rows.length ? `<div class="stock-table-wrap stock-report-wrap"><table class="stock-table stock-report">
+      ${d.rows.length ? `<div class="stock-table-wrap stock-freeze-wrap"><table class="stock-table stock-freeze">
         <thead>
           <tr><th rowspan="2">品項</th><th colspan="3">期初存貨</th><th colspan="3">本期進貨</th><th colspan="2">其他：加</th><th colspan="2">其他：減</th><th colspan="3">本期銷貨（平均成本）</th><th colspan="3">本期銷貨（售價）</th><th colspan="3">期末存貨</th></tr>
           <tr><th>數量</th><th>單價</th><th>金額</th><th>數量</th><th>單價</th><th>金額</th><th>數量</th><th>金額</th><th>數量</th><th>金額</th><th>數量</th><th>單價</th><th>金額</th><th>數量</th><th>單價</th><th>金額</th><th>數量</th><th>單價</th><th>金額</th></tr>
@@ -65,8 +82,7 @@ window.AdminStock = (function () {
         <tfoot><tr><td>合計</td><td class="num">${d.total.open.qty}</td><td></td><td class="num">${m0(d.total.open.amount)}</td><td class="num">${d.total.buy.qty}</td><td></td><td class="num">${m0(d.total.buy.amount)}</td><td class="num">${d.total.add.qty}</td><td class="num">${m0(d.total.add.amount)}</td><td class="num">${d.total.sub.qty}</td><td class="num">${m0(d.total.sub.amount)}</td><td class="num">${d.total.saleCost.qty}</td><td></td><td class="num">${m0(d.total.saleCost.amount)}</td><td class="num">${d.total.sale.qty}</td><td></td><td class="num">${m0(d.total.sale.amount)}</td><td class="num">${d.total.end.qty}</td><td></td><td class="num">${m0(d.total.end.amount)}</td></tr></tfoot>
       </table></div>` : '<p class="panel-empty">這段期間沒有進出紀錄。</p>'}
       <p class="hint">平均成本＝（期初金額＋進貨金額＋其他加金額－其他減金額）÷（期初數量＋進貨數量＋其他加數量－其他減數量），不先四捨五入；畫面上單價顯示到小數第二位、金額顯示到個位數（計算照樣算到小數第二位）；銷貨成本＝銷貨數量×平均成本，期末金額＝可賣的成本－銷貨成本，所以每一列「期初＋進貨＋其他加－其他減＝銷貨成本＋期末」都對得起來。毛利只是賣商品賺的，不含攤位費、包材等費用。</p>`;
-    const rt = body.querySelector('.stock-report'); // 表頭第二列黏在第一列下面（照實際高度）
-    if (rt) rt.style.setProperty('--report-head1', rt.tHead.rows[0].cells[1].getBoundingClientRect().height + 'px');
+    freezeTable(body.querySelector('.stock-freeze'), 1); // 品項欄＋表頭凍結
     const f = body.querySelector('form');
     f.addEventListener('submit', (ev) => { ev.preventDefault(); repState.from = f.elements.from.value; repState.to = f.elements.to.value; report(body, guard); });
     body.querySelector('[data-csv]').addEventListener('click', () => {
@@ -112,7 +128,7 @@ window.AdminStock = (function () {
           <div><dt>事由</dt><dd>${esc(d.duty.name)}</dd></div>
         </dl>
         <form class="stall-form" novalidate>
-          <div class="stock-table-wrap"><table class="stock-table stall-table">
+          <div class="stock-table-wrap stock-freeze-wrap"><table class="stock-table stall-table stock-freeze">
             <thead><tr><th rowspan="2">代號</th><th rowspan="2">品名</th><th rowspan="2">售前<br>數量</th><th colspan="2">銷售數量</th><th rowspan="2">單價</th><th rowspan="2">營業額</th><th rowspan="2">售後<br>應有</th><th rowspan="2">售後<br>實際</th><th rowspan="2">備註</th></tr>
               <tr><th>預購</th><th>現場</th></tr></thead>
             <tbody>${d.rows.map((r, i) => `<tr>
@@ -130,6 +146,7 @@ window.AdminStock = (function () {
           ${edit ? '<div class="admin-actions"><button type="submit" class="btn btn-primary">存檔</button></div>' : ''}
           <div class="admin-actions"><button type="button" class="btn" data-csv>⬇️ 下載 Excel（CSV）</button><a class="btn" href="#/admin/shop/stall">換一場</a></div>
         </form>`;
+      freezeTable(body.querySelector('.stock-freeze'), 2); // 代號、品名＋表頭凍結
       const f = body.querySelector('form');
       f.querySelectorAll('[data-k]').forEach((x) => x.addEventListener('input', () => {
         st[Number(x.dataset.i)][x.dataset.k] = x.value;

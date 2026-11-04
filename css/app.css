@@ -2723,12 +2723,15 @@ span.shop-thumb { cursor: default; }
 .stock-table tfoot td { font-weight: 800; background: var(--ok-soft); }
 .stock-table thead tr:first-child th:first-child, .stock-table td:first-child { position: sticky; left: 0; background: var(--card); z-index: 1; } /* 只固定「品項」欄（第二列表頭的第一格是期初的數量，不固定） */
 .stock-table thead th:first-child { background: var(--paper-2); }
-/* 進銷存報表：表頭兩列＋品項欄凍結（2026/11/4）；表格自己捲（上下、左右），表頭才黏得住 */
-.stock-report-wrap { max-height: calc(100vh - 140px); overflow: auto; }
-.stock-report thead th { position: sticky; top: 0; z-index: 2; background: var(--paper-2); box-shadow: inset 0 -1px 0 var(--line); }
-.stock-report thead tr:nth-child(2) th { top: var(--report-head1, 37px); }
-.stock-report thead tr:first-child th:first-child { left: 0; z-index: 3; background: var(--paper-2); }
-.stock-report td:first-child { box-shadow: inset -1px 0 0 var(--line); }
+/* 凍結窗格（進銷存報表、出攤銷售統計表，2026/11/4）：表頭兩列＋左邊幾欄；表格自己捲（上下、左右），表頭才黏得住。左邊的位置由 admin-stock.js freezeTable 量好寫上去 */
+.stock-freeze-wrap { max-height: calc(100vh - 140px); overflow: auto; }
+.stock-freeze thead th { position: sticky; top: 0; z-index: 2; background: var(--paper-2); box-shadow: inset 0 -1px 0 var(--line); }
+.stock-freeze thead tr:nth-child(2) th { top: var(--freeze-head1, 37px); }
+.stock-freeze .is-frozen { position: sticky; z-index: 1; background: var(--card); box-shadow: inset -1px 0 0 var(--line); }
+.stock-freeze thead .is-frozen { z-index: 3; background: var(--paper-2); }
+.stock-freeze tfoot .is-frozen { background: var(--ok-soft); }
+.rec-search { margin: 0 0 10px; }
+.rec-search .hint { margin: 6px 2px 0; }
 .stall-in { width: 4.2em; min-height: 36px; padding: 4px 6px; text-align: right; }
 .stall-in.is-diff { border-color: var(--berry); background: var(--berry-soft, #f6e1df); }
 .stall-note { width: 9em; min-height: 36px; padding: 4px 6px; }

@@ -84,7 +84,7 @@
       </li>`).join('')}</ul>` : '<p class="panel-empty">還沒有商品，按上面「➕ 商品增加」，在商品選單選「🆕 新商品」。</p>';
     // 📜 進出紀錄
     const recHtml = st.records.length ? `<ul class="stock-recs">${st.records.map((r) => `
-      <li class="stock-rec">
+      <li class="stock-rec" data-rec-s="${esc([r.code, r.name, r.method, r.note, r.date].join(' ').toLowerCase())}" data-rec-n="${r.type === '進' ? r.qty : -r.qty}">
         <span class="stock-rec-type ${r.type === '進' ? 'is-in' : 'is-out'}">${r.type === '進' ? '進' : '出'}</span>
         <div class="stock-rec-main">
           <p><strong>${esc(r.code ? r.code + ' ' : '')}${esc(r.name)}</strong><span class="stock-rec-qty ${r.type === '進' ? 'is-in' : 'is-out'}">${r.type === '進' ? '+' : '−'}${r.qty}</span></p>
@@ -105,7 +105,9 @@
         <div class="admin-actions">${edit ? '<a class="btn btn-primary" href="#/admin/shop/new">＋ 開團</a>' : ''}<a class="btn" href="#/admin/shop/members">👥 會員</a></div>
         ${groupsHtml}` : state.tab === 'records' ? `
         ${edit && st.records.some((r) => r.type === '進' && r.method === '初存' && !r.orderId) ? '<div class="admin-actions"><button type="button" class="btn" data-to-buy>🔁 初存改成買進</button></div>' : ''}
+        ${st.records.length ? `<div class="rec-search"><input class="input" type="search" data-rec-q placeholder="🔍 找品項（名稱、編號、口味、備註）" value="${esc(state.recQ || '')}"><p class="hint" data-rec-sum hidden></p></div>` : ''}
         ${recHtml}
+        <p class="panel-empty" data-rec-none hidden>找不到符合的紀錄</p>
         <p class="hint">團購一下單就自動記「售出」，改單跟著改、取消訂單會還回去；手動記的記錯了可以「修改」或刪除。</p>` : `
         ${stockHtml}
         <div class="stock-tools">
@@ -122,6 +124,22 @@
     flash = '';
     bindZoom(body);
     body.querySelectorAll('input[name=shoptab]').forEach((r) => r.addEventListener('change', () => { state.tab = r.value; renderList(body, guard, data, false); }));
+    // 📜 進出紀錄：找品項（2026/11/4）；打的字每個都要有（空白隔開），下面寫幾筆、進出合計
+    const rq = body.querySelector('[data-rec-q]');
+    const recFilter = () => {
+      const words = String(state.recQ || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+      let n = 0, sum = 0;
+      body.querySelectorAll('[data-rec-s]').forEach((li) => {
+        const hit = words.every((w) => li.dataset.recS.indexOf(w) !== -1);
+        li.hidden = !hit;
+        if (hit) { n++; sum += Number(li.dataset.recN) || 0; }
+      });
+      const s = body.querySelector('[data-rec-sum]');
+      s.hidden = !words.length;
+      s.textContent = words.length ? `找到 ${n} 筆，進出合計 ${sum > 0 ? '+' : ''}${sum}${st.records.length >= 300 ? '（只找最近 300 筆）' : ''}` : '';
+      body.querySelector('[data-rec-none]').hidden = !(words.length && !n);
+    };
+    if (rq) { rq.addEventListener('input', () => { state.recQ = rq.value; recFilter(); }); recFilter(); }
     body.querySelectorAll('[data-product]').forEach((b) => b.addEventListener('click', () => {
       editProduct(st.products.find((p) => p.id === b.dataset.product), guard, () => showList(body, guard));
     }));

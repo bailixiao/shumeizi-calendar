@@ -2995,3 +2995,8 @@ span.shop-thumb { cursor: default; }
 .coupon-code { font-family: ui-monospace, Consolas, monospace; letter-spacing: .05em; }
 .coupon-kind .segment { font-size: .9rem; }
 .coupon-fields[hidden] { display: none; }
+
+/* 配送：找 7-11 門市（2026/11/4） */
+.shop-cvs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 2px; }
+.shop-cvs span { font-size: .9rem; color: var(--muted); }
+.shop-cvs + .hint { margin-bottom: 14px; }

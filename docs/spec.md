@@ -270,8 +270,8 @@
   - **LINE 登入**和 **Google 登入**都可以。大家多半從 LINE 點連結進來，Google 不能在 LINE 內建的瀏覽器登入（Google 的規定），所以在 LINE 裡打開時只顯示 LINE 登入，並提示「要用 Google 請改用 Safari／Chrome 打開」。
   - **逛商品、放購物車不用登入**；按「送出訂單」、看「我的訂單」、「我的資料」時才要登入（登入完回到原本的畫面，購物車還在）。
   - 登入一次記在這支手機 180 天；「我的資料」可以登出。
-  - 技術：Google＝Google Identity Services（網頁拿到 ID token，Worker 用 Google 的公開金鑰驗證）；LINE＝LINE Login（網頁轉到 LINE 授權，回來後 Worker 用 Channel secret 換 token、驗證）。驗證好 Worker 發我們自己的登入憑證（HMAC 簽章，金鑰放 Worker secret）。
-  - 公開設定放 `js/site.js`（Google 的 Client ID、LINE 的 Channel ID，本來就是公開的）；**LINE 的 Channel secret、簽章金鑰由使用者自己用 `wrangler secret put` 設定，不寫進程式、Claude 不經手**。
+  - 技術：Google＝Google Identity Services（網頁拿到 ID token，Worker 請 Google 驗證）；**LINE＝LIFF**（2026/11/4 改，使用者同意：不需要 Channel secret；在 LINE 裡用 `https://liff.line.me/LIFF ID` 的網址打開幾乎一鍵登入，在一般瀏覽器按「LINE 登入」轉到 LINE 再回來；網頁用 liff.getIDToken() 拿 LINE 簽好的 ID token，Worker 用公開的 Channel ID 請 LINE 驗證）。驗證好 Worker 發我們自己的登入憑證（HMAC 簽章）。
+  - 公開設定放 `js/site.js`（Google 的 Client ID、LINE 的 LIFF ID，本來就是公開的）和 wrangler.toml 的 vars（GOOGLE_CLIENT_ID、LINE_CHANNEL_ID）。**簽章金鑰 Worker 第一次啟動自己產生、存在 Durable Object，沒有人看過、不寫進程式**（也可以用 Worker secret SHOP_SESSION_SECRET 指定）。
 - **會員資料**（存 Google Sheet 新分頁「團購會員」，不寫在程式裡）：會員ID、登入方式（LINE／Google）、帳號代號（LINE／Google 給的 ID）、Email（Google 才有）、顯示名稱（LINE／Google 的名字）、姓名、手機、地址簿（JSON）、建立時間、最後登入。
   - **第一次登入**：填姓名、手機（09 開頭 10 碼），之後每次結帳自動帶入，可以改。
   - **以前的訂單接過來**：手機和以前在團購網頁下單的手機一樣的話，那些訂單自動變成這個會員的（訂單記會員ID）。
@@ -282,12 +282,12 @@
 - **我的資料**（底下分頁多一個「👤 我的」）：姓名、手機、地址簿、登入方式、登出。
 - **後台「👥 會員」**（團購頁多一個分頁，總管理者、植素看得到）：會員名單（姓名、手機、登入方式、訂單數、總金額、最近一次下單），找名字或手機；點進去看地址簿和所有訂單。Email、手機、地址照 0.6.2 只有登入後台看得到。
 - **個資**：公開 API 一律不回傳別人的手機、地址、Email；**會員自己登入後只拿得到自己的資料**（我的資料、我的訂單）。
-- **開關**：`js/site.js` 的 `shopLogin`（googleClientId、lineChannelId）都空白時，植素園happy購照舊填名字＋手機下單（不用登入）；填了才變成要登入。Worker 端：wrangler.toml 的 vars（GOOGLE_CLIENT_ID、LINE_CHANNEL_ID、LINE_REDIRECTS）、secret（SHOP_SESSION_SECRET、LINE_CHANNEL_SECRET）。程式：js/shop-member.js、worker/src/member-auth.js、apps-script/ShopMember.gs。
+- **開關**：`js/site.js` 的 `shopLogin`（googleClientId、liffId）都空白時，植素園happy購照舊填名字＋手機下單（不用登入）；填了才變成要登入。Worker 端：wrangler.toml 的 vars（GOOGLE_CLIENT_ID、LINE_CHANNEL_ID）。程式：js/shop-member.js、worker/src/member-auth.js、apps-script/ShopMember.gs。
 - **示範版**：dev-server 的示範版有「示範登入」（不用真的 LINE／Google），截圖、測試用。
 - **上線前要使用者做的**：
-  1. LINE Developers 建一個「LINE Login」channel，Callback URL 填 `https://zhisu-shop.pages.dev/`，把 Channel ID 給 Claude；Channel secret 自己用 `npx wrangler secret put LINE_CHANNEL_SECRET` 設到 Worker。
+  1. LINE Developers 建一個「LINE Login」channel（Published），裡面加一個 LIFF app：Endpoint URL `https://zhisu-shop.pages.dev/`、Scope 勾 openid＋profile、大小 Full。Channel ID、LIFF ID 給 Claude（使用者登入，Claude 可以在瀏覽器幫忙按）。
   2. Google Cloud 建「OAuth 用戶端 ID」（網頁應用程式），已授權的 JavaScript 來源填 `https://zhisu-shop.pages.dev`，把用戶端 ID 給 Claude。
-  3. 自己用 `npx wrangler secret put SHOP_SESSION_SECRET` 設一串夠長的亂碼（登入憑證的簽章金鑰）。
+  3. 上線後，LINE 社群、IG 放的連結可以改成 `https://liff.line.me/LIFF ID`（在 LINE 裡打開直接登入），一般瀏覽器打開一樣是植素園happy購。
 
 ### 0.6.4 自動對帳（2026/11/4 使用者提出，待討論）
 

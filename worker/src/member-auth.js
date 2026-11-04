@@ -1,6 +1,7 @@
 // 團購會員登入（規格 0.6.3，2026/11/4）：驗證 Google／LINE 的登入，發我們自己的登入憑證。
 // 憑證＝base64url(JSON { m: 會員ID, exp }) + '.' + HMAC-SHA256 簽章；金鑰在 Worker secret SHOP_SESSION_SECRET（不寫進程式）。
-// Google、LINE 的 Client ID／Channel ID 本來就是公開的，放 wrangler.toml 的 vars；LINE 的 Channel secret 在 Worker secret LINE_CHANNEL_SECRET。
+// Google、LINE 的 Client ID／Channel ID 本來就是公開的，放 wrangler.toml 的 vars。
+// LINE 用 LIFF（2026/11/4）：網頁拿到 LINE 簽好的 ID token，這裡用公開的 Channel ID 請 LINE 驗證，不需要 Channel secret。
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { Buffer } from 'node:buffer';
 
@@ -30,7 +31,7 @@ export function verifySession(secret, token, nowMs) {
 
 /**
  * 驗證登入，回傳 { provider, sub, email, displayName }。
- * body = { provider: 'google', credential } ｜ { provider: 'line', code, redirectUri } ｜ { provider: 'demo', name }（只有本機示範版）
+ * body = { provider: 'google', credential } ｜ { provider: 'line', idToken }（LIFF 的 liff.getIDToken()）｜ { provider: 'demo', name }（只有本機示範版）
  */
 export async function verifyLogin(gs, cfg, body, fetchFn) {
   const fail = (msg) => new gs.ApiError_('LOGIN', msg || '登入失敗，請再試一次');
@@ -49,21 +50,16 @@ export async function verifyLogin(gs, cfg, body, fetchFn) {
     return { provider: 'Google', sub: String(j.sub), email: j.email_verified === 'true' || j.email_verified === true ? String(j.email || '') : '', displayName: String(j.name || '') };
   }
   if (body.provider === 'line') {
-    if (!cfg.lineChannelId || !cfg.lineChannelSecret) throw new gs.ApiError_('CONFIG', '還沒設定 LINE 登入');
-    const redirectUri = String(body.redirectUri || '');
-    if (cfg.lineRedirects.indexOf(redirectUri) === -1) throw fail();
-    const tok = await doFetch('https://api.line.me/oauth2/v2.1/token', {
-      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ grant_type: 'authorization_code', code: String(body.code || ''), redirect_uri: redirectUri, client_id: cfg.lineChannelId, client_secret: cfg.lineChannelSecret })
-    });
-    const t = await tok.json().catch(() => ({}));
-    if (!tok.ok || !t.id_token) throw fail();
+    if (!cfg.lineChannelId) throw new gs.ApiError_('CONFIG', '還沒設定 LINE 登入');
+    const idToken = String(body.idToken || '');
+    if (!idToken) throw fail();
+    // LINE 驗證簽章、發給誰（client_id）、有沒有過期
     const ver = await doFetch('https://api.line.me/oauth2/v2.1/verify', {
       method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ id_token: t.id_token, client_id: cfg.lineChannelId })
+      body: new URLSearchParams({ id_token: idToken, client_id: cfg.lineChannelId })
     });
     const v = await ver.json().catch(() => ({}));
-    if (!ver.ok || !v.sub) throw fail();
+    if (!ver.ok || !v.sub || String(v.aud) !== String(cfg.lineChannelId) || v.iss !== 'https://access.line.me') throw fail();
     return { provider: 'LINE', sub: String(v.sub), email: '', displayName: String(v.name || '') };
   }
   throw fail();

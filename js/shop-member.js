@@ -2,7 +2,9 @@
 //   #/shop/login?next=…  登入（送出訂單、看我的訂單前）
 //   #/shop/me?next=…     我的資料（第一次登入先填姓名、手機）
 // 登入憑證存在這支手機（180 天），每次呼叫團購的 API 由 api.js 帶上；驗證在 Worker（worker/src/member-auth.js）。
-// LINE：轉到 LINE 授權，回來網址帶 ?code=&state=（handleCallback 處理）；Google：Google Identity Services 的按鈕。
+// LINE：LIFF（2026/11/4）。在 LINE 裡用 liff.line.me 的網址打開會直接登入；其他地方按「LINE 登入」轉到 LINE，
+//   回來後 liff.init 處理（handleCallback），拿 LINE 簽好的 ID token 給 Worker 驗證（不需要 Channel secret）。
+// Google：Google Identity Services 的按鈕。
 // 在 LINE 內建的瀏覽器不能用 Google 登入（Google 的規定），只顯示 LINE 登入。
 (function () {
   'use strict';
@@ -12,7 +14,7 @@
   const LINE_KEY = 'zhisu-shop:line-login';
   const cfg = window.SITE.shopLogin || {};
   const demo = !!(window.APP_CONFIG && window.APP_CONFIG.demoLogin);
-  const enabled = !!window.SHOP_WEB && !!(cfg.googleClientId || cfg.lineChannelId || demo);
+  const enabled = !!window.SHOP_WEB && !!(cfg.googleClientId || cfg.liffId || demo);
   const inLine = /\bLine\//i.test(navigator.userAgent);
   const PROVIDER_LABEL = { LINE: 'LINE', Google: 'Google', 示範: '示範登入' };
 
@@ -70,26 +72,62 @@
     }
   }
 
-  /** LINE 授權回來（?code=&state=）：換成登入憑證，網址清乾淨，回到原本的畫面 */
-  async function handleCallback() {
-    const q = new URLSearchParams(location.search);
-    if (!q.get('code') && !q.get('error')) return false;
-    const saved = ss.get(LINE_KEY) || {};
-    ss.set(LINE_KEY, null);
-    const next = saved.next || '#/shop';
-    history.replaceState(null, '', location.pathname + next);
-    if (q.get('error') || !saved.state || q.get('state') !== saved.state) return false; // 按了取消或不是這次的登入
-    await finish({ provider: 'line', code: q.get('code'), redirectUri: saved.redirectUri }, next);
+  // ---------- LINE（LIFF） ----------
+  let liffReady = null;
+  function loadLiff() {
+    if (!liffReady) liffReady = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('LINE 登入載入失敗'));
+      document.head.appendChild(s);
+    }).then(() => window.liff.init({ liffId: cfg.liffId })).catch((e) => { liffReady = null; throw e; });
+    return liffReady;
+  }
+  /** LIFF 已登入：拿 ID token 換我們的登入憑證 */
+  async function liffFinish(next) {
+    const idToken = window.liff.getIDToken();
+    if (!idToken) return false;
+    await finish({ provider: 'line', idToken }, next);
+    if (state && !window.liff.isInClient()) { try { window.liff.logout(); } catch (e) { /* 下次重新拿新的 ID token */ } }
     return true;
   }
 
-  function lineLogin(next) {
-    const st = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
-    const redirectUri = cfg.lineRedirect || location.origin + location.pathname;
-    ss.set(LINE_KEY, { state: st, next, redirectUri });
-    location.href = 'https://access.line.me/oauth2/v2.1/authorize?' + new URLSearchParams({
-      response_type: 'code', client_id: cfg.lineChannelId, redirect_uri: redirectUri, state: st, scope: 'profile openid', bot_prompt: 'normal'
-    });
+  /**
+   * 打開網頁時：LINE 登入回來（網址帶 code、liffClientId）或從 liff.line.me 打開（帶 liff.state），
+   * 先讓 LIFF 處理、換成登入憑證，網址清乾淨，回到原本的畫面。回傳 true＝已經換到別的畫面。
+   */
+  async function handleCallback() {
+    if (!cfg.liffId) return false;
+    const q = new URLSearchParams(location.search);
+    const pending = ss.get(LINE_KEY);
+    const fromLine = q.has('liffClientId') || q.has('liff.state') || (pending && q.has('code'));
+    if (!fromLine && !(window.SHOP_WEB && /LIFF/i.test(navigator.userAgent))) return false;
+    ss.set(LINE_KEY, null);
+    const next = (pending && pending.next) || location.hash || '#/shop';
+    try {
+      await loadLiff();
+    } catch (e) {
+      return false;
+    }
+    if (location.search) history.replaceState(null, '', location.pathname + next);
+    if (state || !window.liff.isLoggedIn()) return false; // 已經登入過、或按了取消
+    return liffFinish(next);
+  }
+
+  async function lineLogin(next) {
+    Busy.show('打開 LINE 登入⋯');
+    try {
+      await loadLiff();
+    } catch (e) {
+      Busy.hide();
+      alert(e.message);
+      return;
+    }
+    Busy.hide();
+    if (window.liff.isLoggedIn()) { await liffFinish(next); return; }
+    ss.set(LINE_KEY, { next });
+    window.liff.login({ redirectUri: location.origin + location.pathname });
   }
 
   let gsi = null;
@@ -109,7 +147,7 @@
   function loginBox(why) {
     return `<div class="shop-login" data-login>
       ${why ? `<p class="shop-login-why">${why}</p>` : ''}
-      ${cfg.lineChannelId ? '<button type="button" class="btn btn-block shop-login-line" data-login-line>LINE 登入</button>' : ''}
+      ${cfg.liffId ? '<button type="button" class="btn btn-block shop-login-line" data-login-line>LINE 登入</button>' : ''}
       ${cfg.googleClientId ? (inLine
         ? '<p class="hint">要用 Google 登入：按右上角「⋯」→「用預設瀏覽器開啟」，再登入。</p>'
         : '<div class="shop-login-google" data-login-google></div>') : ''}

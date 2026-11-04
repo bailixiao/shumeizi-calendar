@@ -230,7 +230,7 @@
     root.innerHTML = `<h1 class="page-title">🛒 團購</h1>
       <div class="notice shop-go-web">
         <p><strong>團購都在「${esc(name)}」下單囉 🌿</strong></p>
-        ${lg.googleClientId || lg.lineChannelId ? '<p>用 LINE 或 Google 登入，收件資料、地址和訂單都會幫你記起來，換手機也看得到。</p>' : ''}
+        ${lg.googleClientId || lg.liffId ? '<p>用 LINE 或 Google 登入，收件資料、地址和訂單都會幫你記起來，換手機也看得到。</p>' : ''}
         <a class="btn btn-primary btn-block" href="${esc(webLink(gid))}" target="_blank" rel="noopener">打開${esc(name)} ↗</a>
       </div>
       ${back()}`;

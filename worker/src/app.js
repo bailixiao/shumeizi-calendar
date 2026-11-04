@@ -20,7 +20,7 @@ export function createApp(store, opts) {
   const gs = createGs(createRuntime(store, opts));
   const nowMs = () => (opts && opts.now ? opts.now() : Date.now());
   // 團購會員登入（規格 0.6.3）：設定都從 Worker 的 vars／secret 來（index.js），本機示範版用 demoLogin
-  const auth = Object.assign({ sessionSecret: '', googleClientId: '', lineChannelId: '', lineChannelSecret: '', lineRedirects: [], demoLogin: false }, (opts && opts.auth) || {});
+  const auth = Object.assign({ sessionSecret: '', googleClientId: '', lineChannelId: '', demoLogin: false }, (opts && opts.auth) || {});
 
   // 每個分頁都要在、標題列要是最新的（後來新增的欄位加在最後）
   Object.values(gs.SHEETS).forEach((def) => {

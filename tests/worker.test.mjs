@@ -272,10 +272,12 @@ test('團購會員（規格 0.6.3）：登入、我的資料、只認驗證過�
   const googleEnv = createEnv(OCT_1, { shumeizi: true });
   const sheets = Object.fromEntries(Object.entries(googleEnv.sheets).map(([n, s]) => [n, s.data]));
   const store = createMemoryStore();
-  const fakeFetch = async (url) => new Response(JSON.stringify(url.includes('tokeninfo') && url.includes('good')
+  const fakeFetch = async (url, init) => url.includes('api.line.me') ? new Response(JSON.stringify(String(init.body).includes('id_token=line-good') && String(init.body).includes('client_id=1234567890')
+    ? { iss: 'https://access.line.me', aud: '1234567890', sub: 'U-line-1', name: '測試乙' } : { error: 'invalid_request' }), { status: String(init.body).includes('line-good') ? 200 : 400 })
+    : new Response(JSON.stringify(url.includes('tokeninfo') && url.includes('good')
     ? { aud: 'cid.apps.googleusercontent.com', iss: 'https://accounts.google.com', sub: 'g-123', email: 'test@example.com', email_verified: 'true', name: '測試甲', exp: String(Math.floor(Date.now() / 1000) + 600) }
     : { error: 'invalid' }), { status: url.includes('good') ? 200 : 400 });
-  const app = createApp(store, { now: () => OCT_1, fetch: fakeFetch, auth: { sessionSecret: 'test-secret', demoLogin: true, googleClientId: 'cid.apps.googleusercontent.com' } });
+  const app = createApp(store, { now: () => OCT_1, fetch: fakeFetch, auth: { sessionSecret: 'test-secret', demoLogin: true, googleClientId: 'cid.apps.googleusercontent.com', lineChannelId: '1234567890' } });
   const post = async (payload) => { const r = await app.handle(new Request('https://w.test/', { method: 'POST', body: JSON.stringify(payload) })); store.persist(); return r.json(); };
   const ok = (r) => { assert.equal(r.ok, true, JSON.stringify(r.error)); return r.data; };
   ok(await post({ action: 'import', sheets, props: { ADMIN_PASSWORD: 'test-pass', ADMIN_CONTACT: '測試管理者' } }));
@@ -286,6 +288,11 @@ test('團購會員（規格 0.6.3）：登入、我的資料、只認驗證過�
   const old = ok(await post({ action: 'shopOrder', groupId: gid, name: '測試甲', phone: '0912000111', pay: '現場', items: [{ id: prod.id, qty: 1 }] })).order;
   // Google：驗證不過＝登入失敗；過了＝新會員
   assert.equal((await post({ action: 'shopLogin', provider: 'google', credential: 'bad' })).error.code, 'LOGIN');
+  // LINE（LIFF 的 ID token，不需要 Channel secret）
+  assert.equal((await post({ action: 'shopLogin', provider: 'line', idToken: 'line-bad' })).error.code, 'LOGIN');
+  const ln = ok(await post({ action: 'shopLogin', provider: 'line', idToken: 'line-good' }));
+  assert.equal(ln.member.provider, 'LINE');
+  assert.equal(ln.member.displayName, '測試乙');
   const g = ok(await post({ action: 'shopLogin', provider: 'google', credential: 'good' }));
   assert.equal(g.member.provider, 'Google');
   assert.equal(g.member.needProfile, true);

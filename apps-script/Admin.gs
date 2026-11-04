@@ -367,6 +367,7 @@ function adminRun_(body) {
     case 'adminShopStockCount': return adminShopStockCount_(body);
     case 'adminShopStockCountSave': return adminShopStockCountSave_(body);
     case 'adminShopStockImport': return adminShopStockImport_(body);
+    case 'adminShopStockRealign': return adminShopStockRealign_(body); // 以 Excel 為準重設庫存（StockRealign.gs）
     case 'adminShopLedger': return adminShopLedger_(body);
     case 'adminShopLedgerSave': return adminShopLedgerSave_(body);
     case 'adminShopStockUpdate': return adminShopStockUpdate_(body);

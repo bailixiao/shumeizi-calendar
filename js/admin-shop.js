@@ -38,6 +38,7 @@
     const stall = String(sub || '').match(/^shop\/stall(?:\/([^?]+))?/);
     if (stall) return AdminStock.stall(body, guard, stall[1] ? decodeURIComponent(stall[1]) : '');
     if (/^shop\/import/.test(sub)) return AdminStock.importPage(body, guard);
+    if (/^shop\/realign/.test(sub)) return AdminStock.realign(body, guard, sub.split('/')[2]);
     if (/^shop\/ledger/.test(sub)) return showLedger(body, guard);
     if (/^shop\/members/.test(sub)) return showMembers(body, guard);
     if (/^shop\/promos/.test(sub)) return AdminStock.promos(body, guard);

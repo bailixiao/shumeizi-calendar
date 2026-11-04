@@ -3,6 +3,7 @@
 //   #/admin/shop/stall         出攤銷售統計表：選一場活動
 //   #/admin/shop/stall/<ID>    那場的售前、預購、現場、營業額、售後應有／實際（盤盈盤虧）
 //   #/admin/shop/import        匯入 Excel（貼上「1-產品代號」「2-日報表」）
+//   #/admin/shop/realign/<檔名>  以 Excel 為準重設庫存（清單在 data/stock-realign-<檔名>.json，先預覽再按重設）
 // 規則都在伺服器（apps-script/Stock.gs），這裡只是畫面。
 window.AdminStock = (function () {
   'use strict';
@@ -627,5 +628,61 @@ window.AdminStock = (function () {
     });
   }
 
-  return { report, stall, importPage, promos, coupons, count, yearClose, shrinkImage, downloadCsv };
+  // ---------- 以 Excel 為準重設庫存（StockRealign.gs；清單在 data/stock-realign-*.json） ----------
+
+  async function realign(body, guard, file) {
+    if (!canEdit()) { body.innerHTML = `${back}<p class="panel-empty">這個帳號只能看。</p>`; return; }
+    body.innerHTML = `${back}<h2>🔁 以 Excel 為準重設庫存</h2><p class="panel-empty">計算中⋯</p>`;
+    let plan;
+    let pre;
+    try {
+      plan = await (await fetch(`data/stock-realign-${encodeURIComponent(file || '20261104')}.json`, { cache: 'no-store' })).json();
+      pre = await Api.admin('adminShopStockRealign', Object.assign({}, plan, { dryRun: true }));
+    } catch (e) {
+      if (e.code === 'UNAUTHORIZED') { guard(e); return; }
+      body.innerHTML = `${back}<h2>🔁 以 Excel 為準重設庫存</h2>${AdminPage.notice('error', '沒辦法預覽', esc(e.message || '找不到重設清單'))}`;
+      return;
+    }
+    const md = (d) => Number(d.slice(5, 7)) + '/' + Number(d.slice(8, 10));
+    const backup = (rows) => downloadCsv(`植素園庫存紀錄備份_${pre.date}.csv`, [['紀錄ID', '日期', '類型', '方式', '編號', '品項', '數量', '成本', '售價', '金額', '備註', '建立者', '活動ID']]
+      .concat(rows.map((r) => [r.id, r.date, r.type, r.method, r.code, r.name, r.qty, r.cost === null ? '' : r.cost, r.price === null ? '' : r.price, r.amount, r.note, r.by, r.dutyId])));
+    const sum = (k) => pre.items.reduce((n, x) => n + x[k], 0);
+    body.innerHTML = `${back}
+      <h2>🔁 以 Excel 為準重設庫存</h2>
+      <p>${esc(plan.title || '')}</p>
+      <ul class="hint">
+        <li>下面每一樣：後台手動記的進出（${pre.removed.length} 筆）拿掉，改記 <b>初存 ${md(pre.openDate)}</b>、<b>進貨、銷貨 ${md(pre.date)}</b>。</li>
+        <li>團購訂單自動記的售出照留；記帳不動。</li>
+        ${plan.keep ? `<li>${esc(plan.keep)}</li>` : ''}
+      </ul>
+      <div class="stock-table-wrap"><table class="stock-table">
+        <thead><tr><th>品項</th><th>期初</th><th>進貨</th><th>銷貨</th><th>現在剩</th><th>改成</th></tr></thead>
+        <tbody>${pre.items.map((x) => `<tr${x.before !== x.after ? ' class="is-diff"' : ''}><td>${esc(x.code)} ${esc(x.name)}${x.isNew ? ' <span class="tag">新增・不上架</span>' : ''}</td>
+          <td>${x.open}</td><td>${x.buy}</td><td>${x.sale}${x.orderSale ? `<small class="muted">（團購 ${x.orderSale}）</small>` : ''}</td><td>${x.before}</td><td><b>${x.after}</b></td></tr>`).join('')}</tbody>
+        <tfoot><tr><th>合計</th><th>${sum('open')}</th><th>${sum('buy')}</th><th>${sum('sale')}</th><th>${sum('before')}</th><th>${sum('after')}</th></tr></tfoot>
+      </table></div>
+      <div class="form-error" data-error hidden></div>
+      <div class="admin-actions"><button type="button" class="btn" data-backup>⬇️ 下載備份（要拿掉的 ${pre.removed.length} 筆）</button><button type="button" class="btn btn-primary" data-go>照這樣重設</button><a class="btn" href="#/admin/shop">返回</a></div>`;
+    body.querySelector('[data-backup]').addEventListener('click', () => backup(pre.removed));
+    body.querySelector('[data-go]').addEventListener('click', async () => {
+      if (!(await Confirm.open({ title: '照 Excel 重設庫存？', rows: [['拿掉', `手動記的 ${pre.removed.length} 筆進出（會自動下載備份）`], ['改成', `${pre.items.length} 樣，合計剩 ${sum('after')}`]], confirmText: '重設', danger: true }))) return;
+      Busy.show('重設中⋯');
+      try {
+        const r = await Api.admin('adminShopStockRealign', plan);
+        Busy.hide();
+        backup(r.removed);
+        AdminPage.clearMemo();
+        body.innerHTML = `${back}<h2>🔁 以 Excel 為準重設庫存</h2>${AdminPage.notice('success', '重設好了', `拿掉 ${r.removed.length} 筆、新記 ${r.added} 筆${r.created.length ? `，新增商品：${esc(r.created.join('、'))}（不上架）` : ''}。備份已經下載。`)}
+          <div class="admin-actions"><a class="btn btn-primary" href="#/admin/shop/report">看進銷存報表</a><a class="btn" href="#/admin/shop">看庫存</a></div>`;
+      } catch (e) {
+        Busy.hide();
+        if (e.code === 'UNAUTHORIZED') { guard(e); return; }
+        const box = body.querySelector('[data-error]');
+        box.textContent = e.message || '重設失敗';
+        box.hidden = false;
+      }
+    });
+  }
+
+  return { report, stall, importPage, realign, promos, coupons, count, yearClose, shrinkImage, downloadCsv };
 })();

@@ -939,3 +939,35 @@ test('LINE Pay：可以選，沒有末五碼', () => {
   assert.deepEqual([o.pay, o.last5], ['LINE Pay', '']);
   assert.equal(order({ name: '測試乙', source: '官網', items: [{ id: tofu.id, qty: 1 }], pay: '信用卡' }).error.code, 'VALIDATION');
 });
+
+test('以 Excel 為準重設庫存：手動記的拿掉改記初存／買進／售出，團購售出照留；歸零；新增不上架的商品；預覽不改', () => {
+  const { call, ok, tofu, order } = setup();
+  ok(call('adminShopStockMove', { type: 'in', rows: [{ id: tofu.id, date: '2026-09-01', qty: 30, amount: 900, method: '買進' }] }));
+  ok(call('adminShopStockMove', { type: 'out', rows: [{ id: tofu.id, date: '2026-09-02', qty: 25, method: '其他' }] }));
+  ok(order({ name: '測試甲', source: '官網', items: [{ id: tofu.id, qty: 2 }] }));
+  const code = ok(call('adminShopStock', {})).products.find((p) => p.id === tofu.id).code;
+  const plan = { openDate: '2026-09-20', date: '2026-09-30', items: [
+    { code, option: '', open: [7, 210], buy: [3, 90], sale: [4, 240] },
+    { create: { name: '測試筍', category: '國內食品' }, open: [3, 450] }
+  ] };
+  const pre = ok(call('adminShopStockRealign', Object.assign({ dryRun: true }, plan)));
+  assert.equal(pre.removed.length, 2);
+  assert.deepEqual(pre.items.map((x) => [x.before, x.after, x.orderSale]), [[3, 6, 2], [0, 3, 0]]);
+  assert.equal(ok(call('adminShopStock', {})).products.find((p) => p.id === tofu.id).stock, 3, '預覽不改');
+  const r = ok(call('adminShopStockRealign', plan));
+  assert.equal(r.created.length, 1);
+  const st = ok(call('adminShopStock', {}));
+  assert.equal(st.products.find((p) => p.id === tofu.id).stock, 6);
+  const bamboo = st.products.find((p) => p.name === '測試筍');
+  assert.equal(bamboo.stock, 3);
+  assert.equal(bamboo.active, false, '新增的不上架');
+  const rep = ok(call('adminShopStockReport', { from: '2026-01-01', to: '2026-12-31' })).rows.find((x) => x.id === tofu.id);
+  assert.deepEqual([rep.open.qty, rep.buy.qty, rep.sub.qty, rep.sale.qty, rep.end.qty], [7, 3, 0, 4, 6]);
+  // 再按一次：一樣的結果，不會重複新增商品；歸零
+  ok(call('adminShopStockRealign', plan));
+  assert.equal(ok(call('adminShop', {})).products.filter((p) => p.name === '測試筍').length, 1);
+  ok(call('adminShopStockRealign', { openDate: '2026-09-20', items: [{ code: bamboo.code, option: '' }] }));
+  assert.equal(ok(call('adminShopStock', {})).products.find((p) => p.name === '測試筍').stock, 0);
+  // 團購賣得比 Excel 多：擋下
+  assert.match(JSON.stringify(call('adminShopStockRealign', { openDate: '2026-09-20', items: [{ code, option: '', sale: [1, 60] }] }).error), /團購訂單已經賣了 2/);
+});

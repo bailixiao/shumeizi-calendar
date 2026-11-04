@@ -2978,3 +2978,20 @@ span.shop-thumb { cursor: default; }
 .shop-recon-item p { margin: 4px 0; }
 .shop-recon-l5 { letter-spacing: .1em; }
 .shop-recon-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+
+/* ---------- 🎟️ 優惠碼（規格 0.6.5） ---------- */
+.shop-coupon h2 small { font-weight: 400; font-size: .8rem; }
+.shop-coupon-row { display: flex; gap: 8px; }
+.shop-coupon-row .input { flex: 1; min-width: 0; text-transform: uppercase; letter-spacing: .05em; }
+.shop-coupon-row .btn { flex: none; }
+.shop-coupon-err { margin: 6px 0 0; color: var(--danger, #b3261e); font-weight: 600; }
+.shop-coupon-ok { padding: 10px 12px; border: 1px dashed var(--accent); border-radius: var(--radius); background: var(--card); }
+.shop-coupon-ok p { margin: 2px 0; }
+.shop-coupon-ok b { margin-left: 6px; color: var(--accent); }
+.shop-promo-row.is-gift { color: var(--muted); }
+.coupon-list { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.coupon-item .promo-main { width: 100%; }
+.coupon-item.is-off { opacity: .55; }
+.coupon-code { font-family: ui-monospace, Consolas, monospace; letter-spacing: .05em; }
+.coupon-kind .segment { font-size: .9rem; }
+.coupon-fields[hidden] { display: none; }

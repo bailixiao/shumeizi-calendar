@@ -253,11 +253,28 @@ function shopValidate_(ctx, input) {
   return errors;
 }
 
+/** 購物車的品項轉成訂單的行（shopOrder_、shopCouponCheck_ 共用）：[{ id, name, base, option, qty, price, unit, photo }] */
+function shopBuildLines_(view, items) {
+  var lines = [];
+  items.forEach(function (it) {
+    var qty = shopInt_(it && it.qty);
+    if (!qty || (it && it.gift)) return;
+    var gi = view.items.filter(function (x) { return x.id === it.id; })[0];
+    if (!gi) return;
+    var opt = gi.options ? gi.options.options.filter(function (o) { return o.name === String(it.option || ''); })[0] : null;
+    if (gi.options && !opt) return;
+    var price = opt && opt.price !== null ? opt.price : gi.price;
+    // name＝顯示用（商品（規格））；base、option 分開記，後台備貨分規格算
+    lines.push({ id: gi.id, name: gi.name + (opt ? '（' + opt.name + '）' : ''), base: gi.name, option: opt ? opt.name : '', qty: qty, price: price, unit: gi.unit, photo: gi.photo });
+  });
+  return lines;
+}
+
 /** admin＝後台：多帶電話、地址（2026/11/3 使用者決定；公開的 API 一律不帶） */
 function shopOrderOut_(o, group, withPay, admin) {
   var out = {
     id: o['訂單ID'], groupId: o['團購ID'], name: o['姓名'], pickupId: o['取貨活動ID'], pickupDate: o['取貨日期'],
-    items: shopJson_(o['品項'], []), total: Number(o['金額']) || 0, discounts: shopJson_(o['優惠'], []), pay: o['付款方式'], last5: o['末五碼'] || '',
+    items: shopJson_(o['品項'], []), total: Number(o['金額']) || 0, discounts: shopJson_(o['優惠'], []), coupon: o['優惠碼'] || '', pay: o['付款方式'], last5: o['末五碼'] || '',
     paid: o['已付款'] === '是', picked: o['已取貨'] === '是', confirmed: o['已確認'] === '是', status: o['狀態'] || '有效', note: o['備註'] || '',
     transferDate: o['匯款日期'] || '', web: o['來源'] === '團購網頁', // 團購網頁的客人
     method: o['領貨方式'] || '出攤', spot: o['自取地點'] || '', spotDate: o['自取日期'] || '', deliveryTime: o['方便時間'] || '', // 領貨方式（2026/11/3）、自取日期（2026/11/4）
@@ -356,12 +373,13 @@ function shopOrder_(body, opts) {
     if (existing && existing['已確認'] === '是' && !admin) throw new ApiError_('FORBIDDEN', '這張訂單小編已經確認了，要改請找小編');
     if (existing) ledgerLockCheck_(existing['建立時間'], '那一年的團購訂單');
     var view = shopGroupView_(g, products, orders, { exceptOrderId: existing ? existing['訂單ID'] : '' });
-    var items = Array.isArray(body.items) ? body.items : [];
+    var items = (Array.isArray(body.items) ? body.items : []).filter(function (it) { return !(it && it.gift); }); // 送的（優惠碼）不是買的
     if (body.mode === 'add' && existing) {
       // 加進原本那張：原本的品項＋這次的（同商品同規格相加）
       var merged = {};
       var order = [];
-      shopJson_(existing['品項'], []).concat(items).forEach(function (it) {
+      shopJson_(existing['品項'], []).filter(function (l) { return !l.gift; }).concat(items).forEach(function (it) {
+        if (it.gift) return;
         var key = it.id + '|' + (it.option || '');
         if (!merged[key]) { merged[key] = { id: it.id, option: it.option || '', qty: 0 }; order.push(key); }
         merged[key].qty += Number(shopInt_(it.qty)) || 0;
@@ -379,30 +397,27 @@ function shopOrder_(body, opts) {
     if (!who.web && tel && !/^09\d{8}$/.test(tel)) throw new ApiError_('VALIDATION', '訂單沒有送出，請看下面的說明', [{ message: '電話請填 09 開頭的 10 個數字' }]);
     if (!admin && !tel && method !== '出攤') throw new ApiError_('VALIDATION', '訂單沒有送出，請看下面的說明', [{ message: '自取、配送請填電話，小編才聯絡得到你' }]);
     var person = {}; // 這個人其他有效訂單已經訂的（每人最多要加起來算）
-    mine.forEach(function (o) { if (existing && o['訂單ID'] === existing['訂單ID']) return; shopJson_(o['品項'], []).forEach(function (l) { person[l.id] = (person[l.id] || 0) + (Number(l.qty) || 0); }); });
+    mine.forEach(function (o) { if (existing && o['訂單ID'] === existing['訂單ID']) return; shopJson_(o['品項'], []).forEach(function (l) { if (!l.gift) person[l.id] = (person[l.id] || 0) + (Number(l.qty) || 0); }); });
     var errors = shopValidate_({ group: view, sold: shopSold_(orders, g['團購ID'], existing ? existing['訂單ID'] : ''), now: shopNowMinute_(), admin: admin, person: person }, input);
     if (errors.length) throw new ApiError_('VALIDATION', '訂單沒有送出，請看下面的說明', errors);
 
-    var lines = [];
+    var lines = shopBuildLines_(view, input.items);
     var total = 0;
-    input.items.forEach(function (it) {
-      var qty = shopInt_(it.qty);
-      if (!qty) return;
-      var gi = view.items.filter(function (x) { return x.id === it.id; })[0];
-      var opt = gi.options ? gi.options.options.filter(function (o) { return o.name === String(it.option || ''); })[0] : null;
-      var price = opt && opt.price !== null ? opt.price : gi.price;
-      // name＝顯示用（商品（規格））；base、option 分開記，後台備貨分規格算
-      lines.push({ id: gi.id, name: gi.name + (opt ? '（' + opt.name + '）' : ''), base: gi.name, option: opt ? opt.name : '', qty: qty, price: price, unit: gi.unit, photo: gi.photo });
-    });
     // 買多優惠：伺服器重算，分攤到每一行（進銷存的售出金額要扣掉）
     var promo = promoApply_(lines, view.promos);
     lines.forEach(function (l, i) { if (promo.lineDiscounts[i]) l.discount = promo.lineDiscounts[i]; });
     total = promo.total;
+    // 優惠碼（規格 0.6.5）：這次有打＝用這次的；沒打＝留原本那張的（不再查期間、次數）；後台帶空字串＝拿掉
+    var oldCode = existing ? couponCode_(existing['優惠碼']) : '';
+    var wantCode = body.coupon !== undefined && body.coupon !== null && (admin || body.coupon !== '') ? couponCode_(body.coupon) : oldCode;
+    var cp = couponOnOrder_(lines, { code: wantCode, keep: !!wantCode && wantCode === oldCode, groupId: g['團購ID'], orders: orders, who: who, exceptOrderId: existing ? existing['訂單ID'] : '', products: products });
+    if (cp.error) throw new ApiError_('VALIDATION', '訂單沒有送出，請看下面的說明', [{ message: cp.error }]);
+    if (cp.discount) { total -= cp.discount.discount; promo.discounts.push(cp.discount); }
     var pickup = view.pickups.filter(function (p) { return p.id === input.pickupId; })[0];
     var now = nowString_();
     var values = {
       // 沒有設取貨場次的團購（2026/10/10）：取貨活動、日期空白
-      '姓名': who.name, '取貨活動ID': pickup ? pickup.id : '', '取貨日期': pickup ? pickup.date : '', '品項': JSON.stringify(lines), '金額': String(total), '優惠': promo.discounts.length ? JSON.stringify(promo.discounts) : '',
+      '姓名': who.name, '取貨活動ID': pickup ? pickup.id : '', '取貨日期': pickup ? pickup.date : '', '品項': JSON.stringify(lines), '金額': String(total), '優惠': promo.discounts.length ? JSON.stringify(promo.discounts) : '', '優惠碼': cp.code,
       '付款方式': input.pay, '末五碼': input.pay === '轉帳' ? (input.last5 || (existing ? existing['末五碼'] : '') || '') : '', '更新時間': now,
       '自取日期': input.spot && view.spots.some(function (s) { return s.name === input.spot && s.dates.length; }) ? input.spotDate : '',
       '領貨方式': method, '自取地點': input.spot, '地址': address, '方便時間': method === '配送' ? cleanText_(body.deliveryTime !== undefined ? body.deliveryTime : existing ? existing['方便時間'] : '').slice(0, 40) : ''
@@ -410,7 +425,7 @@ function shopOrder_(body, opts) {
     if (tel) values['手機'] = tel;
     if (who.member) values['會員ID'] = who.member;
     if (admin && body.note !== undefined) values['備註'] = cleanText_(body.note).slice(0, 100);
-    var summary = who.name + '｜' + g['名稱'] + '｜' + lines.map(function (l) { return l.name + '×' + l.qty; }).join('、') + '｜' + total + ' 元' + (promo.discounts.length ? '（優惠 -' + (promo.discounts.reduce(function (n, d) { return n + d.discount; }, 0)) + '）' : '') + '｜' + (pickup ? pickup.date + ' ' + pickup.name + '｜' : method === '自取' ? '自取 ' + input.spot + (input.spotDate ? ' ' + input.spotDate : '') + '｜' : method === '配送' ? '配送｜' : '') + input.pay;
+    var summary = who.name + '｜' + g['名稱'] + '｜' + lines.map(function (l) { return (l.gift ? '🎁' : '') + l.name + '×' + l.qty; }).join('、') + '｜' + total + ' 元' + (cp.code ? '（🎟️ ' + cp.code + '）' : '') + (promo.discounts.length ? '（優惠 -' + (promo.discounts.reduce(function (n, d) { return n + d.discount; }, 0)) + '）' : '') + '｜' + (pickup ? pickup.date + ' ' + pickup.name + '｜' : method === '自取' ? '自取 ' + input.spot + (input.spotDate ? ' ' + input.spotDate : '') + '｜' : method === '配送' ? '配送｜' : '') + input.pay;
     var row;
     if (existing) {
       var before = rowSnapshot_(SHEETS.SHOP_ORDERS, existing);

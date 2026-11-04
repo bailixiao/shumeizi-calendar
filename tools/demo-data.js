@@ -80,6 +80,7 @@ async function seedDemo(call, get) {
   if (!g.ok) throw new Error('示範團購建立失敗：' + JSON.stringify(g.error));
   // 買多優惠：饅頭 3 包 200 元
   await admin('adminShopSavePromo', { promo: { productIds: [bread], tiers: [{ qty: 3, price: 200 }] } });
+  await admin('adminShopSaveCoupon', { coupon: { code: 'HAPPY90', kind: '打折', percent: 90 } }); // 優惠碼（規格 0.6.5）
   const order = (name, pickup, items, pay) => call({ action: 'shopOrder', groupId: g.data.id, name, pickupId: pickup, items, pay: pay || '現場' });
   await order('測試甲', pickups[0], [{ id: tofu, qty: 2 }, { id: jam, option: '桑葚', qty: 1 }], '轉帳');
   await order('王小明', pickups[0], [{ id: bread, qty: 3 }]);

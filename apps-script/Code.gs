@@ -78,6 +78,7 @@ function doPost(e) {
       case 'pushTest': return pushTest_(body);
       case 'pushSetName': return pushSetName_(body);
       case 'shopOrder': return shopOrder_(body);
+      case 'shopCouponCheck': return shopCouponCheck_(body); // 優惠碼（規格 0.6.5）
       case 'shopMyOrders': return shopMyOrders_(body);
       case 'shopCancel': return shopCancel_(body);
       case 'shopSetLast5': return shopSetLast5_(body);

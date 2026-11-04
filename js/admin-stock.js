@@ -492,5 +492,140 @@ window.AdminStock = (function () {
     });
   }
 
-  return { report, stall, importPage, promos, count, yearClose, shrinkImage, downloadCsv };
+
+  // ---------- 🎟️ 優惠碼（#/admin/shop/coupons；規格 0.6.5） ----------
+
+  const COUPON_KINDS = [['打折', '打折'], ['折金額', '折金額'], ['買送', '買 N 送 M'], ['滿額送', '滿額送']];
+
+  async function coupons(body, guard, flash) {
+    body.innerHTML = '<p class="panel-empty">載入中⋯</p>';
+    let d;
+    let list;
+    try { [d, list] = await Promise.all([Api.admin('adminShop', {}, true), Api.admin('adminShopCoupons', {})]); } catch (e) { guard(e, body); return; }
+    const edit = canEdit();
+    const groupName = (id) => (d.groups.find((g) => g.id === id) || {}).name || '（團購已刪除）';
+    const limits = (c) => [
+      c.start || c.end ? `📅 ${c.start ? Fmt.shortDate(c.start) : ''}～${c.end ? Fmt.shortDate(c.end) : ''}` : '',
+      c.maxUses !== null ? `限 ${c.maxUses} 次` : '',
+      c.once ? '每人一次' : '',
+      c.groupIds.length ? '只限：' + c.groupIds.map(groupName).join('、') : ''
+    ].filter(Boolean).join('・');
+    body.innerHTML = `
+      ${back}
+      <h2 class="section-title">🎟️ 優惠碼</h2>
+      <p class="hint">大家結帳時打優惠碼：可以打折、折金額、買 N 送 M、滿額送。一張訂單只能用一個優惠碼，買多優惠先算，再算優惠碼。</p>
+      ${flash || ''}
+      ${edit ? '<div class="admin-actions"><button type="button" class="btn btn-primary" data-new>＋ 新增優惠碼</button></div>' : ''}
+      ${list.coupons.length ? `<ul class="coupon-list">${list.coupons.map((c) => `
+        <li class="coupon-item${c.active ? '' : ' is-off'}">
+          <button type="button" class="promo-main" data-edit="${esc(c.id)}"${edit ? '' : ' disabled'}>
+            <strong>🎟️ <span class="coupon-code">${esc(c.code)}</span>・${esc(c.label)}</strong>
+            <span>已經用了 ${c.used} 次${c.maxUses !== null ? `（剩 ${Math.max(c.maxUses - c.used, 0)} 次）` : ''}</span>
+            <small>${esc(limits(c) || '不限期間、次數')}${c.active ? '' : '・已停用'}</small>
+          </button>
+        </li>`).join('')}</ul>` : '<p class="panel-empty">還沒有優惠碼。</p>'}`;
+    const again = (msg) => { AdminPage.clearMemo(); coupons(body, guard, msg ? AdminPage.notice('success', msg) : ''); };
+    const nb = body.querySelector('[data-new]');
+    if (nb) nb.addEventListener('click', () => couponForm(null, d, guard, again));
+    body.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => couponForm(list.coupons.find((c) => c.id === b.dataset.edit), d, guard, again)));
+  }
+
+  function couponForm(c, d, guard, after) {
+    const used = new Set(c ? c.productIds.concat(c.buyIds, c.get && c.get.id ? [c.get.id] : []) : []);
+    const products = d.products.filter((x) => x.active || used.has(x.id));
+    const groups = d.groups.filter((g) => !g.link && (g.status !== '結束' || (c && c.groupIds.includes(g.id))));
+    const kind0 = c ? c.kind : '打折';
+    const checks = (name, picked) => `<div class="promo-products">${products.map((x) => `<label class="de-check"><input type="checkbox" name="${name}" value="${esc(x.id)}"${picked.includes(x.id) ? ' checked' : ''}> ${esc(x.code ? x.code + ' ' : '')}${esc(x.name)}<small>　${money(x.price)} 元</small></label>`).join('') || '<p class="muted">還沒有商品</p>'}</div>`;
+    const giftId = c && c.get ? c.get.id : '';
+    const m = Modal.open(`
+      <h2 class="modal-title">${c ? '修改優惠碼' : '新增優惠碼'}</h2>
+      <form class="admin-form" novalidate>
+        <label class="form-row"><span>代碼（英文字母、數字，大家結帳時打這個）</span><input class="input coupon-code" name="code" maxlength="20" autocapitalize="characters" autocomplete="off" value="${esc(c ? c.code : '')}" placeholder="例：HAPPY100"></label>
+        <div class="form-row"><span>優惠種類</span><div class="seg coupon-kind">${COUPON_KINDS.map(([v, l]) => `<label class="seg-item"><input type="radio" name="kind" value="${v}"${kind0 === v ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div></div>
+        <label class="form-row" data-for="打折"><span>打幾折（9 折填 90、85 折填 85）</span><input class="input" name="percent" inputmode="numeric" maxlength="2" value="${esc(c && c.percent !== null ? c.percent : '')}" placeholder="90"></label>
+        <label class="form-row" data-for="折金額"><span>折多少元</span><input class="input" name="amount" inputmode="numeric" value="${esc(c && c.amount !== null ? c.amount : '')}" placeholder="50"></label>
+        <div class="form-row" data-for="買送"><span>買哪些商品（勾好幾樣＝一起數件數）</span>${checks('buy', c ? c.buyIds : [])}</div>
+        <label class="form-row" data-for="買送"><span>買幾件</span><input class="input" name="buyQty" inputmode="numeric" value="${esc(c && c.buyQty !== null ? c.buyQty : '')}" placeholder="3"></label>
+        <label class="form-row" data-for="打折 折金額 滿額送"><span>滿多少元才能用（<span data-min-hint>選填</span>）</span><input class="input" name="min" inputmode="numeric" value="${esc(c && c.min !== null ? c.min : '')}" placeholder="500"></label>
+        <label class="form-row" data-for="買送 滿額送"><span>送什麼</span><select class="input" name="giftId">
+          <option value="" data-same>同一個商品（買什麼送什麼）</option>
+          ${products.map((x) => `<option value="${esc(x.id)}"${giftId === x.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}
+        </select></label>
+        <label class="form-row" data-gift-opt hidden><span data-gift-opt-label>送哪個規格</span><select class="input" name="giftOption"></select></label>
+        <label class="form-row" data-for="買送 滿額送"><span>送幾件</span><input class="input" name="giftQty" inputmode="numeric" value="${esc(c && c.get ? c.get.qty : '')}" placeholder="1"></label>
+        <div class="form-row" data-for="打折 折金額"><span>只算哪些商品（都不勾＝全部商品）</span>${checks('only', c ? c.productIds : [])}</div>
+        <label class="form-row"><span>說明（選填，空白自動寫，例「滿 500 元打 9 折」）</span><input class="input" name="name" maxlength="30" value="${esc(c ? c.name : '')}"></label>
+        <div class="form-row"><span>有效期間（選填，含當天）</span><div class="coupon-dates"><input class="input" type="date" name="start" value="${esc(c ? c.start : '')}" aria-label="開始"> ～ <input class="input" type="date" name="end" value="${esc(c ? c.end : '')}" aria-label="結束"></div></div>
+        <label class="form-row"><span>總共可以用幾次（空白＝不限；取消的訂單不算）</span><input class="input" name="maxUses" inputmode="numeric" value="${esc(c && c.maxUses !== null ? c.maxUses : '')}"></label>
+        <label class="de-check"><input type="checkbox" name="once"${c && c.once ? ' checked' : ''}> 每個人只能用一次</label>
+        ${groups.length ? `<div class="form-row"><span>只限哪幾團（都不勾＝每一團都可以）</span><div class="promo-products">${groups.map((g) => `<label class="de-check"><input type="checkbox" name="gid" value="${esc(g.id)}"${c && c.groupIds.includes(g.id) ? ' checked' : ''}> ${esc(g.name)}</label>`).join('')}</div></div>` : ''}
+        ${c ? `<label class="de-check"><input type="checkbox" name="active"${c.active ? ' checked' : ''}> 啟用中（取消勾選＝暫停這個優惠碼）</label>` : ''}
+        <div class="form-error" data-error hidden></div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-block btn-primary">存檔</button>
+          ${c ? '<button type="button" class="btn btn-block btn-quiet-danger" data-del>刪除這個優惠碼</button>' : ''}
+          <button type="button" class="btn btn-block" data-close>返回</button>
+        </div>
+      </form>`);
+    const f = m.el.querySelector('form');
+    const err = m.el.querySelector('[data-error]');
+    const kindNow = () => f.querySelector('input[name=kind]:checked').value;
+    // 送的商品有規格：選送哪個
+    const fillGiftOpt = () => {
+      const p = products.find((x) => x.id === f.elements.giftId.value);
+      const box = f.querySelector('[data-gift-opt]');
+      const show = !!(p && p.options) && ['買送', '滿額送'].includes(kindNow());
+      box.hidden = !show;
+      if (!show) return;
+      f.querySelector('[data-gift-opt-label]').textContent = '送哪個' + p.options.label;
+      const was = f.elements.giftOption.value || (c && c.get && c.get.id === p.id ? c.get.option : '');
+      f.elements.giftOption.innerHTML = p.options.options.map((o) => `<option${o.name === was ? ' selected' : ''}>${esc(o.name)}</option>`).join('');
+    };
+    const showKind = () => {
+      const k = kindNow();
+      f.querySelectorAll('[data-for]').forEach((x) => { x.hidden = !x.dataset.for.split(' ').includes(k); });
+      f.querySelector('[data-min-hint]').textContent = k === '滿額送' ? '一定要填' : '選填';
+      const same = f.querySelector('[data-same]');
+      same.hidden = k !== '買送';
+      same.disabled = k !== '買送';
+      if (k === '滿額送' && !f.elements.giftId.value && products[0]) f.elements.giftId.value = products[0].id;
+      fillGiftOpt();
+    };
+    f.querySelectorAll('input[name=kind]').forEach((r) => r.addEventListener('change', showKind));
+    f.elements.giftId.addEventListener('change', () => { f.elements.giftOption.value = ''; fillGiftOpt(); });
+    showKind();
+    m.el.querySelector('[data-close]').addEventListener('click', () => m.close());
+    const showErr = (e) => { err.innerHTML = `<strong>${esc(e.message || '存檔失敗')}</strong>${(e.details || []).map((x) => '<br>' + esc(x.message)).join('')}`; err.hidden = false; err.scrollIntoView({ block: 'center' }); };
+    const del = m.el.querySelector('[data-del]');
+    if (del) del.addEventListener('click', async () => {
+      if (!(await Confirm.open({ title: '刪除這個優惠碼？', rows: [['代碼', c.code], ['優惠', c.label]], note: '已經下的訂單不會變。只是暫時不用的話，取消勾選「啟用中」就好。', confirmText: '刪除', danger: true }))) return;
+      Busy.show('刪除中⋯');
+      try { await Api.admin('adminShopDeleteCoupon', { id: c.id }); Busy.hide(); m.close(); after('已刪除優惠碼'); } catch (e) { Busy.hide(); if (e.code === 'UNAUTHORIZED') { m.close(); guard(e); return; } showErr(e); }
+    });
+    f.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const v = (n) => f.elements[n].value.trim();
+      const picked = (n) => [...f.querySelectorAll(`input[name=${n}]:checked`)].map((x) => x.value);
+      const k = kindNow();
+      Busy.show('存檔中⋯');
+      try {
+        await Api.admin('adminShopSaveCoupon', { coupon: {
+          id: c ? c.id : '', code: v('code'), kind: k, name: v('name'), percent: v('percent'), amount: v('amount'), min: v('min'),
+          productIds: k === '打折' || k === '折金額' ? picked('only') : [], buyIds: k === '買送' ? picked('buy') : [], buyQty: v('buyQty'),
+          get: { id: f.elements.giftId.value, option: f.querySelector('[data-gift-opt]').hidden ? '' : f.elements.giftOption.value, qty: v('giftQty') },
+          start: v('start'), end: v('end'), maxUses: v('maxUses'), once: f.elements.once.checked, groupIds: picked('gid'),
+          active: f.elements.active ? f.elements.active.checked : true
+        } });
+        Busy.hide();
+        m.close();
+        after(c ? '已儲存優惠碼' : `已新增優惠碼 ${v('code').toUpperCase()}，大家結帳就可以用了`);
+      } catch (e) {
+        Busy.hide();
+        if (e.code === 'UNAUTHORIZED') { m.close(); guard(e); return; }
+        showErr(e);
+      }
+    });
+  }
+
+  return { report, stall, importPage, promos, coupons, count, yearClose, shrinkImage, downloadCsv };
 })();

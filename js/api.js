@@ -232,6 +232,7 @@
     // 團購（見 shop.js）：名字放在 POST 內容（不放網址）
     getShop: (web) => get('getShop', web ? { web: '1' } : {}), // web：團購網頁（只列有勾的團）
     shopOrder: (p) => post(Object.assign({ action: 'shopOrder', memberToken: mt() }, p)),
+    shopCouponCheck: (p) => post(Object.assign({ action: 'shopCouponCheck', memberToken: mt() }, p)), // 優惠碼（規格 0.6.5）
     // phone：團購網頁的客人（名字＋手機；行事曆不帶）
     shopMyOrders: (name, all, phone) => post({ action: 'shopMyOrders', name, all: !!all, phone: phone || undefined, memberToken: mt() }), // all：我的訂單頁（最近 90 天全部）
     shopCancel: (orderId, name, phone) => post({ action: 'shopCancel', orderId, name, phone: phone || undefined, memberToken: mt() }),

@@ -169,7 +169,7 @@
 
   // ---------- 成員 ----------
 
-  const memberState = { q: '', filter: 'active', identity: 'all' };
+  const memberState = { q: '', filter: 'active', identity: 'all', area: '' }; // area：區別篩選（''＝全部、'-'＝未填）
   const IDENTITY_ORDER = [['點傳師', '點傳師'], ['壇辦', '壇辦'], ['道親', '道親'], ['未求道', '未求道'], ['', '未填身分']];
   const SHORT = { '未填身分': '未填' }; // 篩選按鈕用短一點的字，手機上才排得下一列
 
@@ -192,6 +192,9 @@
     // 🎂 本月壽星（啟用中、有生日的，照日期排）
     const month = Fmt.toDateStr(new Date()).slice(5, 7);
     const today = Fmt.toDateStr(new Date()).slice(5);
+    // 📍 區別篩選（2026/11/5）：選項照 SITE.areas，名單上有別的寫法也列出來
+    const areaList = (window.SITE.areas || []).length ? window.SITE.areas.concat(data.members.map((m) => m.area).filter((a, i, arr) => a && window.SITE.areas.indexOf(a) === -1 && arr.indexOf(a) === i)) : [];
+    if (memberState.area && memberState.area !== '-' && areaList.indexOf(memberState.area) === -1) memberState.area = '';
     const bdayAll = data.members.filter((m) => m.active && m.birthday); // 📅 生日加到行事曆（2026/11/5）
     const stars = data.members.filter((m) => m.active && m.birthday && m.birthday.slice(5, 7) === month).sort((a, b) => (a.birthday.slice(5) < b.birthday.slice(5) ? -1 : 1));
     body.innerHTML = `
@@ -200,13 +203,14 @@
       ${stars.length ? `<div class="notice bday-box"><p><strong>🎂 本月壽星（${Number(month)} 月）</strong></p><ul class="bday-list">${stars.map((m) => { const md = m.birthday.slice(5); const passed = md < today; const age = Number(Fmt.toDateStr(new Date()).slice(0, 4)) - Number(m.birthday.slice(0, 4)); return `<li class="${md === today ? 'is-today' : passed ? 'is-past' : ''}"><span>${Number(md.slice(0, 2))}/${Number(md.slice(3))}</span><b>${esc(m.name)}</b><small>${md === today ? '今天生日 🎉・' : ''}滿 ${age} 歲</small></li>`; }).join('')}</ul>${bdayAll.length ? `<button type="button" class="btn btn-addcal" data-bday-all>📅 大家的生日加到我的行事曆（${bdayAll.length} 位）</button>` : ''}</div>` : bdayAll.length ? `<p class="admin-actions"><button type="button" class="btn btn-addcal" data-bday-all>📅 大家的生日加到我的行事曆（${bdayAll.length} 位）</button></p>` : ''}
       ${pendingList.length ? `<div class="notice pending-banner" role="status"><p>🆕 <strong>有 ${pendingList.length} 位新成員待確認</strong>（報名時自動加入的新名字）</p>${memberState.filter === 'pending' ? '<p class="muted">確認每一位：沒問題按「保留」；其實是名單上的某人（寫法不同）按「合併到⋯」；打錯或不需要的按「刪除」。</p>' : '<button type="button" class="btn btn-primary" data-show-pending>查看待確認的人</button>'}</div>` : ''}
       ${canEditPeople() ? '<div class="admin-actions"><button type="button" class="btn btn-primary" data-add>＋ 新增成員</button><button type="button" class="btn" data-from-signups>從出勤紀錄加入成員</button>' + (Fmt.feature('temple') ? '<button type="button" class="btn" data-import-members>📋 匯入成員資料</button><button type="button" class="btn" data-same-name>👥 同名的舊紀錄</button>' : '') + '</div>' : ''}
-      <div class="list-filter">
+      <div class="list-filter${areaList.length ? ' has-area' : ''}">
         <select class="input" data-filter aria-label="狀態">
           ${pendingList.length ? `<option value="pending"${memberState.filter === 'pending' ? ' selected' : ''}>🆕 待確認（${pendingList.length}）</option>` : ''}
           <option value="active"${memberState.filter === 'active' ? ' selected' : ''}>啟用中（${counts.active}）</option>
           <option value="inactive"${memberState.filter === 'inactive' ? ' selected' : ''}>已停用（${counts.inactive}）</option>
           <option value="all"${memberState.filter === 'all' ? ' selected' : ''}>全部（${data.members.length}）</option>
         </select>
+        ${areaList.length ? `<select class="input" data-area-filter aria-label="區別"><option value="">📍 全部區別</option>${areaList.map((a) => `<option value="${esc(a)}"${memberState.area === a ? ' selected' : ''}>${esc(a)}（${data.members.filter((m) => m.area === a).length}）</option>`).join('')}<option value="-"${memberState.area === '-' ? ' selected' : ''}>未填區別（${data.members.filter((m) => !m.area).length}）</option></select>` : ''}
         <input class="input" type="search" data-q placeholder="搜尋姓名${Fmt.feature('temple') ? '、' + esc(window.SITE.temple) : ''}${(window.SITE.areas || []).length ? '、區別' : ''}或組別" value="${esc(memberState.q)}">
       </div>
       <div class="seg identity-filter" data-identity-filter></div>
@@ -229,6 +233,7 @@
       const base = data.members.filter((m) => {
         if (memberState.filter === 'active' && !m.active) return false;
         if (memberState.filter === 'inactive' && m.active) return false;
+        if (memberState.area && (memberState.area === '-' ? !!m.area : m.area !== memberState.area)) return false;
         return !q || m.name.indexOf(q) !== -1 || (m.aliases || []).some((a) => a.indexOf(q) !== -1) || (m.temple || '').indexOf(q) !== -1 || (m.area || '').indexOf(q) !== -1 || GROUP_TYPES.some((t) => (m.groups[t] || '').indexOf(q) !== -1);
       });
       base.sort((a, b) => Fmt.byStroke(a.name, b.name)); // 姓的筆劃少到多
@@ -326,6 +331,8 @@
     if (sp) sp.addEventListener('click', () => { memberState.filter = 'pending'; renderMembers(body, guard, data, false, reload); });
     body.querySelector('[data-filter]').addEventListener('change', (ev) => { memberState.filter = ev.target.value; renderMembers(body, guard, data, false, reload); });
     body.querySelector('[data-q]').addEventListener('input', (ev) => { memberState.q = ev.target.value; draw(); });
+    const af = body.querySelector('[data-area-filter]');
+    if (af) af.addEventListener('change', () => { memberState.area = af.value; draw(); });
     if (canEditPeople()) {
       body.querySelector('[data-add]').addEventListener('click', () => editMember(null, data.groups, guard, reload));
       body.querySelector('[data-from-signups]').addEventListener('click', () => fromSignups(guard, reload));

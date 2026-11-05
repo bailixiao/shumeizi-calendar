@@ -2044,7 +2044,8 @@ a.grid-open { display: flex; align-items: center; justify-content: center; gap: 
 .vm-cancel { margin-top: 10px; }
 @media (max-width: 560px) { .cat-filter { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); } .cat-filter button { padding: 0 4px; font-size: .95rem; } }
 /* 日期欄在窄手機不要擠出去、交疊 */
-input.input[type="date"] { min-width: 0; max-width: 100%; width: 100%; box-sizing: border-box; }
+input.input[type="date"] { min-width: 0; max-width: 100%; width: 100%; box-sizing: border-box; display: block; -webkit-appearance: none; appearance: none; text-align: left; }
+input.input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .form-row-pair { min-width: 0; }
 @media (max-width: 420px) { .multi-box .form-row-pair { grid-template-columns: 1fr; } }
 .mine-item { position: relative; }
@@ -2886,6 +2887,7 @@ span.shop-thumb { cursor: default; }
 .bday-list li small { color: var(--muted); }
 .bday-list li.is-today { border-color: var(--accent); background: var(--accent-soft); }
 .bday-list li.is-past { opacity: .6; }
+.bday-box .btn-addcal { margin-top: 10px; }
 .stock-promo { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 10px 0; padding: 10px 12px; border: 1px dashed var(--accent); border-radius: var(--radius); background: var(--card); }
 .stock-promo small { flex-basis: 100%; color: var(--muted); }
 /* 下單完成頁：直接填轉帳末五碼 */

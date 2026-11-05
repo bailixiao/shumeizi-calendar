@@ -167,3 +167,20 @@ test('生日：第一次報名可以填（選填）；記在成員名單、歲�
   // 公開的 API 不回傳生日
   assert.equal(JSON.stringify(env.get({ action: 'getBundle', from: '2026-10-01', to: '2026-10-31' })).includes('1996-'), false);
 });
+
+test('成員的區別：後台下拉選（教真區～教理區），存在成員名單；不在選項裡的擋；沒傳不會清掉；公開 API 不回傳', () => {
+  const { env, call, signup, member } = setup();
+  assert.equal(signup([{ name: '王小明', source: '官網' }]).ok, true);
+  const m = call('adminMembers', {}).data.members.find((x) => x.name === '王小明');
+  assert.equal(m.area, '');
+  const save = (extra) => call('adminSaveMember', { row: m.row, original: m.name, member: { name: m.name, identity: '', groups: {}, note: '', active: true, ...extra } });
+  assert.equal(save({ area: '教理區' }).ok, true);
+  assert.equal(member('王小明')['區別'], '教理區');
+  assert.equal(call('adminMembers', {}).data.members.find((x) => x.name === '王小明').area, '教理區');
+  assert.equal(save({ area: '火星區' }).error.code, 'VALIDATION');
+  assert.equal(save({}).ok, true);
+  assert.equal(member('王小明')['區別'], '教理區', '沒傳區別：不動');
+  assert.equal(save({ area: '' }).ok, true);
+  assert.equal(member('王小明')['區別'], '');
+  assert.equal(JSON.stringify(env.get({ action: 'getBundle', from: '2026-10-01', to: '2026-10-31' })).includes('教理區'), false);
+});

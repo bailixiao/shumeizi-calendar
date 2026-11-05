@@ -113,5 +113,44 @@
     if (info) open(info);
   });
 
-  window.AddCal = { button, googleUrl, icsText, eventTimes };
+  /**
+   * 🎂 生日加到行事曆（後台成員，2026/11/5）：每年重複的整天活動「🎂 名字 生日」，當天早上 9 點提醒。
+   * 一位、非 iPhone：開 Google 日曆新增畫面（每年重複）；其他：下載 .ics（iPhone 直接「全部加入」）。
+   * 檔案在手機上產生，名字不會送到別的地方。
+   */
+  function birthdayIcs(list) {
+    const now = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//shumeizi-calendar//ZH-TW', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
+    list.forEach((m) => {
+      const d = m.birthday.replace(/-/g, '');
+      const title = `🎂 ${m.name} 生日`;
+      lines.push('BEGIN:VEVENT',
+        `UID:bday-${d}-${encodeURIComponent(m.name).replace(/%/g, '')}@shumeizi-calendar`,
+        `DTSTAMP:${now}`, `DTSTART;VALUE=DATE:${d}`, `DTEND;VALUE=DATE:${Fmt.addDays(m.birthday, 1).replace(/-/g, '')}`,
+        'RRULE:FREQ=YEARLY', `SUMMARY:${icsEscape(title)}`, 'TRANSP:TRANSPARENT',
+        'BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${icsEscape(title)}`, 'TRIGGER:PT9H', 'END:VALARM', 'END:VEVENT');
+    });
+    lines.push('END:VCALENDAR');
+    return lines.join('\r\n');
+  }
+
+  function birthdays(list) {
+    list = (list || []).filter((m) => m && m.name && /^\d{4}-\d{2}-\d{2}$/.test(m.birthday || ''));
+    if (!list.length) return;
+    if (list.length === 1 && !isIOS()) {
+      const d = list[0].birthday.replace(/-/g, '');
+      const params = new URLSearchParams({ action: 'TEMPLATE', text: `🎂 ${list[0].name} 生日`, dates: `${d}/${Fmt.addDays(list[0].birthday, 1).replace(/-/g, '')}`, recur: 'RRULE:FREQ=YEARLY' });
+      window.open('https://calendar.google.com/calendar/render?' + params.toString(), '_blank', 'noopener');
+      return;
+    }
+    const blob = new Blob([birthdayIcs(list)], { type: 'text/calendar;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = list.length === 1 ? '生日.ics' : '大家的生日.ics';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+
+  window.AddCal = { button, googleUrl, icsText, eventTimes, birthdays, birthdayIcs };
 })();

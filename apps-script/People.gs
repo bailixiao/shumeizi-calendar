@@ -43,6 +43,7 @@ function adminSaveMember_(body) {
   var birthday = input.birthday === undefined ? undefined : memberBirthday_(input.birthday);
   if (birthday === null) errors.push('生日不對（例：1995-03-14；不能是以後）');
   if (input.overseas && SITE.overseas.indexOf(input.overseas) === -1) errors.push('國外只能是' + SITE.overseas.join('、') + '或空白');
+  if (input.area && (SITE.areas || []).indexOf(input.area) === -1) errors.push('區別只能是' + (SITE.areas || []).join('、') + '或空白');
   if (input.source && (SITE.sources || []).indexOf(input.source) === -1) errors.push('認識管道只能是' + (SITE.sources || []).join('、') + '或空白');
   var keys = groupKeys_();
   var groups = {};
@@ -67,6 +68,7 @@ function adminSaveMember_(body) {
     if (birthday !== undefined) { values['生日'] = birthday; if (birthday) values['出生年'] = birthday.slice(0, 4); } // 有生日：出生年照生日
     if (input.temple !== undefined) values['佛堂'] = temple;
     if (input.overseas !== undefined) values['國外'] = input.overseas || '';
+    if (input.area !== undefined) values['區別'] = input.area || '';
     // 認識管道（書槑子）：後台可以補或改；介紹人只在朋友介紹時留著
     if (input.source !== undefined) {
       values['認識管道'] = input.source || '';
@@ -209,7 +211,7 @@ function memberToJson_(m) {
   return { row: m._row, name: m['姓名'], identity: m['身分'], groups: groups, note: m['備註'], active: m['啟用中'] !== '否', pending: m['待確認'] === '是',
     vegetarian: m['清口'] === '是', birthYear: by || '', age: memberAge_(m), birthday: m['生日'] || '', temple: m['佛堂'] || '', aliases: splitAliases_(m['別名']), overseas: m['國外'] || '', careNote: m['成全紀錄'] || '',
     // 第一次報名時填的（書槑子）：認識管道、介紹人、管道說明、第一次報名日
-    source: m['認識管道'] || '', referrer: m['介紹人'] || '', sourceNote: m['管道說明'] || '', firstDate: m['第一次報名日'] || '' };
+    source: m['認識管道'] || '', referrer: m['介紹人'] || '', sourceNote: m['管道說明'] || '', firstDate: m['第一次報名日'] || '', area: m['區別'] || '' };
 }
 
 /** 以列號找資料並核對原本的值（姓名或組名），不符代表資料已被移動或修改 */

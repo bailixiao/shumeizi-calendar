@@ -176,8 +176,13 @@ function getShop_(p) {
   var groups = readTableCached_(SHEETS.SHOP_GROUPS)
     .filter(function (g) { return g['團購ID'] && g['狀態'] !== '結束'; })
     .map(function (g) { return shopGroupView_(g, products, orders); })
-    // 賣貨便：截止了就不列；行事曆下單：取貨還沒全部過去
-    .filter(function (v) { return v.link ? !v.closed : !v.pickups.length || v.pickups[v.pickups.length - 1].date >= today; })
+    // 賣貨便：截止了就不列；行事曆下單：還沒截止、或取貨還沒全部過去（2026/11/24：出攤場次都過了但還沒截止的團也要列，可以選自取、配送）
+    .filter(function (v) { return v.link ? !v.closed : !v.closed || !v.pickups.length || v.pickups[v.pickups.length - 1].date >= today; })
+    .map(function (v) { // 大家看到的出攤場次：過去的不列；全部都過了 pickupsPast＝true（畫面寫「出攤的場次都過了」）
+      var live = v.pickups.filter(function (p) { return p.date >= today; });
+      if (live.length < v.pickups.length) { v.pickupsPast = !live.length; v.pickups = live; }
+      return v;
+    })
     .filter(function (v) { return !web || !v.link; }) // 團購網頁：行事曆下單的團都列（2026/11/4 起不用勾，規格 0.6.3）
     .sort(function (a, b) { return a.deadline < b.deadline ? -1 : 1; });
   return { now: shopNowMinute_(), groups: groups };
@@ -199,6 +204,9 @@ function shopValidate_(ctx, input) {
   var method = input.method || '出攤';
   if (g.methods && g.methods.indexOf(method) === -1) errors.push({ message: '這次團購不能用「' + method + '」，請重新選領貨方式' });
   else if (method === '出攤' && g.pickups.length && !g.pickups.some(function (p) { return p.id === input.pickupId; })) errors.push({ message: '請選取貨場次' });
+  else if (method === '出攤' && !ctx.admin && input.pickupId && input.pickupId !== input.keepPickup && g.pickups.some(function (p) { return p.id === input.pickupId && p.date < String(ctx.now).slice(0, 10); })) {
+    errors.push({ message: '這一場已經過了，請選別場或別的領貨方式' }); // 2026/11/24：原本那張的場次照舊可以
+  }
   else if (method === '自取' && !(g.spots || []).some(function (s) { return s.name === input.spot; })) errors.push({ message: '請選自取地點' });
   else if (method === '自取') {
     // 這個地點有設日期：要選其中一天；大家不能選已經過去的（原本那張的日期照舊可以）
@@ -393,7 +401,7 @@ function shopOrder_(body, opts) {
     var method = body.method || (existing ? existing['領貨方式'] || '出攤' : view.methods.indexOf('出攤') !== -1 ? '出攤' : view.methods[0]);
     var address = method !== '配送' ? '' : body.address !== undefined ? cleanText_(body.address) : existing ? existing['地址'] || '' : '';
     var input = { method: method, spot: method === '自取' ? String(body.spot || (existing ? existing['自取地點'] : '') || '') : '', address: address,
-      spotDate: method === '自取' ? String((body.spotDate !== undefined && body.spotDate !== null ? body.spotDate : existing ? existing['自取日期'] : '') || '') : '', keepDate: existing ? String(existing['自取日期'] || '') : '',
+      spotDate: method === '自取' ? String((body.spotDate !== undefined && body.spotDate !== null ? body.spotDate : existing ? existing['自取日期'] : '') || '') : '', keepDate: existing ? String(existing['自取日期'] || '') : '', keepPickup: existing ? String(existing['取貨活動ID'] || '') : '',
       pickupId: method !== '出攤' ? '' : body.pickupId || (existing && body.mode === 'add' && !body.pickupId ? existing['取貨活動ID'] : ''), items: items, pay: body.pay, last5: body.last5 ? String(body.last5).trim() : '' };
     // 電話：團購網頁＝手機（身分）；行事曆的人選自取、配送一定要填（tel）
     var tel = who.web ? who.phone : shopPhone_(body.tel) || (existing ? shopPhone_(existing['手機']) : ''); // 改數量沒帶電話＝照原本那張

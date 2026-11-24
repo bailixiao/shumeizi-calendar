@@ -216,7 +216,7 @@
     if (!g) return renderList(data, gid);
     if (g.link) return renderLinkGroup(g, data.now); // 賣貨便：只放按鈕連過去
     store.set(LAST_KEY, g.id);
-    if (form.groupId !== g.id) Object.assign(form, { groupId: g.id, method: g.methods[0], spot: g.spots.length === 1 ? g.spots[0].name : '', spotDate: '', pickupId: g.pickups.length === 1 ? g.pickups[0].id : '', pay: '現場', last5: '', existing: null });
+    if (form.groupId !== g.id) Object.assign(form, { groupId: g.id, method: g.pickupsPast && g.methods.length > 1 && g.methods[0] === '出攤' ? g.methods[1] : g.methods[0], spot: g.spots.length === 1 ? g.spots[0].name : '', spotDate: '', pickupId: g.pickups.length === 1 ? g.pickups[0].id : '', pay: '現場', last5: '', existing: null });
     if (parts[1] === 'p') {
       const it = g.items.find((x) => x.id === parts[2]);
       return it ? renderProduct(g, it, data.now) : renderStore(g, data.now);
@@ -471,7 +471,7 @@
           ${g.methods.length > 1 ? `<div class="segmented shop-method-seg">${g.methods.map((m) => `<label class="segment${form.method === m ? ' is-checked' : ''}"><input type="radio" name="method" value="${m}"${form.method === m ? ' checked' : ''}${closed ? ' disabled' : ''}>${METHOD_LABEL[m]}</label>`).join('')}</div>` : `<p class="shop-method-one">${METHOD_LABEL[form.method]}</p>`}
           ${form.method === '出攤' && g.pickups.length ? `<p class="hint">選在哪一場取貨</p><div class="shop-pickups">${g.pickups.map((p) => `<label class="choice${form.pickupId === p.id ? ' is-checked' : ''}"><input type="radio" name="pickup" value="${esc(p.id)}"${form.pickupId === p.id ? ' checked' : ''}${closed ? ' disabled' : ''}>
             <span class="choice-main">${esc(Fmt.shortDate(p.date))}${p.startTime ? ' ' + esc(p.startTime) : ''}</span><span class="choice-sub">📍 ${esc(p.location || p.name)}</span></label>`).join('')}</div>` : ''}
-          ${form.method === '出攤' && !g.pickups.length ? '<p class="hint">在植素園出攤的時候取貨，時間地點小編會公布。</p>' : ''}
+          ${form.method === '出攤' && !g.pickups.length ? (g.pickupsPast ? '<p class="hint">⚠️ 出攤取貨的場次都過了，請選別的領貨方式，或問小編。</p>' : '<p class="hint">在植素園出攤的時候取貨，時間地點小編會公布。</p>') : ''}
           ${form.method === '自取' ? `<p class="hint">選在哪裡自取</p><div class="shop-pickups">${g.spots.map((s) => `<label class="choice${form.spot === s.name ? ' is-checked' : ''}"><input type="radio" name="spot" value="${esc(s.name)}"${form.spot === s.name ? ' checked' : ''}${closed ? ' disabled' : ''}>
             <span class="choice-main">${esc(s.name)}${s.note ? `<small>　🕕 ${esc(s.note)}</small>` : ''}</span>${s.address ? `<span class="choice-sub">📍 ${esc(s.address)}</span>` : ''}</label>`).join('')}</div>
           ${(() => { const ds = spotDates(g, now); return ds.length ? `<p class="hint">選哪一天自取</p><div class="shop-pickups shop-spot-dates">${ds.map((d) => `<label class="choice${form.spotDate === d ? ' is-checked' : ''}"><input type="radio" name="spotDate" value="${esc(d)}"${form.spotDate === d ? ' checked' : ''}${closed ? ' disabled' : ''}><span class="choice-main">${esc(Fmt.shortDate(d))}</span></label>`).join('')}</div>` : spotOf(g) && spotOf(g).dates.length ? '<p class="hint">這個地點的自取日期都過了，請選別的地點或問小編。</p>' : ''; })()}` : ''}
@@ -680,6 +680,7 @@
     if (!cartCount(g)) return '購物車是空的';
     if (MEMBER && !SM.loggedIn()) return '請先登入（上面的「登入」）';
     if (g.methods.indexOf(form.method) === -1) return '請選怎麼領貨';
+    if (form.method === '出攤' && g.pickupsPast && !g.pickups.length) return '出攤取貨的場次都過了，請選別的領貨方式';
     if (form.method === '出攤' && g.pickups.length && !form.pickupId) return '請選在哪一場取貨';
     if (form.method === '自取' && !form.spot) return '請選在哪裡自取';
     if (form.method === '自取' && spotOf(g) && spotOf(g).dates.length && !form.spotDate) return '請選哪一天自取';

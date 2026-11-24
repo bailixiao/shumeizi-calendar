@@ -1014,3 +1014,23 @@ test('後台改單：團購網頁的訂單不用選怎麼認識的、不加進�
   const bad = call('adminShopOrder', { groupId: gid, name: '測試辛', method: '出攤', pickupId: ids[0], pay: '現場', items: [{ id: tofu.id, qty: 1 }] });
   assert.match(bad.error.message, /訂單沒有送出/);
 });
+
+test('出攤場次都過了、還沒截止的團照樣列出來（2026/11/24）；過去的場次不列、不能選；後台可以', () => {
+  const { env, call, ok, gid, ids, tofu, order } = setup();
+  const g = ok(call('adminShopGroup', { id: gid })).group;
+  ok(call('adminShopSaveGroup', { group: { id: gid, name: g.name, deadline: '2026-10-30 22:00', pickups: ids, items: g.itemSettings, methods: ['出攤', '自取'], spots: [{ name: '竹北', address: '測試市測試路1號' }] } }));
+  ok(order({ name: '王小明', source: '官網', items: [{ id: tofu.id, qty: 1 }], pickupId: ids[0] })); // 10/1 選第一場
+  env.clock.now = Date.UTC(2026, 9, 20, 2); // 台北 10/20：第一場（10/18）過了
+  let pub = ok(env.get({ action: 'getShop' })).groups.find((x) => x.id === gid);
+  assert.deepEqual(pub.pickups.map((p) => p.id), [ids[1]], '只列還沒到的場次');
+  assert.match(JSON.stringify(order({ name: '測試甲', source: '官網', items: [{ id: tofu.id, qty: 1 }], pickupId: ids[0] }).error), /已經過了/);
+  assert.equal(order({ name: '王小明', items: [{ id: tofu.id, qty: 2 }], pickupId: ids[0] }).ok, true, '原本那張的場次照舊可以');
+  env.clock.now = Date.UTC(2026, 9, 27, 2); // 台北 10/27：兩場都過了，還沒截止
+  pub = ok(env.get({ action: 'getShop' })).groups.find((x) => x.id === gid);
+  assert.ok(pub, '還沒截止就要列');
+  assert.deepEqual([pub.pickups.length, pub.pickupsPast], [0, true]);
+  assert.equal(ok(env.get({ action: 'getShop', web: '1' })).groups.some((x) => x.id === gid), true, '團購網頁也列');
+  const r = order({ name: '測試乙', source: '官網', items: [{ id: tofu.id, qty: 1 }], method: '自取', spot: '竹北', pickupId: '', tel: '0912000000' }); assert.equal(r.ok, true, JSON.stringify(r.error));
+  env.clock.now = Date.UTC(2026, 9, 31, 2); // 截止、出攤也都過了 → 不列
+  assert.equal(ok(env.get({ action: 'getShop' })).groups.some((x) => x.id === gid), false);
+});

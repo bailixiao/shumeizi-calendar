@@ -77,15 +77,28 @@ function shopProductOut_(p) {
   };
 }
 
-/** 團購的取貨場次（活動）：[{ id, name, date, startTime, endTime, location, category }]，依日期排 */
+/**
+ * 「取貨場次」欄存的東西（2026/11/25 起可以自己加場次，像自取地點一樣）：
+ *   舊的：活動ID 逗號分隔（"D-1,D-2"）；新的：JSON [{ id: 活動ID }（行事曆的活動）, { id: 'P-…', date, startTime, location }（自己加的）]
+ * 回傳 [{ id, date?, startTime?, location? }]
+ */
+function shopPickupEntries_(g) {
+  var raw = String(g['取貨場次'] || '').trim();
+  if (raw.charAt(0) === '[') return shopJson_(raw, []).filter(function (e) { return e && e.id; });
+  return raw.split(',').map(function (id) { return id.trim(); }).filter(Boolean).map(function (id) { return { id: id }; });
+}
+
+/** 團購的取貨場次：[{ id, name, date, startTime, endTime, location, category, custom? }]，依日期排。行事曆的活動照活動現在的資料；自己加的 custom＝true */
 function shopPickups_(g) {
   var duties = readTableCached_(SHEETS.DUTIES);
-  return String(g['取貨場次'] || '').split(',').map(function (id) { return id.trim(); }).filter(Boolean)
-    .map(function (id) { return findById_(duties, '勤務ID', id); }).filter(Boolean)
-    .map(function (d) {
-      return { id: d['勤務ID'], name: d['名稱'], date: d['開始日'], startTime: d['開始時間'] || '', endTime: d['結束時間'] || '', location: d['地點'] || '', category: dutyCategory_(d) };
+  return shopPickupEntries_(g)
+    .map(function (e) {
+      if (e.date) return { id: e.id, name: '取貨', date: e.date, startTime: e.startTime || '', endTime: '', location: e.location || '', category: '', custom: true };
+      var d = findById_(duties, '勤務ID', e.id);
+      return d ? { id: d['勤務ID'], name: d['名稱'], date: d['開始日'], startTime: d['開始時間'] || '', endTime: d['結束時間'] || '', location: d['地點'] || '', category: dutyCategory_(d) } : null;
     })
-    .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+    .filter(Boolean)
+    .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : (a.startTime || '') < (b.startTime || '') ? -1 : 1; });
 }
 
 /** 各商品已訂幾份（有效訂單；exceptId＝不算這張，改單時用） */
@@ -620,7 +633,7 @@ function adminShopGroup_(body) {
   var products = readTable_(SHEETS.SHOP_PRODUCTS);
   var orders = readTable_(SHEETS.SHOP_ORDERS).filter(function (o) { return o['團購ID'] === g['團購ID']; });
   var view = shopGroupView_(g, products, orders, { admin: true });
-  view.pickupIds = String(g['取貨場次'] || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+  view.pickupIds = shopPickupEntries_(g).map(function (e) { return e.id; });
   view.itemSettings = shopJson_(g['商品設定'], []);
   var active = orders.filter(function (o) { return o['狀態'] !== '已取消'; });
   // 備貨清單：每個取貨場次，每項商品幾份
@@ -861,8 +874,29 @@ function adminShopSaveGroup_(body) {
     if (!spots.length) errors.push('勾了自取，請至少填一個自取地點');
   }
   if (String(g.deliveryNote || '').length > 200) errors.push('配送說明太長（最多 200 字）');
-  var pickups = external || methods.indexOf('出攤') === -1 ? [] : (Array.isArray(g.pickups) ? g.pickups : []).map(String).filter(function (id, i, arr) { return id && arr.indexOf(id) === i; });
-  pickups.forEach(function (id) { if (!findById_(duties, '勤務ID', id)) errors.push('有一個取貨場次找不到（可能活動被刪掉了）'); });
+  // 取貨場次：行事曆的活動（活動ID 字串或 { id }）、自己加的（{ id?, date, startTime, location }，2026/11/25）
+  var pickupEntries = [];
+  (external || methods.indexOf('出攤') === -1 ? [] : Array.isArray(g.pickups) ? g.pickups : []).forEach(function (p) {
+    if (typeof p === 'string' || (p && !p.date && !p.startTime && !p.location)) {
+      var did = String(typeof p === 'string' ? p : p && p.id || '');
+      if (!did) return;
+      if (!findById_(duties, '勤務ID', did)) errors.push('有一個取貨場次找不到（可能活動被刪掉了）');
+      else if (!pickupEntries.some(function (e) { return e.id === did; })) pickupEntries.push({ id: did });
+      return;
+    }
+    var date = String(p.date || '').trim();
+    var time = String(p.startTime || '').trim();
+    var loc = cleanText_(p.location).slice(0, 40);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { errors.push('取貨場次請填日期' + (loc ? '（' + loc + '）' : '')); return; }
+    if (time && !/^\d{2}:\d{2}$/.test(time)) { errors.push('取貨場次的時間不對（例：10:00）'); return; }
+    if (!loc) { errors.push('取貨場次請填地點（' + date + '）'); return; }
+    var pid = /^P-[\w-]{1,40}$/.test(String(p.id || '')) ? String(p.id) : newId_('P');
+    if (pickupEntries.some(function (e) { return e.date === date && e.startTime === time && e.location === loc; })) { errors.push('取貨場次「' + date + ' ' + loc + '」重複了'); return; }
+    pickupEntries.push({ id: pid, date: date, startTime: time, location: loc });
+  });
+  if (pickupEntries.length > 30) errors.push('取貨場次太多了（最多 30 場）');
+  var pickups = pickupEntries.map(function (e) { return e.id; });
+  var pickupCell = pickupEntries.some(function (e) { return e.date; }) ? JSON.stringify(pickupEntries) : pickups.join(','); // 都是活動就照舊存逗號
   var products = readTable_(SHEETS.SHOP_PRODUCTS);
   var items = [];
   (external ? [] : Array.isArray(g.items) ? g.items : []).forEach(function (it) {
@@ -882,7 +916,7 @@ function adminShopSaveGroup_(body) {
     var rows = readTable_(SHEETS.SHOP_GROUPS);
     var orders = readTable_(SHEETS.SHOP_ORDERS);
     var now = nowString_();
-    var values = { '名稱': name, '說明': cleanText_(g.description), '截止時間': deadline, '取貨場次': pickups.join(','), '商品設定': JSON.stringify(items),
+    var values = { '名稱': name, '說明': cleanText_(g.description), '截止時間': deadline, '取貨場次': pickupCell, '商品設定': JSON.stringify(items),
       '付款說明': external ? '' : String(g.payInfo || '').trim(), '狀態': g.status || '開放', '更新時間': now,
       '賣場連結': external ? link : '', '封面': cover,
       '匯款銀行': external ? '' : bankVals['匯款銀行'], '匯款分行': external ? '' : bankVals['匯款分行'], '匯款帳號': external ? '' : bankVals['匯款帳號'], '匯款戶名': external ? '' : bankVals['匯款戶名'],
@@ -901,7 +935,7 @@ function adminShopSaveGroup_(body) {
       Object.keys(sold).forEach(function (id) {
         if (sold[id] && !items.some(function (it) { return it.id === id; })) { var p = findById_(products, '商品ID', id); warnings.push('「' + (p ? p['名稱'] : id) + '」拿掉了，但已經有人訂（訂單還在）'); }
       });
-      var removed = String(row['取貨場次'] || '').split(',').filter(function (id) { return id && pickups.indexOf(id) === -1; });
+      var removed = shopPickupEntries_(row).map(function (e) { return e.id; }).filter(function (id) { return id && pickups.indexOf(id) === -1; });
       removed.forEach(function (id) {
         var n = orders.filter(function (o) { return o['團購ID'] === row['團購ID'] && o['狀態'] !== '已取消' && o['取貨活動ID'] === id; }).length;
         if (n) warnings.push('拿掉的取貨場次還有 ' + n + ' 張訂單（訂單還在，請通知他們改場次）');

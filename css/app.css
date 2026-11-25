@@ -2481,6 +2481,10 @@ button.veg-chip:hover { border-color: var(--ok); }
 .shop-spot { display: grid; gap: 6px; padding: 8px 0 10px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
 .shop-spot label span { display: block; font-size: .85rem; color: var(--muted); }
 .shop-spot .btn { justify-self: start; }
+.shop-pickrow .shop-pick-text { margin: 0; }
+.shop-pickrow .shop-pick-text small { display: block; color: var(--muted); }
+.shop-pick-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.shop-pick-add select { flex: 1 1 14em; min-width: 0; }
 .shop-spot-label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 4px; }
 .shop-spot-dates { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
 .shop-spot-date { display: inline-flex; align-items: center; gap: 2px; }

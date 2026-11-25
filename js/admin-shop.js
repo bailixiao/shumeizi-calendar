@@ -17,6 +17,16 @@
 
   const money = (n) => `${Number(n || 0).toLocaleString('zh-TW')} 元`;
   const itemsText = (items) => items.map((it) => `${it.gift ? '🎁' : ''}${it.name}×${it.qty}`).join('、'); // 🎁＝優惠碼送的
+  // 開團表單的一場取貨（2026/11/25，像自取地點一樣可以加、刪）：行事曆的活動（data-duty）或自己填日期、時間、地點
+  const pickRow = (p) => p.custom === false ? `<div class="shop-spot shop-pickrow" data-pick data-duty="${esc(p.id)}">
+    <p class="shop-pick-text"><span class="cat-tag cat-${esc(p.category)}">${esc(Fmt.catLabel(p.category))}</span><b>${esc(Fmt.shortDate(p.date))}${p.startTime ? ' ' + esc(p.startTime) : ''}</b> ${esc(p.name)}${p.location ? `<small>📍 ${esc(p.location)}</small>` : ''}<small>📅 行事曆的活動（日期、地點跟著活動）</small></p>
+    <button type="button" class="btn btn-small btn-quiet-danger" data-del-pick>刪除這場</button>
+  </div>` : `<div class="shop-spot shop-pickrow" data-pick data-pid="${esc(p.id || '')}">
+    <div class="shop-two"><label><span>日期</span><input class="input" type="date" data-k="pickDate" value="${esc(p.date || '')}"></label>
+    <label><span>時間（選填）</span><input class="input" type="time" data-k="pickTime" value="${esc(p.startTime || '')}"></label></div>
+    <label><span>地點</span><input class="input" data-k="pickLoc" maxlength="40" value="${esc(p.location || '')}" placeholder="例：宏宗聖堂道學院"></label>
+    <button type="button" class="btn btn-small btn-quiet-danger" data-del-pick>刪除這場</button>
+  </div>`;
   // 開團表單的一個自取地點（名稱、地址、時間說明、自取日期）
   const spotDateInput = (d) => `<span class="shop-spot-date"><input class="input" type="date" data-k="spotDate" value="${esc(d)}"><button type="button" class="link-btn" data-del-date aria-label="拿掉這天">✕</button></span>`;
   const spotRow = (sp) => `<div class="shop-spot" data-spot>
@@ -643,7 +653,7 @@
     const g = detail ? detail.group : null;
     const v = {
       name: g ? (id ? g.name : g.name + '（新）') : '', description: g ? g.description : '', deadline: g && id ? g.deadline : '',
-      pickups: g && id ? g.pickupIds : [], payInfo: g ? g.payInfo : '', status: g && id ? g.status : '開放',
+      pickups: g && id ? g.pickups.map((p) => p.custom ? p : Object.assign({}, p, { custom: false })) : [], payInfo: g ? g.payInfo : '', status: g && id ? g.status : '開放',
       bank: (g && g.bank) || (base && base.lastBank) || { bank: '', branch: '', account: '', holder: '' }, // 匯款帳號（分欄；開新團帶入上次的）
       items: g ? g.itemSettings : [],
       web: g && id ? !!g.web : true, // 也放到團購網頁（新開團、另存預設勾）
@@ -655,9 +665,8 @@
     let cover = v.cover;
     const setting = (pid) => v.items.find((x) => x.id === pid);
     const products = base.products.filter((p) => p.active || setting(p.id));
-    // 取貨場次：植素園工作坊的出攤排前面，再來是其他活動；已經選過但不在 180 天內的也列出來
+    // 「從行事曆加」的選單：植素園工作坊的出攤排前面，再來是其他活動（今天起 180 天）
     const duties = base.duties.slice().sort((a, b) => ((b.category === '植素') - (a.category === '植素')) || (a.date < b.date ? -1 : 1));
-    (g && g.pickups || []).forEach((p) => { if (!duties.some((d) => d.id === p.id)) duties.push({ id: p.id, name: p.name, date: p.date, startTime: p.startTime, location: p.location, category: p.category }); });
     body.innerHTML = `
       <a class="btn back-btn" href="#/admin/shop">‹ 回團購</a>
       <h2>${id ? '修改團購' : '開團'}</h2>
@@ -691,12 +700,10 @@
         <fieldset class="form-block" data-for-mode="行事曆"${v.mode === '行事曆' ? '' : ' hidden'}><legend>領貨方式（勾這次可以用的）</legend>
           <div class="shop-methods">${[['出攤', '🌿 植素園出攤領貨'], ['自取', '🏠 自取'], ['配送', '🚚 配送']].map(([m, l]) => `<label class="check"><input type="checkbox" name="method" value="${m}"${v.methods.indexOf(m) !== -1 ? ' checked' : ''}> ${l}</label>`).join('')}</div>
           <div class="shop-method-box" data-method-box="出攤"${v.methods.indexOf('出攤') !== -1 ? '' : ' hidden'}>
-          <p class="shop-method-title">🌿 取貨場次（勾哪幾場可以取貨；不勾＝出攤時再說）</p>
-          ${duties.length ? `<div class="shop-pick-list">${duties.map((d) => { const on = v.pickups.indexOf(d.id) !== -1; const other = d.category !== '植素'; return `
-            <label class="shop-pick${other ? ' is-other' : ''}"${other && !on ? ' hidden' : ''}><input type="checkbox" name="pickup" value="${esc(d.id)}"${on ? ' checked' : ''}>
-              <span class="shop-pick-text"><span class="cat-tag cat-${esc(d.category)}">${esc(Fmt.catLabel(d.category))}</span><b>${esc(Fmt.shortDate(d.date))}${d.startTime ? ' ' + esc(d.startTime) : ''}</b> ${esc(d.name)}${d.location ? `<small>📍 ${esc(d.location)}</small>` : ''}</span></label>`; }).join('')}</div>
-            ${duties.some((d) => d.category !== '植素') ? `<button type="button" class="link-btn" data-show-other>也列出其他活動（${duties.filter((d) => d.category !== '植素').length}）</button>` : ''}`
-            : '<p class="muted">今天起半年內沒有活動。</p>'}
+          <p class="shop-method-title">🌿 取貨場次（大家選哪一場取貨；一場都沒有＝出攤時再說）</p>
+          <div data-picks>${v.pickups.map(pickRow).join('')}</div>
+          <div class="shop-pick-add"><button type="button" class="btn btn-small" data-add-pick>＋ 再加一場</button>
+          ${duties.length ? `<select class="input" data-add-duty aria-label="從行事曆的活動加"><option value="">📅 從行事曆的活動加⋯</option>${duties.map((d) => `<option value="${esc(d.id)}">${esc(Fmt.shortDate(d.date))}${d.startTime ? ' ' + esc(d.startTime) : ''} ${esc(d.name)}${d.location ? '・' + esc(d.location) : ''}</option>`).join('')}</select>` : ''}</div>
           </div>
           <div class="shop-method-box" data-method-box="自取"${v.methods.indexOf('自取') !== -1 ? '' : ' hidden'}>
             <p class="shop-method-title">🏠 自取地點（大家選自取時看得到地址）</p>
@@ -754,8 +761,17 @@
         box.hidden = false;
       }
     });
-    const so = f.querySelector('[data-show-other]');
-    if (so) so.addEventListener('click', () => { f.querySelectorAll('.shop-pick.is-other').forEach((x) => { x.hidden = false; }); so.remove(); });
+    // 取貨場次：再加一場（自己填）、從行事曆的活動加、刪除
+    const picks = f.querySelector('[data-picks]');
+    f.querySelector('[data-add-pick]').addEventListener('click', () => { picks.insertAdjacentHTML('beforeend', pickRow({})); picks.lastElementChild.querySelector('input').focus(); });
+    const addDuty = f.querySelector('[data-add-duty]');
+    if (addDuty) addDuty.addEventListener('change', () => {
+      const d = duties.find((x) => x.id === addDuty.value);
+      addDuty.value = '';
+      if (!d || picks.querySelector(`[data-duty="${CSS.escape(d.id)}"]`)) return;
+      picks.insertAdjacentHTML('beforeend', pickRow(Object.assign({}, d, { custom: false })));
+    });
+    picks.addEventListener('click', (ev) => { const b = ev.target.closest('[data-del-pick]'); if (b) b.closest('[data-pick]').remove(); });
     // 領貨方式：勾了才出現那一區；自取地點可以再加
     f.querySelectorAll('input[name=method]').forEach((c) => c.addEventListener('change', () => { f.querySelector(`[data-method-box="${c.value}"]`).hidden = !c.checked; }));
     f.querySelector('[data-add-spot]').addEventListener('click', () => { f.querySelector('[data-spots]').insertAdjacentHTML('beforeend', spotRow({ name: '', address: '', note: '' })); });
@@ -788,7 +804,8 @@
         payInfo: f.elements.payInfo.value, web: true, // 2026/11/4：團購都在植素園happy購（規格 0.6.3）
         bank: { bank: f.elements.bankName.value.trim(), branch: f.elements.bankBranch.value.trim(), account: f.elements.bankAccount.value.trim(), holder: f.elements.bankHolder.value.trim() },
         status: f.querySelector('input[name=status]:checked') ? f.querySelector('input[name=status]:checked').value : '開放',
-        pickups: [...f.querySelectorAll('input[name=pickup]:checked')].map((x) => x.value),
+        pickups: [...f.querySelectorAll('[data-pick]')].map((x) => x.dataset.duty ? x.dataset.duty : { id: x.dataset.pid || '', date: x.querySelector('[data-k=pickDate]').value, startTime: x.querySelector('[data-k=pickTime]').value, location: x.querySelector('[data-k=pickLoc]').value.trim() })
+          .filter((p) => typeof p === 'string' || p.date || p.startTime || p.location), // 整列空白的不算
         methods: [...f.querySelectorAll('input[name=method]:checked')].map((x) => x.value),
         spots: [...f.querySelectorAll('[data-spot]')].map((x) => ({ name: x.querySelector('[data-k=spotName]').value.trim(), address: x.querySelector('[data-k=spotAddress]').value.trim(), note: x.querySelector('[data-k=spotNote]').value.trim(), dates: [...x.querySelectorAll('[data-k=spotDate]')].map((d) => d.value).filter(Boolean) })),
         deliveryNote: f.elements.deliveryNote.value,

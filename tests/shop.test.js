@@ -1034,3 +1034,27 @@ test('出攤場次都過了、還沒截止的團照樣列出來（2026/11/24）�
   env.clock.now = Date.UTC(2026, 9, 31, 2); // 截止、出攤也都過了 → 不列
   assert.equal(ok(env.get({ action: 'getShop' })).groups.some((x) => x.id === gid), false);
 });
+
+test('取貨場次可以自己加（日期、時間、地點）、和行事曆的活動混著用；刪掉還有訂單會提醒（2026/11/25）', () => {
+  const { env, call, ok, gid, ids, tofu, order } = setup();
+  const g = ok(call('adminShopGroup', { id: gid })).group;
+  const save = (pickups) => call('adminShopSaveGroup', { group: { id: gid, name: g.name, deadline: g.deadline, pickups, items: g.itemSettings } });
+  assert.match(JSON.stringify(save([ids[0], { date: '', location: '竹北' }]).error), /請填日期/);
+  assert.match(JSON.stringify(save([{ date: '2026-10-20', startTime: '10:00', location: '' }]).error), /請填地點/);
+  ok(save([ids[0], { date: '2026-10-20', startTime: '10:00', location: '竹北' }]));
+  let pub = ok(env.get({ action: 'getShop' })).groups[0];
+  assert.deepEqual(pub.pickups.map((p) => [p.date, p.startTime, p.location, !!p.custom]), [['2026-10-18', '09:00', '宏宗聖堂道學院', false], ['2026-10-20', '10:00', '竹北', true]]);
+  const mine = pub.pickups[1];
+  assert.match(mine.id, /^P-/);
+  const o = ok(order({ name: '王小明', source: '官網', items: [{ id: tofu.id, qty: 1 }], pickupId: mine.id }));
+  assert.equal(o.order.pickup.location, '竹北');
+  // 改時間：id 不變，訂單跟著
+  ok(save([ids[0], { id: mine.id, date: '2026-10-20', startTime: '14:00', location: '竹北' }]));
+  pub = ok(env.get({ action: 'getShop' })).groups[0];
+  assert.deepEqual([pub.pickups[1].id, pub.pickups[1].startTime], [mine.id, '14:00']);
+  assert.deepEqual(ok(call('adminShopGroup', { id: gid })).group.pickupIds, [ids[0], mine.id]);
+  // 刪掉還有訂單的那場：存得了，提醒
+  const r = ok(save([ids[0]]));
+  assert.match(JSON.stringify(r.warnings), /拿掉的取貨場次還有 1 張訂單/);
+  assert.equal(env.sheets['團購'].data.find((x) => x[0] === gid)[4], ids[0], '都是活動：照舊存逗號');
+});

@@ -2410,7 +2410,12 @@ button.veg-chip:hover { border-color: var(--ok); }
 .shop-prep li strong { margin-left: 8px; }
 .shop-prep .shop-order-items { padding-left: 0; }
 .shop-prep .shop-order-price strong { margin-left: 0; color: var(--ink); }
-.shop-pickup-seg { margin-bottom: 6px; }
+/* 取貨名單的場次（2026/11/27）：一顆一顆的膠囊，字多就換行，手機不擠在一起 */
+.shop-pickup-seg { margin-bottom: 6px; gap: 6px; border: 0; border-radius: 0; overflow: visible; background: none; }
+.shop-pickup-seg .seg-item { flex: 0 1 auto; min-width: 0; }
+.shop-pickup-seg .seg-item span { min-height: 40px; padding: 4px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); white-space: normal; text-align: center; line-height: 1.3; }
+.shop-pickup-seg .seg-item:last-child span { border-right: 1px solid var(--line); }
+.shop-pickup-seg .seg-item input:checked + span { border-color: var(--teal); }
 .shop-order { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; background: var(--card); }
 .shop-order p { margin: 4px 0; }
 .shop-order.is-picked { background: var(--ok-soft); }
